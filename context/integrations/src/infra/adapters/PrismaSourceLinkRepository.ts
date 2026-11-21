@@ -3,45 +3,23 @@ import { Prisma, type PrismaClient } from '@team27/data-main';
 import type { SourceLinkRepository } from '../../application/ports/index.ts';
 import type {
   Provider,
+  SourceCheck,
   SourceError,
   SourceLink,
   SourceLinkDraft,
-  SourceRead,
 } from '../../domain/Connection.ts';
-import type { IgnoredCell } from '../../domain/readBudgetSheet.ts';
 
 type SourceRow = Prisma.IntegrationSourceGetPayload<object>;
-
-interface StoredRead {
-  readonly at: string;
-  readonly hash: string;
-  readonly epoch: number;
-  readonly label: string;
-  readonly ignored: readonly IgnoredCell[];
-}
 
 interface StoredError {
   readonly at: string;
   readonly message: string;
 }
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const readOf = (value: Prisma.JsonValue | null): SourceRead | null => {
-  if (!isObject(value)) return null;
-  const stored = value as unknown as StoredRead;
-  return {
-    at: new Date(stored.at),
-    hash: stored.hash,
-    epoch: stored.epoch,
-    label: stored.label,
-    ignored: stored.ignored ?? [],
-  };
-};
-
 const errorOf = (value: Prisma.JsonValue | null): SourceError | null => {
-  if (!isObject(value)) return null;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return null;
+  }
   const stored = value as unknown as StoredError;
   return { at: new Date(stored.at), message: stored.message };
 };
@@ -51,24 +29,13 @@ const toSource = (row: SourceRow): SourceLink => ({
   connectionId: row.connectionId,
   provider: row.provider as Provider,
   externalId: row.externalId,
-  documentId: row.documentId,
   title: row.title,
   pointer: row.pointer,
+  contentHash: row.contentHash,
   checkedAt: row.checkedAt,
-  lastRead: readOf(row.lastRead),
+  changedAt: row.changedAt,
   lastError: errorOf(row.lastError),
   createdAt: row.createdAt,
-});
-
-const storedRead = (read: SourceRead): Prisma.InputJsonValue => ({
-  at: read.at.toISOString(),
-  hash: read.hash,
-  epoch: read.epoch,
-  label: read.label,
-  ignored: read.ignored.map((cell) => ({
-    locator: cell.locator,
-    reason: cell.reason,
-  })),
 });
 
 export class PrismaSourceLinkRepository implements SourceLinkRepository {
@@ -92,9 +59,9 @@ export class PrismaSourceLinkRepository implements SourceLinkRepository {
     return row === null ? null : toSource(row);
   }
 
-  async findByDocument(documentId: string): Promise<SourceLink | null> {
+  async findByExternalId(externalId: string): Promise<SourceLink | null> {
     const row = await this.prisma.integrationSource.findUnique({
-      where: { documentId },
+      where: { externalId },
     });
     return row === null ? null : toSource(row);
   }
@@ -105,33 +72,23 @@ export class PrismaSourceLinkRepository implements SourceLinkRepository {
         connectionId: draft.connectionId,
         provider: draft.provider,
         externalId: draft.externalId,
-        documentId: draft.documentId,
         title: draft.title,
         pointer: draft.pointer,
+        contentHash: draft.contentHash,
+        checkedAt: draft.checkedAt,
       },
     });
     return toSource(row);
   }
 
-  async recordCheck(id: string, at: Date, title: string): Promise<SourceLink> {
-    const row = await this.prisma.integrationSource.update({
-      where: { id },
-      data: { checkedAt: at, title, lastError: Prisma.DbNull },
-    });
-    return toSource(row);
-  }
-
-  async recordRead(
-    id: string,
-    read: SourceRead,
-    title: string,
-  ): Promise<SourceLink> {
+  async recordCheck(id: string, check: SourceCheck): Promise<SourceLink> {
     const row = await this.prisma.integrationSource.update({
       where: { id },
       data: {
-        checkedAt: read.at,
-        title,
-        lastRead: storedRead(read),
+        title: check.title,
+        contentHash: check.contentHash,
+        checkedAt: check.at,
+        ...(check.changed ? { changedAt: check.at } : {}),
         lastError: Prisma.DbNull,
       },
     });

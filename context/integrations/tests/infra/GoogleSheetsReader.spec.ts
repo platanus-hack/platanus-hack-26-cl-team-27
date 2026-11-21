@@ -11,15 +11,20 @@ const json = (status: number, body: object): Response =>
 const META = {
   properties: { title: 'Presupuesto Los Aromos' },
   sheets: [
-    { properties: { sheetId: 99, title: 'Notas', index: 1 } },
-    { properties: { sheetId: 7, title: "Partidas de Daniela's", index: 0 } },
+    { properties: { title: 'Notas', index: 1 } },
+    { properties: { title: "Partidas de Daniela's", index: 0 } },
   ],
 };
 
 const VALUES = {
-  values: [
-    ['Código', 'Precio unitario', 'Unidad'],
-    ['03.02', 145000, 'm³', { raro: true }],
+  valueRanges: [
+    {
+      values: [
+        ['Código', 'Precio unitario'],
+        ['03.02', 145000, { raro: true }],
+      ],
+    },
+    {},
   ],
 };
 
@@ -30,28 +35,35 @@ const reader = (responses: Response[]) => {
 };
 
 describe('GoogleSheetsReader', () => {
-  it('lee la primera hoja sin formato y arma el link a esa hoja', async () => {
+  it('lee todas las hojas, en orden y sin formato', async () => {
     const { fetch, sheets } = reader([json(200, META), json(200, VALUES)]);
 
-    const snapshot = await sheets.read('access-1', ID);
+    const content = await sheets.read('access-1', ID);
 
-    expect(snapshot).toEqual({
+    expect(content).toEqual({
       title: 'Presupuesto Los Aromos',
-      tab: {
-        title: "Partidas de Daniela's",
-        rows: [
-          ['Código', 'Precio unitario', 'Unidad'],
-          ['03.02', 145000, 'm³', null],
-        ],
-      },
-      pointer: `https://docs.google.com/spreadsheets/d/${ID}/edit#gid=7`,
+      tabs: [
+        {
+          title: "Partidas de Daniela's",
+          rows: [
+            ['Código', 'Precio unitario'],
+            ['03.02', 145000, null],
+          ],
+        },
+        { title: 'Notas', rows: [] },
+      ],
+      pointer: `https://docs.google.com/spreadsheets/d/${ID}/edit`,
       contentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
-    const valuesUrl = new URL(String(fetch.mock.calls[1]?.[0]));
-    expect(decodeURIComponent(valuesUrl.pathname)).toBe(
-      `/v4/spreadsheets/${ID}/values/'Partidas de Daniela''s'`,
+    const batch = new URL(String(fetch.mock.calls[1]?.[0]));
+    expect(decodeURIComponent(batch.pathname)).toBe(
+      `/v4/spreadsheets/${ID}/values:batchGet`,
     );
-    expect(valuesUrl.searchParams.get('valueRenderOption')).toBe(
+    expect(batch.searchParams.getAll('ranges')).toEqual([
+      "'Partidas de Daniela''s'",
+      "'Notas'",
+    ]);
+    expect(batch.searchParams.get('valueRenderOption')).toBe(
       'UNFORMATTED_VALUE',
     );
     expect(fetch.mock.calls[0]?.[1]?.headers).toEqual(
@@ -59,26 +71,23 @@ describe('GoogleSheetsReader', () => {
     );
   });
 
-  it('el hash cambia solo si cambia el contenido', async () => {
+  it('el hash cambia solo si cambian las celdas', async () => {
     const first = await reader([
       json(200, META),
       json(200, VALUES),
     ]).sheets.read('a', ID);
-    const same = await reader([json(200, META), json(200, VALUES)]).sheets.read(
-      'b',
-      ID,
-    );
+    const renamed = await reader([
+      json(200, { ...META, properties: { title: 'Otro nombre' } }),
+      json(200, VALUES),
+    ]).sheets.read('b', ID);
     const changed = await reader([
       json(200, META),
       json(200, {
-        values: [
-          ['Código', 'Precio unitario', 'Unidad'],
-          ['03.02', 150000, 'm³'],
-        ],
+        valueRanges: [{ values: [['Código'], ['03.02', 150000]] }, {}],
       }),
     ]).sheets.read('a', ID);
 
-    expect(same.contentHash).toBe(first.contentHash);
+    expect(renamed.contentHash).toBe(first.contentHash);
     expect(changed.contentHash).not.toBe(first.contentHash);
   });
 

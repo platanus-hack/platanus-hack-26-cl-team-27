@@ -6,15 +6,17 @@ import { UnlinkSource } from '../../src/application/use-cases/UnlinkSource.ts';
 import {
   authorizer,
   CONNECTION,
+  CONTENT,
   connections,
   reader,
-  SNAPSHOT,
+  SHEET_ID,
+  snapshots,
   SOURCE,
   sources,
 } from './fakes.ts';
 
-const SHEET_ID = '1AbCdEfGhIjKlMnOpQrStUvWxYz_0123456789-ab';
-const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
+const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=0`;
+const NOW = new Date('2026-11-21T21:05:12Z');
 
 describe('ConnectGoogle', () => {
   it('guarda la cuenta con el permiso que entregó Google', async () => {
@@ -58,6 +60,7 @@ describe('LinkSpreadsheet', () => {
       authorizer: authorizer(),
       reader: reader(),
       sources: sources(),
+      snapshots: snapshots(),
     };
     return {
       ...deps,
@@ -66,63 +69,79 @@ describe('LinkSpreadsheet', () => {
         deps.authorizer,
         deps.reader,
         deps.sources,
+        deps.snapshots,
+        () => NOW,
       ),
     };
   };
 
-  it('abre la planilla y la vincula al documento', async () => {
-    const { useCase, reader: sheets, sources: links } = link();
+  it('abre la planilla, la vincula y guarda la primera revisión', async () => {
+    const {
+      useCase,
+      reader: sheets,
+      sources: links,
+      snapshots: cache,
+    } = link();
 
-    await useCase.execute({ url: URL, documentId: 'presupuesto' });
+    const source = await useCase.execute(URL);
 
     expect(sheets.read).toHaveBeenCalledWith('access-1', SHEET_ID);
     expect(links.create).toHaveBeenCalledWith({
       connectionId: 'c1',
       provider: 'google',
       externalId: SHEET_ID,
-      documentId: 'presupuesto',
-      title: SNAPSHOT.title,
-      pointer: SNAPSHOT.pointer,
+      title: CONTENT.title,
+      pointer: CONTENT.pointer,
+      contentHash: CONTENT.contentHash,
+      checkedAt: NOW,
     });
+    expect(cache.get(source.id)).toEqual({ tabs: CONTENT.tabs });
   });
 
   it.each([
     [
       'un link que no es de Sheets',
-      { url: 'https://example.com' },
+      'https://example.com',
+      true,
       'invalid_sheet_url',
     ],
-    ['sin cuenta conectada', { connected: false }, 'not_connected'],
-  ] as const)('rechaza %s', async (_name, options, code) => {
-    const { useCase, sources: links } = link(
-      'connected' in options ? options : {},
-    );
-    const url = 'url' in options ? options.url : URL;
+    ['sin cuenta conectada', URL, false, 'not_connected'],
+  ] as const)('rechaza %s', async (_name, url, connected, code) => {
+    const { useCase, sources: links } = link({ connected });
 
-    await expect(
-      useCase.execute({ url, documentId: 'presupuesto' }),
-    ).rejects.toMatchObject({ code });
+    await expect(useCase.execute(url)).rejects.toMatchObject({ code });
     expect(links.create).not.toHaveBeenCalled();
   });
 
-  it('un documento tiene una sola planilla', async () => {
+  it('una planilla se vincula una sola vez', async () => {
     const { useCase, sources: links, reader: sheets } = link();
-    links.findByDocument.mockResolvedValue(SOURCE);
+    links.findByExternalId.mockResolvedValue(SOURCE);
 
-    await expect(
-      useCase.execute({ url: URL, documentId: 'presupuesto' }),
-    ).rejects.toMatchObject({ code: 'already_linked' });
+    await expect(useCase.execute(URL)).rejects.toMatchObject({
+      code: 'already_linked',
+    });
     expect(sheets.read).not.toHaveBeenCalled();
   });
 });
 
 describe('UnlinkSource', () => {
+  it('borra la fuente y su última revisión en memoria', async () => {
+    const links = sources();
+    const cache = snapshots();
+    cache.set('s1', { tabs: [] });
+
+    await new UnlinkSource(links, cache).execute('s1');
+
+    expect(links.remove).toHaveBeenCalledWith('s1');
+    expect(cache.get('s1')).toBeNull();
+  });
+
   it('avisa si la fuente ya no estaba', async () => {
     const links = sources();
     links.remove.mockResolvedValue(false);
 
-    await expect(new UnlinkSource(links).execute('s1')).rejects.toBeInstanceOf(
-      IntegrationError,
-    );
+    await expect(
+      new UnlinkSource(links, snapshots()).execute('s1'),
+    ).rejects.toBeInstanceOf(IntegrationError);
   });
 });

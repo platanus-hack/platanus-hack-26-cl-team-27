@@ -7,6 +7,16 @@ export interface SheetTab {
   readonly rows: Grid;
 }
 
+export interface SheetSnapshot {
+  readonly tabs: readonly SheetTab[];
+}
+
+export interface CellChange {
+  readonly locator: string;
+  readonly before: CellValue;
+  readonly after: CellValue;
+}
+
 export const columnLetter = (index: number): string => {
   let rest = index + 1;
   let letters = '';
@@ -24,29 +34,44 @@ export const cellLocator = (
   row: number,
 ): string => `${sheetTitle}!${columnLetter(column)}${row + 1}`;
 
-export const cellText = (value: CellValue | undefined): string =>
-  value === null || value === undefined ? '' : String(value).trim();
-
-export const parseLocaleNumber = (text: string): number | null => {
-  const clean = text.replace(/[\s$]/g, '');
-  if (clean === '') return null;
-  let normal = clean;
-  if (clean.includes(',')) normal = clean.replace(/\./g, '').replace(',', '.');
-  else if (/^\d{1,3}(\.\d{3})+$/.test(clean)) normal = clean.replace(/\./g, '');
-  const value = Number(normal);
-  return Number.isFinite(value) ? value : null;
+const valueAt = (rows: Grid, row: number, column: number): CellValue => {
+  const value = rows[row]?.[column];
+  return value === undefined || value === '' ? null : value;
 };
 
-export const cellNumber = (value: CellValue | undefined): number | null => {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-  if (typeof value === 'boolean') return null;
-  return parseLocaleNumber(cellText(value));
+const diffTab = (title: string, before: Grid, after: Grid): CellChange[] => {
+  const changes: CellChange[] = [];
+  const height = Math.max(before.length, after.length);
+  for (let row = 0; row < height; row += 1) {
+    const width = Math.max(before[row]?.length ?? 0, after[row]?.length ?? 0);
+    for (let column = 0; column < width; column += 1) {
+      const was = valueAt(before, row, column);
+      const is = valueAt(after, row, column);
+      if (was !== is) {
+        changes.push({
+          locator: cellLocator(title, column, row),
+          before: was,
+          after: is,
+        });
+      }
+    }
+  }
+  return changes;
 };
 
-export const normalizeWords = (text: string): string[] =>
-  text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((word) => word !== '');
+export const diffSnapshots = (
+  before: SheetSnapshot,
+  after: SheetSnapshot,
+): CellChange[] => {
+  const previous = new Map(before.tabs.map((tab) => [tab.title, tab.rows]));
+  const current = new Map(after.tabs.map((tab) => [tab.title, tab.rows]));
+  const titles = [
+    ...after.tabs.map((tab) => tab.title),
+    ...before.tabs
+      .map((tab) => tab.title)
+      .filter((title) => !current.has(title)),
+  ];
+  return titles.flatMap((title) =>
+    diffTab(title, previous.get(title) ?? [], current.get(title) ?? []),
+  );
+};

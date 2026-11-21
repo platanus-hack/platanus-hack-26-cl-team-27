@@ -1,23 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  checkFeedback,
   connectionFeedback,
+  linkFeedback,
   type SourceView,
   sourceState,
-  syncFeedback,
 } from './integrations-api';
 
 const SOURCE: SourceView = {
   id: 's1',
   provider: 'google',
-  documentId: 'presupuesto',
-  documentName: 'Presupuesto itemizado',
-  spaceName: 'Carpeta de costos',
   title: 'Presupuesto Los Aromos',
   pointer: 'https://docs.google.com/spreadsheets/d/x/edit',
-  checkedAt: null,
+  checkedAt: '2026-11-21T10:00:00Z',
+  changedAt: null,
   createdAt: '2026-11-21T10:00:00Z',
-  lastRead: null,
   lastError: null,
 };
 
@@ -38,37 +36,35 @@ describe('connectionFeedback', () => {
 });
 
 describe('sourceState', () => {
-  it('el error manda sobre la última lectura', () => {
-    expect(sourceState(SOURCE)).toEqual({
-      tone: 'neutral',
-      label: 'Sin leer todavía',
-    });
-    const read = {
-      ...SOURCE,
-      lastRead: {
-        at: '2026-11-21T10:01:00Z',
-        label: 'Sheets 21-11 07:01:00',
-        ignored: [],
-      },
-    };
-    expect(sourceState(read).label).toBe('Al día');
+  it('escucha, salvo que la última revisión haya fallado', () => {
+    expect(sourceState(SOURCE)).toEqual({ tone: 'good', label: 'Escuchando' });
     expect(
       sourceState({
-        ...read,
+        ...SOURCE,
         lastError: { at: '2026-11-21T10:02:00Z', message: 'x' },
       }),
     ).toEqual({ tone: 'serious', label: 'Con error' });
   });
 });
 
-describe('syncFeedback', () => {
-  it('el tono sigue el resultado de la lectura', () => {
-    const response = (status: 'ingested' | 'failed' | 'waiting') => ({
+describe('avisos', () => {
+  it('el tono de la revisión sigue su resultado', () => {
+    const response = (status: 'changed' | 'unchanged' | 'failed') => ({
       source: SOURCE,
-      sync: { status, message: 'm', revisionId: null, proposals: 0 },
+      check: { status, message: 'La planilla cambió: 1 celda', cells: 1 },
     });
-    expect(syncFeedback(response('ingested')).tone).toBe('success');
-    expect(syncFeedback(response('waiting')).tone).toBe('info');
-    expect(syncFeedback(response('failed')).tone).toBe('error');
+    expect(checkFeedback(response('changed'))).toEqual({
+      tone: 'success',
+      text: '«Presupuesto Los Aromos»: La planilla cambió: 1 celda.',
+    });
+    expect(checkFeedback(response('unchanged')).tone).toBe('info');
+    expect(checkFeedback(response('failed')).tone).toBe('error');
+  });
+
+  it('al vincular dice cada cuánto revisamos', () => {
+    expect(linkFeedback(SOURCE, 60).text).toBe(
+      'Vinculamos «Presupuesto Los Aromos». Revisamos cada 60 s si cambia.',
+    );
+    expect(linkFeedback(SOURCE, 0).text).toMatch(/Revisar ahora/);
   });
 });

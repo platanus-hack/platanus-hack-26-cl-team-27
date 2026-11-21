@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 
 import { ProviderError } from '../../application/errors.ts';
 import type {
+  SpreadsheetContent,
   SpreadsheetReader,
-  SpreadsheetSnapshot,
 } from '../../application/ports/index.ts';
 import type { CellValue } from '../../domain/Sheet.ts';
 import { spreadsheetUrl } from '../../domain/Spreadsheet.ts';
@@ -11,7 +11,6 @@ import { spreadsheetUrl } from '../../domain/Spreadsheet.ts';
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 interface SheetProperties {
-  readonly sheetId?: number;
   readonly title?: string;
   readonly index?: number;
 }
@@ -21,13 +20,14 @@ interface SpreadsheetMeta {
   readonly sheets?: readonly { readonly properties?: SheetProperties }[];
 }
 
-interface ValueRange {
-  readonly values?: readonly (readonly unknown[])[];
+interface BatchValues {
+  readonly valueRanges?: readonly {
+    readonly values?: readonly (readonly unknown[])[];
+  }[];
 }
 
 interface GoogleErrorBody {
   readonly error?: {
-    readonly message?: string;
     readonly details?: readonly { readonly reason?: string }[];
   };
 }
@@ -82,33 +82,41 @@ export class GoogleSheetsReader implements SpreadsheetReader {
   async read(
     accessToken: string,
     spreadsheetId: string,
-  ): Promise<SpreadsheetSnapshot> {
+  ): Promise<SpreadsheetContent> {
     const id = encodeURIComponent(spreadsheetId);
     const meta = await this.get<SpreadsheetMeta>(
-      `${SHEETS_API}/${id}?fields=properties.title,sheets.properties(sheetId,title,index)`,
+      `${SHEETS_API}/${id}?fields=properties.title,sheets.properties(title,index)`,
       accessToken,
     );
-    const first = [...(meta.sheets ?? [])]
+    const titles = [...(meta.sheets ?? [])]
       .map((sheet) => sheet.properties ?? {})
-      .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))[0];
-    if (!first?.title) {
+      .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+      .map((sheet) => sheet.title)
+      .filter((title): title is string => Boolean(title));
+    if (titles.length === 0) {
       throw new ProviderError('La planilla no tiene hojas');
     }
-    const range = await this.get<ValueRange>(
-      `${SHEETS_API}/${id}/values/${encodeURIComponent(quoteSheet(first.title))}?valueRenderOption=UNFORMATTED_VALUE&majorDimension=ROWS`,
+    const query = new URLSearchParams({
+      valueRenderOption: 'UNFORMATTED_VALUE',
+      majorDimension: 'ROWS',
+    });
+    for (const title of titles) query.append('ranges', quoteSheet(title));
+    const batch = await this.get<BatchValues>(
+      `${SHEETS_API}/${id}/values:batchGet?${query.toString()}`,
       accessToken,
     );
-    const tab = {
-      title: first.title,
-      rows: (range.values ?? []).map((row) => row.map(toCell)),
-    };
-    const title = meta.properties?.title ?? first.title;
-    return {
+    const tabs = titles.map((title, index) => ({
       title,
-      tab,
-      pointer: spreadsheetUrl(spreadsheetId, first.sheetId),
+      rows: (batch.valueRanges?.[index]?.values ?? []).map((row) =>
+        row.map(toCell),
+      ),
+    }));
+    return {
+      title: meta.properties?.title ?? titles[0] ?? spreadsheetId,
+      tabs,
+      pointer: spreadsheetUrl(spreadsheetId),
       contentHash: createHash('sha256')
-        .update(JSON.stringify({ title, tab }))
+        .update(JSON.stringify(tabs))
         .digest('hex'),
     };
   }

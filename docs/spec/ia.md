@@ -17,29 +17,29 @@ No se negocian. Si una tarea parece pedir romper una, detente y pregunta.
 
 ## Mapa del código
 
-| Ruta                                          | Qué hay                                                                                                                                                                               |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `context/lake/src/domain/`                    | `classifyClaims`, `buildProposalDraft`, `decideProposal`, `reopenFor`, `detectOverlaps`, `computeStaleness`, `buildProvenance`, `diffSnapshots`, `consensusIndex`                     |
-| `context/lake/src/application/use-cases/`     | `IngestRevision`, `DetectChanges`, `OpenProposal`, `RecordReview`, `ReopenProposal`, `WithdrawProposal`, `OpenOverlaps`, `SettleOverlaps`, `VoteOverlap`, `SeedLake` y las lecturas   |
-| `context/impact/src/domain/`                  | `analyzeChange` (afectados, costo y plazo), `quantities.ts`, `schedule.ts` (`criticalPath`), `ProjectGraph`, `Vocabulary`, probabilidad                                               |
-| `context/impact/src/application/use-cases/`   | `AnalyzeChange`, `ExtractClaims` (texto libre), `SuggestAffected` (sin conectar), `GetImpacts`                                                                                        |
-| `context/impact/src/infra/adapters/`          | `InMemoryProjectGraph`, `PrismaImpactRepository`, `ClaudeClaimReader`, `ClaudeAffectedEstimator`, `JevDependencyScorer`, fixtures y caché                                             |
-| `context/notification/src/domain/`            | `Stakeholder` con `CHANNELS = ['email', 'whatsapp', 'slack']`; `Notification` con `RESPONSE_KINDS = ['reviewed', 'issue']` y `draftNotifications`                                     |
-| `context/notification/src/infra/adapters/`    | `InMemoryStakeholderDirectory`, `PrismaNotificationRepository`                                                                                                                        |
-| `context/integrations/`                       | El conector de Google Sheets: `readBudgetSheet`, `SyncSource` y los adapters de Google, Prisma y cifrado. La API lo compone en `modules/integrations`                                 |
-| `apps/api/src/modules/coordination/`          | `coordination.service.ts` (la cadena), `query.service.ts` (vistas), `revision-body.ts`, `revit-minute.ts`, `chunk-reader.ts`, `action-log.ts` (idempotencia en memoria, 500 entradas) |
-| `apps/api/src/modules/room/`                  | Asientos con token hasheado, eventos con `seq`, época y reinicio                                                                                                                      |
-| `apps/api/src/modules/database/`              | `PRISMA_CLIENT` y `unit-of-work.ts`                                                                                                                                                   |
-| `apps/api/src/scenario/`                      | `los-aromos.ts` (grafo, elenco), `documents.ts` (espacios, sujetos, atributos, documentos y dueños), `areas.ts` (niveles, grilla, sistemas, huellas)                                  |
-| `apps/api/src/common/provide-use-case.ts`     | El único punto de unión entre un caso de uso y Nest                                                                                                                                   |
-| `apps/api/tests/`                             | Vitest sin base de datos. No hay tests de `CoordinationService` ni contra Postgres                                                                                                    |
-| `apps/web/src/app/`                           | Route groups `(site)`, `(sala)` y `(asiento)`. No hay `error.tsx` ni `loading.tsx`                                                                                                    |
-| `apps/web/src/components/asiento/Channel.tsx` | El look de cada canal simulado                                                                                                                                                        |
-| `apps/web/src/lib/`                           | Un cliente tipado por tema; `http.ts` pone `x-seat-token`, `x-presenter-key` y `x-action-id` (`crypto.randomUUID`)                                                                    |
-| `apps/etl/src/transform/`                     | Un parser determinista por tipo: `plano`, `eett`, `presupuesto`, `gantt`, `cotizacion`, `acta`, `whatsapp`, `libro`                                                                   |
-| `apps/etl/tests/golden.spec.ts`               | Test de oro: cada archivo del lago produce los hechos esperados                                                                                                                       |
-| `data/main/prisma/schema.prisma`              | 17 modelos. `Notification.channel` es `String`: agregar un canal no exige migración                                                                                                   |
-| `tool-use-case/revit/`                        | Add-in C# fuera de Nx; contrato en `contract/`, que también parsea `apps/api/tests/modules/coordination/revit-minute.spec.ts`                                                         |
+| Ruta                                          | Qué hay                                                                                                                                                                                                                 |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `context/lake/src/domain/`                    | `classifyClaims`, `buildProposalDraft`, `decideProposal`, `reopenFor`, `detectOverlaps`, `computeStaleness`, `buildProvenance`, `diffSnapshots`, `consensusIndex`                                                       |
+| `context/lake/src/application/use-cases/`     | `IngestRevision`, `DetectChanges`, `OpenProposal`, `RecordReview`, `ReopenProposal`, `WithdrawProposal`, `OpenOverlaps`, `SettleOverlaps`, `VoteOverlap`, `SeedLake` y las lecturas                                     |
+| `context/impact/src/domain/`                  | `analyzeChange` (afectados, costo y plazo), `quantities.ts`, `schedule.ts` (`criticalPath`), `ProjectGraph`, `Vocabulary`, probabilidad                                                                                 |
+| `context/impact/src/application/use-cases/`   | `AnalyzeChange`, `ExtractClaims` (texto libre), `SuggestAffected` (sin conectar), `GetImpacts`                                                                                                                          |
+| `context/impact/src/infra/adapters/`          | `InMemoryProjectGraph`, `PrismaImpactRepository`, `ClaudeClaimReader`, `ClaudeAffectedEstimator`, `JevDependencyScorer`, fixtures y caché                                                                               |
+| `context/notification/src/domain/`            | `Stakeholder` con `CHANNELS = ['email', 'whatsapp', 'slack']`; `Notification` con `RESPONSE_KINDS = ['reviewed', 'issue']` y `draftNotifications`                                                                       |
+| `context/notification/src/infra/adapters/`    | `InMemoryStakeholderDirectory`, `PrismaNotificationRepository`                                                                                                                                                          |
+| `context/integrations/`                       | El conector de Google Sheets: conectar la cuenta, vincular planillas y escuchar sus cambios (`WatchSource`, `diffSnapshots`), con los adapters de Google, Prisma y cifrado. La API lo compone en `modules/integrations` |
+| `apps/api/src/modules/coordination/`          | `coordination.service.ts` (la cadena), `query.service.ts` (vistas), `revision-body.ts`, `revit-minute.ts`, `chunk-reader.ts`, `action-log.ts` (idempotencia en memoria, 500 entradas)                                   |
+| `apps/api/src/modules/room/`                  | Asientos con token hasheado, eventos con `seq`, época y reinicio                                                                                                                                                        |
+| `apps/api/src/modules/database/`              | `PRISMA_CLIENT` y `unit-of-work.ts`                                                                                                                                                                                     |
+| `apps/api/src/scenario/`                      | `los-aromos.ts` (grafo, elenco), `documents.ts` (espacios, sujetos, atributos, documentos y dueños), `areas.ts` (niveles, grilla, sistemas, huellas)                                                                    |
+| `apps/api/src/common/provide-use-case.ts`     | El único punto de unión entre un caso de uso y Nest                                                                                                                                                                     |
+| `apps/api/tests/`                             | Vitest sin base de datos. No hay tests de `CoordinationService` ni contra Postgres                                                                                                                                      |
+| `apps/web/src/app/`                           | Route groups `(site)`, `(sala)` y `(asiento)`. No hay `error.tsx` ni `loading.tsx`                                                                                                                                      |
+| `apps/web/src/components/asiento/Channel.tsx` | El look de cada canal simulado                                                                                                                                                                                          |
+| `apps/web/src/lib/`                           | Un cliente tipado por tema; `http.ts` pone `x-seat-token`, `x-presenter-key` y `x-action-id` (`crypto.randomUUID`)                                                                                                      |
+| `apps/etl/src/transform/`                     | Un parser determinista por tipo: `plano`, `eett`, `presupuesto`, `gantt`, `cotizacion`, `acta`, `whatsapp`, `libro`                                                                                                     |
+| `apps/etl/tests/golden.spec.ts`               | Test de oro: cada archivo del lago produce los hechos esperados                                                                                                                                                         |
+| `data/main/prisma/schema.prisma`              | 17 modelos. `Notification.channel` es `String`: agregar un canal no exige migración                                                                                                                                     |
+| `tool-use-case/revit/`                        | Add-in C# fuera de Nx; contrato en `contract/`, que también parsea `apps/api/tests/modules/coordination/revit-minute.spec.ts`                                                                                           |
 
 ## La cadena de una revisión
 
@@ -104,7 +104,7 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 
 - Hay: `apps/etl/src/transform/presupuesto.ts`, sobre un CSV ficticio.
 - Falta: el formato real (Presto exporta FIEBDC-3, `.bc3`). Ver la receta [agregar un conector o un parser](#agregar-un-conector-o-un-parser).
-- Para el pitch, la reemplaza el conector de Google Sheets ([integraciones](integraciones.md)).
+- El conector de Google Sheets ya conecta y escucha las planillas, pero no las lee: ver [integraciones](integraciones.md).
 
 **9 · Parser de P6 o MS Project** · `distinto`
 

@@ -21,7 +21,6 @@ import { guard } from './views.ts';
 const uuid = z.uuid();
 
 const linkBody = z.object({
-  documentId: z.string().min(1).max(64),
   url: z.string().trim().min(1).max(500),
 });
 
@@ -78,17 +77,17 @@ export class ConnectorsController {
     @Body({ schema: linkBody }) body: z.output<typeof linkBody>,
   ) {
     this.seats.requirePresenter(key);
-    return guard(() => this.integrations.link(body));
+    return guard(() => this.integrations.link(body.url));
   }
 
-  @Post('sources/:id/sync')
+  @Post('sources/:id/check')
   @HttpCode(HttpStatus.OK)
-  sync(
+  check(
     @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
     @Param('id', { schema: uuid }) id: string,
   ) {
     this.seats.requirePresenter(key);
-    return guard(() => this.integrations.sync(id));
+    return guard(() => this.integrations.check(id));
   }
 
   @Delete('sources/:id')

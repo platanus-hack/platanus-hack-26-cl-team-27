@@ -12,14 +12,15 @@ import { usePresenterKey } from '@/hooks/use-presenter-key';
 import { ApiError, describeError } from '@/lib/http';
 import {
   authorizeGoogle,
+  checkFeedback,
+  checkSource,
   type ConnectorsOverview,
   disconnectGoogle,
   type Feedback,
   getConnectors,
+  linkFeedback,
   linkSheet,
   type SourceView,
-  syncFeedback,
-  syncSource,
   unlinkSource,
 } from '@/lib/integrations-api';
 import { DEFAULT_INTERVAL_MS } from '@/lib/pulse';
@@ -40,19 +41,18 @@ function GoogleSheetsCard({
   onConnect,
   onDisconnect,
   onLink,
-  onSync,
+  onCheck,
   onUnlink,
 }: {
   readonly overview: ConnectorsOverview;
   readonly busy: string | null;
   readonly onConnect: () => void;
   readonly onDisconnect: () => void;
-  readonly onLink: (input: { documentId: string; url: string }) => void;
-  readonly onSync: (source: SourceView) => void;
+  readonly onLink: (url: string) => Promise<boolean>;
+  readonly onCheck: (source: SourceView) => void;
   readonly onUnlink: (source: SourceView) => void;
 }) {
-  const { google, sources, documents } = overview;
-  const free = documents.filter((document) => !document.linked);
+  const { google, sources } = overview;
   const status = !google.configured
     ? { tone: 'neutral' as const, label: 'Sin configurar' }
     : google.connection
@@ -64,8 +64,8 @@ function GoogleSheetsCard({
       title="Google Sheets"
       description={
         google.pollSeconds > 0
-          ? `Lee el presupuesto desde una planilla. Revisamos cada ${google.pollSeconds} s si cambió.`
-          : 'Lee el presupuesto desde una planilla. La revisión automática está apagada: usa «Revisar ahora».'
+          ? `Escuchamos tus planillas: revisamos cada ${google.pollSeconds} s si cambiaron.`
+          : 'La revisión automática está apagada: usa «Revisar ahora».'
       }
       actions={<StatusBadge tone={status.tone} label={status.label} />}
     >
@@ -79,7 +79,7 @@ function GoogleSheetsCard({
       {google.configured && !google.connection && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-ink-2">
-            Conecta la cuenta de Google que tiene acceso a la planilla. Solo
+            Conecta la cuenta de Google que tiene acceso a tus planillas. Solo
             pedimos permiso para leer.
           </p>
           <Button disabled={busy === 'connect'} onClick={onConnect}>
@@ -110,20 +110,14 @@ function GoogleSheetsCard({
                   key={source.id}
                   source={source}
                   busy={busy === source.id}
-                  onSync={() => onSync(source)}
+                  onCheck={() => onCheck(source)}
                   onUnlink={() => onUnlink(source)}
                 />
               ))}
             </ul>
           )}
 
-          {free.length > 0 && (
-            <LinkSheetForm
-              documents={free}
-              busy={busy === 'link'}
-              onSubmit={onLink}
-            />
-          )}
+          <LinkSheetForm busy={busy === 'link'} onSubmit={onLink} />
         </div>
       )}
     </Card>
@@ -202,16 +196,18 @@ export function ConnectorsConsole({
   const run = async (
     id: string,
     action: () => Promise<Feedback | null>,
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     setBusy(id);
     try {
       const result = await action();
       if (result) setFeedback(result);
       setConfirm(null);
       reload();
+      return true;
     } catch (failure) {
       setFeedback({ tone: 'error', text: describeError(failure) });
       setConfirm(null);
+      return false;
     } finally {
       setBusy(null);
     }
@@ -247,8 +243,8 @@ export function ConnectorsConsole({
           Conectores
         </h1>
         <p className="mt-1 text-sm text-ink-2">
-          Conecta las herramientas donde ya vive la información de la obra.
-          Cuando algo cambia allá, la sala se entera sola.
+          Conecta las herramientas donde ya vive la información de la obra y
+          escuchamos cuando algo cambia allá.
         </p>
       </header>
 
@@ -263,14 +259,15 @@ export function ConnectorsConsole({
             busy={busy}
             onConnect={connect}
             onDisconnect={() => setConfirm({ kind: 'disconnect' })}
-            onLink={(input) =>
-              void run('link', async () =>
-                syncFeedback(await linkSheet(input, auth)),
-              )
+            onLink={(url) =>
+              run('link', async () => {
+                const { source } = await linkSheet(url, auth);
+                return linkFeedback(source, data.google.pollSeconds);
+              })
             }
-            onSync={(source) =>
+            onCheck={(source) =>
               void run(source.id, async () =>
-                syncFeedback(await syncSource(source.id, auth)),
+                checkFeedback(await checkSource(source.id, auth)),
               )
             }
             onUnlink={(source) => setConfirm({ kind: 'unlink', source })}
@@ -297,8 +294,8 @@ export function ConnectorsConsole({
           onCancel={() => setConfirm(null)}
         >
           {confirm.kind === 'disconnect'
-            ? 'Dejamos de leer las planillas y las desvinculamos. Lo que ya llegó a la sala se queda.'
-            : 'Dejamos de leer esa planilla. Lo que ya llegó a la sala se queda.'}
+            ? 'Dejamos de escuchar tus planillas y las desvinculamos.'
+            : 'Dejamos de escuchar esa planilla.'}
         </ConfirmDialog>
       )}
     </div>

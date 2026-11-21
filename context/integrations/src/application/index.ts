@@ -1,5 +1,4 @@
 export {
-  DeliveryError,
   IntegrationError,
   type IntegrationErrorCode,
   ProviderError,

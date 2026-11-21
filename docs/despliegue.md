@@ -38,7 +38,7 @@ Si cambia el dueño del espejo, cambia `MIRROR_REPO` en `mirror.yml` y el token,
 
 - **La imagen** ([`apps/api/Dockerfile`](../apps/api/Dockerfile), con la raíz como contexto) instala el workspace completo y compila con `pnpm nx run @team27/api:build`. Node ejecuta los contextos y `data/main` como TypeScript y no quita tipos dentro de `node_modules`, así que la imagen no puede usar `pnpm deploy` ni podar el workspace.
 - **Al arrancar** corre `prisma migrate deploy` y después `node dist/main.js`. Las migraciones no tienen un paso aparte.
-- **Una sola instancia.** El registro de `x-action-id`, los estados de OAuth y el sondeo de las planillas viven en la memoria del proceso.
+- **Una sola instancia.** El registro de `x-action-id`, los estados de OAuth, el sondeo de las planillas y la última versión de cada una viven en la memoria del proceso.
 - **Se despliega en cada push**, salvo cuando el cambio solo toca la web, el ETL, la CLI de APS, `packages/`, `docs/`, el add-in o archivos Markdown (`buildFilter`).
 - **El plan gratis** se duerme tras 15 minutos sin peticiones y tarda cerca de un minuto en despertar, con 0,1 CPU. Con la sala abierta, el sondeo la mantiene despierta. Si la sala se pone lenta con muchos celulares, sube el servicio a Starter en el panel. El Postgres gratis vence a los 30 días.
 

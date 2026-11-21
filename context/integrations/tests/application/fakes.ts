@@ -1,14 +1,17 @@
 import type {
   AccountAuthorizer,
+  ChangeListener,
   ConnectionRepository,
-  RevisionSink,
   SourceLinkRepository,
+  SpreadsheetContent,
   SpreadsheetReader,
-  SpreadsheetSnapshot,
   StoredConnection,
 } from '../../src/application/ports/index.ts';
 import type { SourceLink } from '../../src/domain/Connection.ts';
-import { BUDGET_V2 } from '../fixtures.ts';
+import { InMemorySnapshotCache } from '../../src/infra/adapters/InMemorySnapshotCache.ts';
+import { BUDGET } from '../fixtures.ts';
+
+export const SHEET_ID = '1AbCdEfGhIjKlMnOpQrStUvWxYz_0123456789-ab';
 
 export const CONNECTION: StoredConnection = {
   id: 'c1',
@@ -19,25 +22,25 @@ export const CONNECTION: StoredConnection = {
   refreshToken: 'refresh-1',
 };
 
+export const CONTENT: SpreadsheetContent = {
+  title: 'Presupuesto Los Aromos',
+  tabs: BUDGET.tabs,
+  pointer: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`,
+  contentHash: 'a'.repeat(64),
+};
+
 export const SOURCE: SourceLink = {
   id: 's1',
   connectionId: 'c1',
   provider: 'google',
-  externalId: 'sheet-1',
-  documentId: 'presupuesto',
-  title: 'Presupuesto Los Aromos',
-  pointer: 'https://docs.google.com/spreadsheets/d/sheet-1/edit#gid=0',
-  checkedAt: null,
-  lastRead: null,
+  externalId: SHEET_ID,
+  title: CONTENT.title,
+  pointer: CONTENT.pointer,
+  contentHash: CONTENT.contentHash,
+  checkedAt: new Date('2026-11-21T10:00:00Z'),
+  changedAt: null,
   lastError: null,
   createdAt: new Date('2026-11-21T10:00:00Z'),
-};
-
-export const SNAPSHOT: SpreadsheetSnapshot = {
-  title: 'Presupuesto Los Aromos',
-  tab: BUDGET_V2,
-  pointer: SOURCE.pointer,
-  contentHash: 'a'.repeat(64),
 };
 
 export const connections = (found: StoredConnection | null = CONNECTION) => ({
@@ -54,8 +57,8 @@ export const authorizer = () => ({
     .mockResolvedValue('access-1'),
 });
 
-export const reader = (snapshot: SpreadsheetSnapshot = SNAPSHOT) => ({
-  read: vi.fn<SpreadsheetReader['read']>().mockResolvedValue(snapshot),
+export const reader = (content: SpreadsheetContent = CONTENT) => ({
+  read: vi.fn<SpreadsheetReader['read']>().mockResolvedValue(content),
 });
 
 export const sources = (found: SourceLink | null = SOURCE) => ({
@@ -63,26 +66,20 @@ export const sources = (found: SourceLink | null = SOURCE) => ({
     .fn<SourceLinkRepository['list']>()
     .mockResolvedValue(found ? [found] : []),
   find: vi.fn<SourceLinkRepository['find']>().mockResolvedValue(found),
-  findByDocument: vi
-    .fn<SourceLinkRepository['findByDocument']>()
+  findByExternalId: vi
+    .fn<SourceLinkRepository['findByExternalId']>()
     .mockResolvedValue(null),
   create: vi
     .fn<SourceLinkRepository['create']>()
     .mockImplementation(async (draft) => ({ ...SOURCE, ...draft })),
   recordCheck: vi
     .fn<SourceLinkRepository['recordCheck']>()
-    .mockImplementation(async (_id, at, title) => ({
+    .mockImplementation(async (_id, check) => ({
       ...SOURCE,
-      checkedAt: at,
-      title,
-    })),
-  recordRead: vi
-    .fn<SourceLinkRepository['recordRead']>()
-    .mockImplementation(async (_id, read, title) => ({
-      ...SOURCE,
-      checkedAt: read.at,
-      lastRead: read,
-      title,
+      title: check.title,
+      contentHash: check.contentHash,
+      checkedAt: check.at,
+      changedAt: check.changed ? check.at : SOURCE.changedAt,
     })),
   recordError: vi
     .fn<SourceLinkRepository['recordError']>()
@@ -93,11 +90,8 @@ export const sources = (found: SourceLink | null = SOURCE) => ({
   remove: vi.fn<SourceLinkRepository['remove']>().mockResolvedValue(true),
 });
 
-export const sink = (epoch: number | null = 1) => ({
-  epoch: vi.fn<RevisionSink['epoch']>().mockResolvedValue(epoch),
-  deliver: vi.fn<RevisionSink['deliver']>().mockResolvedValue({
-    revisionId: 'r1',
-    proposals: 1,
-    summary: 'Llegó la revisión: abrimos 1 propuesta y avisamos a 2 personas.',
-  }),
+export const snapshots = () => new InMemorySnapshotCache();
+
+export const listener = () => ({
+  changed: vi.fn<ChangeListener['changed']>().mockResolvedValue(undefined),
 });

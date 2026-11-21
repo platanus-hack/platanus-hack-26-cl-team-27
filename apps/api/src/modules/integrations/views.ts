@@ -4,11 +4,10 @@ import {
   type IntegrationErrorCode,
   ProviderError,
   type SourceLink,
-  type SyncResult,
+  type WatchResult,
 } from '@team27/context-integrations';
 
 import { fail } from '../coordination/http-errors.ts';
-import { documentDef, spaceName } from '../coordination/lookup.ts';
 
 const STATUS: Readonly<Record<IntegrationErrorCode, HttpStatus>> = {
   not_configured: HttpStatus.SERVICE_UNAVAILABLE,
@@ -16,7 +15,6 @@ const STATUS: Readonly<Record<IntegrationErrorCode, HttpStatus>> = {
   source_not_found: HttpStatus.NOT_FOUND,
   already_linked: HttpStatus.CONFLICT,
   invalid_sheet_url: HttpStatus.UNPROCESSABLE_ENTITY,
-  sheet_empty: HttpStatus.UNPROCESSABLE_ENTITY,
 };
 
 export const toHttp = (error: unknown): unknown => {
@@ -37,32 +35,21 @@ export const guard = async <T>(work: () => Promise<T>): Promise<T> => {
   }
 };
 
-export const sourceView = (source: SourceLink) => {
-  const document = documentDef(source.documentId);
-  return {
-    id: source.id,
-    provider: source.provider,
-    documentId: source.documentId,
-    documentName: document?.name ?? source.documentId,
-    spaceName: document ? spaceName(document.spaceId) : null,
-    title: source.title,
-    pointer: source.pointer,
-    checkedAt: source.checkedAt,
-    createdAt: source.createdAt,
-    lastRead: source.lastRead && {
-      at: source.lastRead.at,
-      label: source.lastRead.label,
-      ignored: source.lastRead.ignored,
-    },
-    lastError: source.lastError,
-  };
-};
+export const sourceView = (source: SourceLink) => ({
+  id: source.id,
+  provider: source.provider,
+  title: source.title,
+  pointer: source.pointer,
+  checkedAt: source.checkedAt,
+  changedAt: source.changedAt,
+  createdAt: source.createdAt,
+  lastError: source.lastError,
+});
 
 export type SourceView = ReturnType<typeof sourceView>;
 
-export const syncView = (result: SyncResult) => ({
+export const checkView = (result: WatchResult) => ({
   status: result.status,
   message: result.message,
-  revisionId: result.receipt?.revisionId ?? null,
-  proposals: result.receipt?.proposals ?? 0,
+  cells: result.cells,
 });

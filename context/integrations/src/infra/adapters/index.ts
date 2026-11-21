@@ -7,6 +7,7 @@ export {
   SHEETS_READ_SCOPE,
 } from './GoogleOAuthClient.ts';
 export { GoogleSheetsReader } from './GoogleSheetsReader.ts';
+export { InMemorySnapshotCache } from './InMemorySnapshotCache.ts';
 export { PrismaConnectionRepository } from './PrismaConnectionRepository.ts';
 export { PrismaSourceLinkRepository } from './PrismaSourceLinkRepository.ts';
 export { MIN_SECRET_LENGTH, TokenCipher } from './TokenCipher.ts';

@@ -3,8 +3,7 @@ export type IntegrationErrorCode =
   | 'not_connected'
   | 'source_not_found'
   | 'already_linked'
-  | 'invalid_sheet_url'
-  | 'sheet_empty';
+  | 'invalid_sheet_url';
 
 export class IntegrationError extends Error {
   override readonly name = 'IntegrationError';
@@ -24,8 +23,4 @@ export class ProviderError extends Error {
     super(message);
     this.status = status;
   }
-}
-
-export class DeliveryError extends Error {
-  override readonly name = 'DeliveryError';
 }

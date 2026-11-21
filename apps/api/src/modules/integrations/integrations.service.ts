@@ -1,5 +1,4 @@
 import {
-  HttpStatus,
   Inject,
   Injectable,
   Logger,
@@ -11,20 +10,16 @@ import {
   type DisconnectGoogle,
   type GetGoogleConnection,
   IntegrationError,
-  type LinkInput,
   type LinkSpreadsheet,
   type ListSources,
   type SourceLink,
-  type SyncResult,
-  type SyncSource,
   type UnlinkSource,
+  type WatchResult,
+  type WatchSource,
 } from '@team27/context-integrations';
 
-import { fail } from '../coordination/http-errors.ts';
-import { spaceName } from '../coordination/lookup.ts';
 import { OAuthStates } from './oauth-states.ts';
-import { linkableDocuments } from './vocabulary.ts';
-import { sourceView, syncView } from './views.ts';
+import { checkView, sourceView } from './views.ts';
 
 export const GOOGLE_SETUP = 'GOOGLE_SETUP';
 export const INTEGRATIONS_CONFIG = 'INTEGRATIONS_CONFIG';
@@ -36,7 +31,7 @@ export interface GoogleSetup {
   readonly link: LinkSpreadsheet;
   readonly unlink: UnlinkSource;
   readonly list: ListSources;
-  readonly sync: SyncSource;
+  readonly watch: WatchSource;
 }
 
 export interface IntegrationsConfig {
@@ -93,7 +88,6 @@ export class IntegrationsService
     const connection = this.setup
       ? await this.setup.connection.execute()
       : null;
-    const linked = new Set(sources.map((source) => source.documentId));
     return {
       google: {
         configured: this.setup !== null,
@@ -104,12 +98,6 @@ export class IntegrationsService
         pollSeconds: Math.round(this.config.pollMs / 1000),
       },
       sources: sources.map(sourceView),
-      documents: linkableDocuments().map((document) => ({
-        id: document.id,
-        name: document.name,
-        spaceName: spaceName(document.spaceId),
-        linked: linked.has(document.id),
-      })),
     };
   }
 
@@ -138,14 +126,12 @@ export class IntegrationsService
       await this.setup.connect.execute(query.code);
       return back({ google: 'conectado' });
     } catch (error) {
-      this.logger.warn(
-        `Google no completó la conexión: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return failed(
+      const reason =
         error instanceof Error
           ? error.message
-          : 'Google no completó la conexión',
-      );
+          : 'Google no completó la conexión';
+      this.logger.warn(`Google no completó la conexión: ${reason}`);
+      return failed(reason);
     }
   }
 
@@ -153,30 +139,17 @@ export class IntegrationsService
     await this.require().disconnect.execute();
   }
 
-  async link(input: LinkInput) {
-    const setup = this.require();
-    if (
-      !linkableDocuments().some((document) => document.id === input.documentId)
-    ) {
-      throw fail(
-        HttpStatus.UNPROCESSABLE_ENTITY,
-        'unlinkable_document',
-        'Por ahora solo se puede vincular el presupuesto',
-      );
-    }
-    const source = await setup.link.execute(input);
-    const result = await this.serial(source.id, () =>
-      setup.sync.execute(source.id),
-    );
-    this.report(source, result);
-    return { source: sourceView(result.source), sync: syncView(result) };
+  async link(url: string) {
+    const source = await this.require().link.execute(url);
+    this.logger.log(`Escuchamos «${source.title}» (${source.pointer})`);
+    return { source: sourceView(source) };
   }
 
-  async sync(id: string) {
+  async check(id: string) {
     const setup = this.require();
-    const result = await this.serial(id, () => setup.sync.execute(id));
+    const result = await this.serial(id, () => setup.watch.execute(id));
     this.report(result.source, result);
-    return { source: sourceView(result.source), sync: syncView(result) };
+    return { source: sourceView(result.source), check: checkView(result) };
   }
 
   async unlink(id: string): Promise<void> {
@@ -190,7 +163,7 @@ export class IntegrationsService
     try {
       for (const source of await setup.list.execute()) {
         const result = await this.serial(source.id, () =>
-          setup.sync.execute(source.id),
+          setup.watch.execute(source.id),
         );
         this.report(source, result);
       }
@@ -211,10 +184,10 @@ export class IntegrationsService
     return this.setup;
   }
 
-  private report(before: SourceLink, result: SyncResult): void {
+  private report(before: SourceLink, result: WatchResult): void {
     if (result.failure !== undefined) {
       this.logger.error(
-        `${before.title}: ${result.message}`,
+        `«${before.title}»: ${result.message}`,
         result.failure instanceof Error
           ? result.failure.stack
           : String(result.failure),
@@ -223,9 +196,7 @@ export class IntegrationsService
       result.status === 'failed' &&
       before.lastError?.message !== result.message
     ) {
-      this.logger.warn(`${before.title}: ${result.message}`);
-    } else if (result.status === 'ingested') {
-      this.logger.log(`${before.title}: ${result.message}`);
+      this.logger.warn(`«${before.title}»: ${result.message}`);
     }
   }
 

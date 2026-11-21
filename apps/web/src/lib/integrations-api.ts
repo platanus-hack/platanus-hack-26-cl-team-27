@@ -1,33 +1,14 @@
 import { type Auth, request } from './http';
 
-export interface IgnoredCell {
-  readonly locator: string;
-  readonly reason: string;
-}
-
 export interface SourceView {
   readonly id: string;
   readonly provider: 'google';
-  readonly documentId: string;
-  readonly documentName: string;
-  readonly spaceName: string | null;
   readonly title: string;
   readonly pointer: string;
   readonly checkedAt: string | null;
+  readonly changedAt: string | null;
   readonly createdAt: string;
-  readonly lastRead: {
-    readonly at: string;
-    readonly label: string;
-    readonly ignored: readonly IgnoredCell[];
-  } | null;
   readonly lastError: { readonly at: string; readonly message: string } | null;
-}
-
-export interface LinkableDocument {
-  readonly id: string;
-  readonly name: string;
-  readonly spaceName: string;
-  readonly linked: boolean;
 }
 
 export interface ConnectorsOverview {
@@ -40,18 +21,16 @@ export interface ConnectorsOverview {
     readonly pollSeconds: number;
   };
   readonly sources: readonly SourceView[];
-  readonly documents: readonly LinkableDocument[];
 }
 
-export type SyncStatus = 'ingested' | 'unchanged' | 'waiting' | 'failed';
+export type CheckStatus = 'changed' | 'unchanged' | 'failed';
 
-export interface SyncResponse {
+export interface CheckResponse {
   readonly source: SourceView;
-  readonly sync: {
-    readonly status: SyncStatus;
+  readonly check: {
+    readonly status: CheckStatus;
     readonly message: string;
-    readonly revisionId: string | null;
-    readonly proposals: number;
+    readonly cells: number | null;
   };
 }
 
@@ -80,17 +59,17 @@ export const disconnectGoogle = (auth: Auth): Promise<void> =>
   request<void>(`${BASE}/google`, { ...auth, method: 'DELETE' });
 
 export const linkSheet = (
-  input: { readonly documentId: string; readonly url: string },
+  url: string,
   auth: Auth,
-): Promise<SyncResponse> =>
-  request<SyncResponse>(`${BASE}/sources`, {
+): Promise<{ source: SourceView }> =>
+  request<{ source: SourceView }>(`${BASE}/sources`, {
     ...auth,
     method: 'POST',
-    body: input,
+    body: { url },
   });
 
-export const syncSource = (id: string, auth: Auth): Promise<SyncResponse> =>
-  request<SyncResponse>(`${BASE}/sources/${encodeURIComponent(id)}/sync`, {
+export const checkSource = (id: string, auth: Auth): Promise<CheckResponse> =>
+  request<CheckResponse>(`${BASE}/sources/${encodeURIComponent(id)}/check`, {
     ...auth,
     method: 'POST',
   });
@@ -101,16 +80,26 @@ export const unlinkSource = (id: string, auth: Auth): Promise<void> =>
     method: 'DELETE',
   });
 
-const SYNC_TONES: Readonly<Record<SyncStatus, FeedbackTone>> = {
-  ingested: 'success',
+const CHECK_TONES: Readonly<Record<CheckStatus, FeedbackTone>> = {
+  changed: 'success',
   unchanged: 'info',
-  waiting: 'info',
   failed: 'error',
 };
 
-export const syncFeedback = (response: SyncResponse): Feedback => ({
-  tone: SYNC_TONES[response.sync.status],
-  text: response.sync.message,
+export const checkFeedback = (response: CheckResponse): Feedback => ({
+  tone: CHECK_TONES[response.check.status],
+  text: `«${response.source.title}»: ${response.check.message}.`,
+});
+
+export const linkFeedback = (
+  source: SourceView,
+  pollSeconds: number,
+): Feedback => ({
+  tone: 'success',
+  text:
+    pollSeconds > 0
+      ? `Vinculamos «${source.title}». Revisamos cada ${pollSeconds} s si cambia.`
+      : `Vinculamos «${source.title}». Usa «Revisar ahora» para ver si cambió.`,
 });
 
 export const connectionFeedback = (
@@ -129,12 +118,11 @@ export const connectionFeedback = (
   return null;
 };
 
-export type SourceTone = 'good' | 'serious' | 'neutral';
+export type SourceTone = 'good' | 'serious';
 
 export const sourceState = (
   source: SourceView,
-): { readonly tone: SourceTone; readonly label: string } => {
-  if (source.lastError) return { tone: 'serious', label: 'Con error' };
-  if (source.lastRead) return { tone: 'good', label: 'Al día' };
-  return { tone: 'neutral', label: 'Sin leer todavía' };
-};
+): { readonly tone: SourceTone; readonly label: string } =>
+  source.lastError
+    ? { tone: 'serious', label: 'Con error' }
+    : { tone: 'good', label: 'Escuchando' };

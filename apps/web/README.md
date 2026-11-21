@@ -25,7 +25,7 @@ pnpm nx run @team27/web:test          # Vitest: los *.spec.ts de src/
 | `/espacios`                      | Espacios y documentos; el documento se abre en un panel. Acepta `?espacio=`, `?documento=` y `?revision=`    |
 | `/cambios/[id]`                  | Detalle de una propuesta; acepta `?para=<stakeholderId>`                                                     |
 | `/modelos`                       | El visor de APS con todas las disciplinas del catálogo de la API (`GET /api/aps/models`) en una escena: abre con Arquitectura y carga las demás al encenderlas, con un interruptor por disciplina y las propiedades del elemento seleccionado |
-| `/conectores`                    | Los conectores (con la clave del presentador): conectar la cuenta de Google, vincular la planilla del presupuesto por su link, ver por planilla la última revisión, la última versión que llegó a la sala, las celdas que no entraron y el error, «Revisar ahora» y desvincular. Autodesk aparece como próximamente. Vuelve de Google con `?google=conectado` o `?google=error&motivo=` |
+| `/conectores`                    | Los conectores (con la clave del presentador): conectar la cuenta de Google, vincular planillas por su link y ver por cada una la última revisión, el último cambio y el error, con «Revisar ahora» y «Desvincular». Autodesk aparece como próximamente. Vuelve de Google con `?google=conectado` o `?google=error&motivo=` |
 | `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                                                             |
 
 Los route groups `(site)`, `(sala)`, `(asiento)` y `(caso)` dan a cada pantalla su propio layout: el sitio con encabezado y navegación (marca la sección actual), el telón sin márgenes y el celular en una columna de 430 px y el caso a todo el ancho. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
@@ -80,7 +80,7 @@ Cada módulo declara los tipos de las respuestas y las funciones que las piden. 
 | `votes-api.ts`       | `POST /api/notifications/:id/response` con `{ kind, note? }`, `POST /api/discrepancies/:id/dismiss`, `POST /api/stale/acknowledge` con `{ revisionId, note }` |
 | `aps-api.ts`         | `GET /api/aps/models`, `GET /api/aps/viewer-token`                                                         |
 | `changes-api.ts`     | `GET /api/changes/:id`                                                                                     |
-| `integrations-api.ts` | `GET /api/integrations`, `POST /api/integrations/google/authorize`, `DELETE /api/integrations/google`, `POST /api/integrations/sources`, `POST /api/integrations/sources/:id/sync`, `DELETE /api/integrations/sources/:id`; y lo puro: el aviso de la vuelta desde Google y el estado de cada planilla |
+| `integrations-api.ts` | `GET /api/integrations`, `POST /api/integrations/google/authorize`, `DELETE /api/integrations/google`, `POST /api/integrations/sources`, `POST /api/integrations/sources/:id/check`, `DELETE /api/integrations/sources/:id`; y lo puro: los avisos de cada acción y el estado de cada planilla |
 
 Con el lago vacío (`lake.empty`), `/sala`, `/presentador` y el celular muestran «Esperando la carga inicial» hasta que el ETL carga lo vigente. La web no sube documentos: la tarjeta de desfase dice «Sube la revisión nueva a tu carpeta y la leemos solos» y ofrece «Confirmo sin cambio».
 

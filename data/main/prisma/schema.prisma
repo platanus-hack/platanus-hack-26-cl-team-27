@@ -293,12 +293,12 @@ model IntegrationSource {
   id           String                @id @default(uuid()) @db.Uuid
   connectionId String                @map("connection_id") @db.Uuid
   provider     String
-  externalId   String                @map("external_id")
-  documentId   String                @unique @map("document_id")
+  externalId   String                @unique @map("external_id")
   title        String
   pointer      String
+  contentHash  String?               @map("content_hash")
   checkedAt    DateTime?             @map("checked_at")
-  lastRead     Json?                 @map("last_read")
+  changedAt    DateTime?             @map("changed_at")
   lastError    Json?                 @map("last_error")
   createdAt    DateTime              @default(now()) @map("created_at")
   connection   IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)

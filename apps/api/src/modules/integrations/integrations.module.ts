@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   ConnectGoogle,
@@ -6,12 +6,13 @@ import {
   GetGoogleConnection,
   LinkSpreadsheet,
   ListSources,
-  SyncSource,
   UnlinkSource,
+  WatchSource,
 } from '@team27/context-integrations';
 import {
   GoogleOAuthClient,
   GoogleSheetsReader,
+  InMemorySnapshotCache,
   PrismaConnectionRepository,
   PrismaSourceLinkRepository,
   TokenCipher,
@@ -19,10 +20,9 @@ import {
 import type { PrismaClient } from '@team27/data-main';
 
 import type { Env } from '../../config/index.ts';
-import { CoordinationModule } from '../coordination/coordination.module.ts';
-import { CoordinationService } from '../coordination/coordination.service.ts';
 import { PRISMA_CLIENT } from '../database/database.module.ts';
 import { RoomStoreModule } from '../room/store.module.ts';
+import { LoggingChangeListener } from './change-log.ts';
 import { ConnectorsController } from './connectors.controller.ts';
 import {
   GOOGLE_SETUP,
@@ -32,8 +32,6 @@ import {
   IntegrationsService,
 } from './integrations.service.ts';
 import { OAuthStates } from './oauth-states.ts';
-import { CoordinationRevisionSink } from './revision-sink.ts';
-import { buildSourceVocabulary } from './vocabulary.ts';
 
 export const buildGoogleSetup = (
   env: {
@@ -43,7 +41,6 @@ export const buildGoogleSetup = (
     readonly redirectUri: string;
   },
   prisma: PrismaClient,
-  coordination: CoordinationService,
 ): GoogleSetup | null => {
   const { clientId, clientSecret, encryptionKey, redirectUri } = env;
   if (!clientId || !clientSecret || !encryptionKey) return null;
@@ -58,26 +55,34 @@ export const buildGoogleSetup = (
   );
   const sources = new PrismaSourceLinkRepository(prisma);
   const reader = new GoogleSheetsReader();
+  const snapshots = new InMemorySnapshotCache();
+  const listener = new LoggingChangeListener(new Logger('Conectores'));
   return {
     connect: new ConnectGoogle(authorizer, connections),
     disconnect: new DisconnectGoogle(connections),
     connection: new GetGoogleConnection(connections),
-    link: new LinkSpreadsheet(connections, authorizer, reader, sources),
-    unlink: new UnlinkSource(sources),
-    list: new ListSources(sources),
-    sync: new SyncSource(
+    link: new LinkSpreadsheet(
       connections,
       authorizer,
       reader,
       sources,
-      new CoordinationRevisionSink(prisma, coordination),
-      buildSourceVocabulary(),
+      snapshots,
+    ),
+    unlink: new UnlinkSource(sources, snapshots),
+    list: new ListSources(sources),
+    watch: new WatchSource(
+      connections,
+      authorizer,
+      reader,
+      sources,
+      snapshots,
+      listener,
     ),
   };
 };
 
 @Module({
-  imports: [CoordinationModule, RoomStoreModule],
+  imports: [RoomStoreModule],
   controllers: [ConnectorsController],
   providers: [
     { provide: OAuthStates, useFactory: () => new OAuthStates() },
@@ -91,12 +96,8 @@ export const buildGoogleSetup = (
     },
     {
       provide: GOOGLE_SETUP,
-      inject: [ConfigService, PRISMA_CLIENT, CoordinationService],
-      useFactory: (
-        config: ConfigService<Env, true>,
-        prisma: PrismaClient,
-        coordination: CoordinationService,
-      ) =>
+      inject: [ConfigService, PRISMA_CLIENT],
+      useFactory: (config: ConfigService<Env, true>, prisma: PrismaClient) =>
         buildGoogleSetup(
           {
             clientId: config.get('GOOGLE_CLIENT_ID', { infer: true }),
@@ -107,7 +108,6 @@ export const buildGoogleSetup = (
             redirectUri: config.get('GOOGLE_REDIRECT_URI', { infer: true }),
           },
           prisma,
-          coordination,
         ),
     },
     IntegrationsService,

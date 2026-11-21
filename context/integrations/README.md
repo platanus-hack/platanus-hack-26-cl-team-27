@@ -1,41 +1,40 @@
 # @team27/context-integrations
 
-Los conectores reales: leen un documento donde ya vive, se enteran cuando cambia y lo entregan a la obra como una revisión nueva. Hoy hay uno, **Google Sheets**, para el presupuesto. La spec, con lo que falta (ACC), está en [docs/spec/integraciones.md](../../docs/spec/integraciones.md).
-
-El contexto no conoce el lago. Lee la planilla, la convierte en fragmentos con hechos y se los pasa a un `RevisionSink`, que la API implementa con el mismo camino interno que `POST /api/revisions`. La API compara con lo vigente y arma el antes y el después: el conector nunca calcula el diff.
+Los conectores reales. Hoy hay uno, **Google Sheets**, y es un canal de conexión y escucha: conecta la cuenta de Google, vincula planillas por su link y avisa cuando cambian, con las celdas que cambiaron. No interpreta las planillas, no entrega nada a la cadena de la obra y no guarda lo que escucha: eso queda para los PR que vienen. La spec, con lo que sigue, está en [docs/spec/integraciones.md](../../docs/spec/integraciones.md).
 
 ## Capas
 
 - **Dominio**
-  - `readBudgetSheet(tab, vocabulary)`: lee la primera fila que tenga «Código», «Precio unitario» y «Unidad», en cualquier columna, sin importar mayúsculas ni tildes. Por cada partida que la obra sigue, afirma `precio_unitario` con localizador `Hoja!C14`. Si existe la columna «Dimensión de diseño usada», agrega un hecho `usa` (por ejemplo «Losa nivel 3 · espesor 15 cm»). Lo que no entra vuelve en `ignored` con su localizador y su razón: una partida que la obra no sigue, un precio que no es número, una unidad distinta o una dimensión que no reconoce. Sin la fila de encabezados lanza `SheetFormatError`.
-  - `matchSubject`: reconoce un elemento por las palabras de su nombre (al menos dos, y todos sus números). «Ventanas del norte» es `ventanas-norte`, «Losa nivel 3» es `losa-n3` y «Losa nivel 7» no es nada.
-  - `spreadsheetIdOf(url)` saca el id de un link de Sheets. `sheetsRevisionLabel(fecha)` arma el rótulo de la revisión en hora de Chile: `Sheets 21-11 18:05:12`.
-  - `Connection`, `SourceLink` (la planilla vinculada a un documento, con su última revisión, su última lectura entregada y su último error) y `SourceVocabulary` (los sujetos de la obra con sus atributos y unidades; lo arma la API desde `scenario/documents.ts`).
+  - `Connection` (la cuenta conectada) y `SourceLink` (la planilla vinculada: id externo, título, link, hash de sus celdas, última revisión, último cambio y último error).
+  - `SheetSnapshot` (las hojas de la planilla con sus celdas) y `diffSnapshots(antes, después)`: las celdas que cambiaron, con su localizador (`Partidas!C2`), el valor anterior y el nuevo. Una celda vacía vale `null`; una hoja nueva o borrada cuenta como celdas que aparecen o desaparecen.
+  - `spreadsheetIdOf(url)` saca el id de un link de Sheets y `spreadsheetUrl(id)` arma el link para personas.
 - **Aplicación**
-  - Puertos: `ConnectionRepository`, `SourceLinkRepository`, `AccountAuthorizer` (OAuth), `SpreadsheetReader` y `RevisionSink` (`epoch()` y `deliver()`).
-  - Casos de uso: `ConnectGoogle`, `DisconnectGoogle`, `GetGoogleConnection` (nunca devuelve el token), `LinkSpreadsheet`, `UnlinkSource`, `ListSources` y `SyncSource`.
-  - Errores: `IntegrationError` con `code`, `ProviderError` (Google) y `DeliveryError` (la obra rechazó la revisión).
+  - Puertos: `ConnectionRepository`, `SourceLinkRepository`, `AccountAuthorizer` (OAuth), `SpreadsheetReader`, `SnapshotCache` (la última revisión de cada planilla, en memoria) y `ChangeListener` (a quién se le avisa un cambio).
+  - Casos de uso: `ConnectGoogle`, `DisconnectGoogle`, `GetGoogleConnection` (nunca devuelve el token), `LinkSpreadsheet`, `UnlinkSource`, `ListSources` y `WatchSource`.
+  - Errores: `IntegrationError` con `code` y `ProviderError` (Google).
 - **Adapters** (`@team27/context-integrations/adapters`)
   - `GoogleOAuthClient`: OAuth de Google con `access_type=offline` y `prompt=consent`, y los permisos `openid`, `email` y `spreadsheets.readonly`. Guarda el token de acceso en memoria hasta un minuto antes de que venza.
-  - `GoogleSheetsReader`: lee la primera hoja con `valueRenderOption=UNFORMATTED_VALUE` (los números llegan como números), arma el link a esa hoja y el hash SHA-256 del contenido. Traduce los 401, 403, 404 y la API desactivada a mensajes en español.
+  - `GoogleSheetsReader`: lee todas las hojas con `values:batchGet` y `valueRenderOption=UNFORMATTED_VALUE`, y saca el hash SHA-256 de las celdas (el nombre de la planilla no cuenta). Traduce los 401, 403, 404 y la API desactivada a mensajes en español.
   - `TokenCipher`: AES-256-GCM con una clave derivada de `INTEGRATIONS_ENCRYPTION_KEY`.
-  - `PrismaConnectionRepository` (guarda el refresh token cifrado) y `PrismaSourceLinkRepository`.
+  - `PrismaConnectionRepository` (guarda el refresh token cifrado), `PrismaSourceLinkRepository` e `InMemorySnapshotCache`.
 
-## Cómo se lee una planilla
+## Cómo se escucha una planilla
 
-`SyncSource.execute(id)`:
+- **Al vincular**, `LinkSpreadsheet` abre la planilla con la cuenta conectada, guarda su hash como primera revisión y deja sus celdas en memoria. No avisa nada.
+- **Cada `INTEGRATIONS_POLL_SECONDS`**, la API llama a `WatchSource` por cada planilla:
+  1. La lee completa.
+  2. Si el hash es el de la última revisión, solo anota la hora.
+  3. Si cambió, compara con la revisión anterior en memoria, anota la hora del cambio y le pasa al `ChangeListener` las celdas que cambiaron. Si la API se reinició y no tiene la revisión anterior, avisa el cambio sin el detalle. Si el hash cambió pero ninguna celda tiene otro valor, no es un cambio.
+  4. Cualquier error queda en la planilla (`lastError`) y el caso de uso no lanza. Un error inesperado vuelve con un mensaje genérico y su causa en `failure`, para el log.
+- Hoy el `ChangeListener` de la API es `LoggingChangeListener`: deja en el log algo como `«Presupuesto» cambió: 1 celda. Partidas!C2: 145000 → 150000`, con hasta 10 celdas.
 
-1. Si la obra no tiene la carga inicial (`epoch()` es `null`), espera sin leer. Así el sondeo no ocupa el lago vacío antes de `POST /api/lake/seed`.
-2. Pide un token de acceso con el refresh token guardado y lee la planilla.
-3. Si el hash y la época de la sala son los de la última lectura entregada, solo anota la hora de la revisión. Después de reiniciar la sala, la época cambia y la planilla se entrega de nuevo.
-4. Si cambió, la lee con `readBudgetSheet` y la entrega como revisión del documento vinculado, con el rótulo `Sheets <día-mes hora>`, el link a la hoja como `pointer` y el hash como `contentHash`.
-5. Cualquier error queda en la fuente (`lastError`) y el caso de uso no lanza. Un error inesperado vuelve con un mensaje genérico y su causa en `failure`, para el log.
+La API **le pregunta a Google**; Google no nos avisa. Los avisos automáticos de Drive necesitan una URL pública y un permiso de Drive, solo dicen «cambió» y vencen. La comparación está en la [spec](../../docs/spec/integraciones.md#preguntar-o-que-google-avise).
 
 ## Configurar Google
 
 1. En [Google Cloud Console](https://console.cloud.google.com), crea un proyecto y activa la **Google Sheets API**.
-2. En **Pantalla de consentimiento de OAuth**, elige «Externo», déjala en modo de prueba y agrega como usuarios de prueba las cuentas que van a conectar. En modo de prueba, Google acepta hasta 100 usuarios y el permiso vence a los 7 días: después hay que volver a conectar.
-3. En **Credenciales**, crea un ID de cliente de OAuth de tipo «Aplicación web» con la URI de redireccionamiento `http://localhost:3000/api/integrations/google/callback`. En un despliegue, es la URL de la web con la misma ruta.
+2. En **Google Auth Platform**, configura la app como «Externo» y déjala en modo de prueba. En **Público**, agrega como usuarios de prueba las cuentas que van a conectar. En modo de prueba, Google acepta hasta 100 usuarios y el permiso vence a los 7 días: después hay que volver a conectar.
+3. En **Clientes**, crea un cliente de tipo «Aplicación web» con la URI de redireccionamiento `http://localhost:3000/api/integrations/google/callback`. En un despliegue, es la URL de la web con la misma ruta.
 4. En el `.env` de la raíz:
 
    ```bash
@@ -46,12 +45,4 @@ El contexto no conoce el lago. Lee la planilla, la convierte en fragmentos con h
 
 5. Corre `pnpm db:migrate`, reinicia la API y entra a `/conectores` con la clave del presentador.
 
-## La planilla
-
-La primera hoja necesita una fila de encabezados con «Código», «Precio unitario» y «Unidad»; «Dimensión de diseño usada» es opcional. Puede tener filas de datos generales antes del encabezado. El presupuesto de la muestra sirve tal cual: importa [`Presupuesto_itemizado_v2.csv`](../../apps/etl/lago/carpeta-costos/Presupuesto_itemizado_v2.csv) en Google Sheets con «;» como separador.
-
-Antes de importar, pon la configuración regional de la planilla en Chile («Archivo», «Configuración»). Si no, Sheets lee «145.000» como 145.
-
-| Código | Descripción           | Precio unitario | Unidad | Cantidad | Dimensión de diseño usada    |
-| ------ | --------------------- | --------------- | ------ | -------- | ---------------------------- |
-| 03.02  | Hormigón H30 en losas | 145.000         | m³     | 210      | Losa nivel 3 · espesor 15 cm |
+Al conectar, Google avisa que la app no está verificada: es normal en modo de prueba. En la pantalla de permisos hay que marcar la casilla de ver las hojas de cálculo; sin ella, la conexión falla con «Falta el permiso para leer tus planillas».

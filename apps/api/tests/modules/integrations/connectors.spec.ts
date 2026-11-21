@@ -26,11 +26,11 @@ const SOURCE: SourceLink = {
   connectionId: 'c1',
   provider: 'google',
   externalId: 'sheet-1',
-  documentId: 'presupuesto',
   title: 'Presupuesto Los Aromos',
-  pointer: 'https://docs.google.com/spreadsheets/d/sheet-1/edit#gid=0',
-  checkedAt: null,
-  lastRead: null,
+  pointer: 'https://docs.google.com/spreadsheets/d/sheet-1/edit',
+  contentHash: 'a'.repeat(64),
+  checkedAt: new Date('2026-11-21T10:00:00Z'),
+  changedAt: null,
   lastError: null,
   createdAt: new Date('2026-11-21T10:00:00Z'),
 };
@@ -55,12 +55,12 @@ const fakeSetup = () => ({
   link: { execute: vi.fn(async () => SOURCE) },
   unlink: { execute: vi.fn(async () => undefined) },
   list: { execute: vi.fn(async () => [SOURCE]) },
-  sync: {
+  watch: {
     execute: vi.fn(async () => ({
-      status: 'ingested' as const,
-      source: SOURCE,
-      message: 'Llegó la revisión: la obra ya tenía esos valores.',
-      receipt: { revisionId: 'r1', proposals: 0, summary: '' },
+      status: 'changed' as const,
+      source: { ...SOURCE, changedAt: new Date('2026-11-21T10:05:00Z') },
+      message: 'La planilla cambió: 1 celda',
+      cells: 1,
     })),
   },
 });
@@ -112,6 +112,14 @@ const start = async (setup: ReturnType<typeof fakeSetup> | null) => {
   return { app, call };
 };
 
+const stateOf = async (
+  call: Awaited<ReturnType<typeof start>>['call'],
+): Promise<string> => {
+  const response = await call('/google/authorize', { method: 'POST' });
+  const { url } = (await response.json()) as { url: string };
+  return new URL(url).searchParams.get('state') ?? '';
+};
+
 describe('ConnectorsController', () => {
   let app: INestApplication | null = null;
 
@@ -137,14 +145,6 @@ describe('ConnectorsController', () => {
     expect(await overview.json()).toEqual({
       google: { configured: false, connection: null, pollSeconds: 0 },
       sources: [],
-      documents: [
-        {
-          id: 'presupuesto',
-          name: 'Presupuesto itemizado',
-          spaceName: 'Carpeta de costos',
-          linked: false,
-        },
-      ],
     });
     const authorize = await started.call('/google/authorize', {
       method: 'POST',
@@ -157,12 +157,7 @@ describe('ConnectorsController', () => {
     const setup = fakeSetup();
     const started = await start(setup);
     app = started.app;
-
-    const authorize = await started.call('/google/authorize', {
-      method: 'POST',
-    });
-    const { url } = (await authorize.json()) as { url: string };
-    const state = new URL(url).searchParams.get('state') ?? '';
+    const state = await stateOf(started.call);
 
     const callback = await started.call(
       `/google/callback?code=code-1&state=${state}&scope=email`,
@@ -184,10 +179,7 @@ describe('ConnectorsController', () => {
   it('si la persona cancela en Google, vuelve con el motivo', async () => {
     const started = await start(fakeSetup());
     app = started.app;
-    const { url } = (await (
-      await started.call('/google/authorize', { method: 'POST' })
-    ).json()) as { url: string };
-    const state = new URL(url).searchParams.get('state') ?? '';
+    const state = await stateOf(started.call);
 
     const callback = await started.call(
       `/google/callback?error=access_denied&state=${state}`,
@@ -198,7 +190,7 @@ describe('ConnectorsController', () => {
     );
   });
 
-  it('vincula la planilla y la lee al tiro', async () => {
+  it('vincula la planilla por su link', async () => {
     const setup = fakeSetup();
     const started = await start(setup);
     app = started.app;
@@ -206,38 +198,47 @@ describe('ConnectorsController', () => {
     const response = await started.call('/sources', {
       method: 'POST',
       body: JSON.stringify({
-        documentId: 'presupuesto',
         url: 'https://docs.google.com/spreadsheets/d/sheet-1/edit',
       }),
     });
 
     expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({
+    expect(await response.json()).toEqual({
       source: {
         id: SOURCE_ID,
-        documentName: 'Presupuesto itemizado',
-        spaceName: 'Carpeta de costos',
+        provider: 'google',
+        title: 'Presupuesto Los Aromos',
+        pointer: SOURCE.pointer,
+        checkedAt: '2026-11-21T10:00:00.000Z',
+        changedAt: null,
+        createdAt: '2026-11-21T10:00:00.000Z',
+        lastError: null,
       },
-      sync: { status: 'ingested', revisionId: 'r1', proposals: 0 },
     });
-    expect(setup.sync.execute).toHaveBeenCalledWith(SOURCE_ID);
+    expect(setup.link.execute).toHaveBeenCalledWith(
+      'https://docs.google.com/spreadsheets/d/sheet-1/edit',
+    );
   });
 
-  it('solo deja vincular el presupuesto', async () => {
+  it('revisa la planilla ahora y dice cuántas celdas cambiaron', async () => {
     const setup = fakeSetup();
     const started = await start(setup);
     app = started.app;
 
-    const response = await started.call('/sources', {
+    const response = await started.call(`/sources/${SOURCE_ID}/check`, {
       method: 'POST',
-      body: JSON.stringify({ documentId: 'gantt', url: 'x' }),
     });
 
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      code: 'unlinkable_document',
+      source: { id: SOURCE_ID, changedAt: '2026-11-21T10:05:00.000Z' },
+      check: {
+        status: 'changed',
+        message: 'La planilla cambió: 1 celda',
+        cells: 1,
+      },
     });
-    expect(setup.link.execute).not.toHaveBeenCalled();
+    expect(setup.watch.execute).toHaveBeenCalledWith(SOURCE_ID);
   });
 
   it('traduce los errores del conector y de Google', async () => {
@@ -245,7 +246,7 @@ describe('ConnectorsController', () => {
     setup.link.execute.mockRejectedValueOnce(
       new ProviderError('Tu cuenta de Google no tiene acceso a esa planilla'),
     );
-    setup.sync.execute.mockRejectedValueOnce(
+    setup.watch.execute.mockRejectedValueOnce(
       new IntegrationError(
         'source_not_found',
         'Esa planilla ya no está vinculada',
@@ -256,7 +257,7 @@ describe('ConnectorsController', () => {
 
     const link = await started.call('/sources', {
       method: 'POST',
-      body: JSON.stringify({ documentId: 'presupuesto', url: 'x' }),
+      body: JSON.stringify({ url: 'x' }),
     });
     expect(link.status).toBe(502);
     expect(await link.json()).toEqual({
@@ -264,9 +265,9 @@ describe('ConnectorsController', () => {
       message: 'Tu cuenta de Google no tiene acceso a esa planilla',
     });
 
-    const sync = await started.call(`/sources/${SOURCE_ID}/sync`, {
+    const check = await started.call(`/sources/${SOURCE_ID}/check`, {
       method: 'POST',
     });
-    expect(sync.status).toBe(404);
+    expect(check.status).toBe(404);
   });
 });

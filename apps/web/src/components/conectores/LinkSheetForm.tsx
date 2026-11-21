@@ -1,51 +1,31 @@
 'use client';
 
-import { Button, Field, Input, Select } from '@team27/ui';
+import { Button, Field, Input } from '@team27/ui';
 import { useState } from 'react';
 
-import type { LinkableDocument } from '@/lib/integrations-api';
-
 export function LinkSheetForm({
-  documents,
   busy,
   onSubmit,
 }: {
-  readonly documents: readonly LinkableDocument[];
   readonly busy: boolean;
-  readonly onSubmit: (input: { documentId: string; url: string }) => void;
+  readonly onSubmit: (url: string) => Promise<boolean>;
 }) {
-  const [documentId, setDocumentId] = useState(documents[0]?.id ?? '');
   const [url, setUrl] = useState('');
-  const selected = documents.some((document) => document.id === documentId)
-    ? documentId
-    : (documents[0]?.id ?? '');
 
   return (
     <form
       className="flex flex-col gap-3 rounded-lg border border-dashed border-axis p-4"
       onSubmit={(event) => {
         event.preventDefault();
-        if (selected && url.trim()) {
-          onSubmit({ documentId: selected, url: url.trim() });
-        }
+        if (!url.trim()) return;
+        void onSubmit(url.trim()).then((linked) => {
+          if (linked) setUrl('');
+        });
       }}
     >
-      <p className="text-sm font-medium text-ink">Vincular una planilla</p>
-      <Field label="Documento de la obra">
-        <Select
-          value={selected}
-          onChange={(event) => setDocumentId(event.target.value)}
-        >
-          {documents.map((document) => (
-            <option key={document.id} value={document.id}>
-              {document.name} · {document.spaceName}
-            </option>
-          ))}
-        </Select>
-      </Field>
       <Field
-        label="Link de la planilla"
-        hint="La primera hoja necesita una fila con «Código», «Precio unitario» y «Unidad»."
+        label="Vincular una planilla"
+        hint="Pega el link de una planilla de Google Sheets a la que tenga acceso tu cuenta."
       >
         <Input
           type="url"
@@ -56,8 +36,8 @@ export function LinkSheetForm({
         />
       </Field>
       <div>
-        <Button type="submit" disabled={busy || !selected || !url.trim()}>
-          {busy ? 'Leyendo la planilla…' : 'Vincular y leer'}
+        <Button type="submit" disabled={busy || !url.trim()}>
+          {busy ? 'Vinculando…' : 'Vincular'}
         </Button>
       </div>
     </form>

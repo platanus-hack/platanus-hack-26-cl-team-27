@@ -3,13 +3,12 @@ import type {
   Connection,
   ConnectionGrant,
   Provider,
+  SourceCheck,
   SourceError,
   SourceLink,
   SourceLinkDraft,
-  SourceRead,
 } from '../../domain/Connection.ts';
-import type { SourceChunk } from '../../domain/readBudgetSheet.ts';
-import type { SheetTab } from '../../domain/Sheet.ts';
+import type { CellChange, SheetSnapshot } from '../../domain/Sheet.ts';
 
 export interface StoredConnection extends Connection {
   readonly refreshToken: string;
@@ -24,10 +23,9 @@ export interface ConnectionRepository {
 export interface SourceLinkRepository {
   list(): Promise<SourceLink[]>;
   find(id: string): Promise<SourceLink | null>;
-  findByDocument(documentId: string): Promise<SourceLink | null>;
+  findByExternalId(externalId: string): Promise<SourceLink | null>;
   create(draft: SourceLinkDraft): Promise<SourceLink>;
-  recordCheck(id: string, at: Date, title: string): Promise<SourceLink>;
-  recordRead(id: string, read: SourceRead, title: string): Promise<SourceLink>;
+  recordCheck(id: string, check: SourceCheck): Promise<SourceLink>;
   recordError(id: string, error: SourceError): Promise<SourceLink>;
   remove(id: string): Promise<boolean>;
 }
@@ -38,35 +36,28 @@ export interface AccountAuthorizer {
   accessToken(refreshToken: string): Promise<string>;
 }
 
-export interface SpreadsheetSnapshot {
+export interface SpreadsheetContent extends SheetSnapshot {
   readonly title: string;
-  readonly tab: SheetTab;
   readonly pointer: string;
   readonly contentHash: string;
 }
 
 export interface SpreadsheetReader {
-  read(
-    accessToken: string,
-    spreadsheetId: string,
-  ): Promise<SpreadsheetSnapshot>;
+  read(accessToken: string, spreadsheetId: string): Promise<SpreadsheetContent>;
 }
 
-export interface RevisionDelivery {
-  readonly documentId: string;
-  readonly label: string;
-  readonly pointer: string;
-  readonly contentHash: string;
-  readonly chunks: readonly SourceChunk[];
+export interface SnapshotCache {
+  get(sourceId: string): SheetSnapshot | null;
+  set(sourceId: string, snapshot: SheetSnapshot): void;
+  delete(sourceId: string): void;
 }
 
-export interface DeliveryReceipt {
-  readonly revisionId: string;
-  readonly proposals: number;
-  readonly summary: string;
+export interface SheetChange {
+  readonly source: SourceLink;
+  readonly at: Date;
+  readonly cells: readonly CellChange[] | null;
 }
 
-export interface RevisionSink {
-  epoch(): Promise<number | null>;
-  deliver(delivery: RevisionDelivery): Promise<DeliveryReceipt>;
+export interface ChangeListener {
+  changed(change: SheetChange): Promise<void>;
 }

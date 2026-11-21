@@ -1,5 +1,3 @@
-import type { IgnoredCell } from './readBudgetSheet.ts';
-
 export const PROVIDERS = ['google'] as const;
 
 export type Provider = (typeof PROVIDERS)[number];
@@ -22,14 +20,6 @@ export interface ConnectionGrant extends AccountGrant {
   readonly provider: Provider;
 }
 
-export interface SourceRead {
-  readonly at: Date;
-  readonly hash: string;
-  readonly epoch: number;
-  readonly label: string;
-  readonly ignored: readonly IgnoredCell[];
-}
-
 export interface SourceError {
   readonly at: Date;
   readonly message: string;
@@ -40,11 +30,11 @@ export interface SourceLink {
   readonly connectionId: string;
   readonly provider: Provider;
   readonly externalId: string;
-  readonly documentId: string;
   readonly title: string;
   readonly pointer: string;
+  readonly contentHash: string | null;
   readonly checkedAt: Date | null;
-  readonly lastRead: SourceRead | null;
+  readonly changedAt: Date | null;
   readonly lastError: SourceError | null;
   readonly createdAt: Date;
 }
@@ -53,7 +43,15 @@ export interface SourceLinkDraft {
   readonly connectionId: string;
   readonly provider: Provider;
   readonly externalId: string;
-  readonly documentId: string;
   readonly title: string;
   readonly pointer: string;
+  readonly contentHash: string;
+  readonly checkedAt: Date;
+}
+
+export interface SourceCheck {
+  readonly at: Date;
+  readonly title: string;
+  readonly contentHash: string;
+  readonly changed: boolean;
 }
