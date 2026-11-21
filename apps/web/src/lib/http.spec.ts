@@ -31,9 +31,9 @@ describe('parseError', () => {
   it('acepta el código como mensaje de Nest', () => {
     const error = parseError(
       409,
-      JSON.stringify({ statusCode: 409, message: 'already_ingested' }),
+      JSON.stringify({ statusCode: 409, message: 'seat_taken' }),
     );
-    expect(error.code).toBe('already_ingested');
+    expect(error.code).toBe('seat_taken');
   });
 
   it('tolera cuerpos que no son JSON', () => {
@@ -48,8 +48,11 @@ describe('describeError', () => {
     expect(describeError(new ApiError(409, 'seat_taken', ''))).toContain(
       'se te adelantó',
     );
+    expect(describeError(new ApiError(409, 'seat_held', ''))).toContain(
+      'otra persona',
+    );
     expect(describeError(new ApiError(403, null, 'x'))).toContain(
-      'no es de tu',
+      'no le toca a tu asiento',
     );
     expect(describeError(new TypeError('fetch failed'))).toContain('conexión');
   });

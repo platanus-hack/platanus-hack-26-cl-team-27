@@ -16,30 +16,35 @@ La solución identifica qué elementos, decisiones y equipos quedan afectados, d
 
 ## Principios
 
-- **No reemplaza herramientas.** Se conecta al software que el proyecto ya usa.
-- **No centraliza datos.** Nadie migra su información a una plataforma nueva.
-- **Nadie reporta cambios a mano.** El cambio se captura en el software donde ocurre.
-- **Solo lo que impacta.** Cada afectado recibe lo suyo; el ruido hace que los avisos se ignoren.
+- **No reemplaza herramientas.** Se conecta a los espacios donde ya vive la información del proyecto: el Drive, las planillas, el correo, el WhatsApp de la obra, el libro de obra y el modelo BIM.
+- **Consolidar no es centralizar.** Nadie migra su información. Leemos cada documento donde vive y guardamos por detrás sus hechos, con un puntero al origen: no los archivos.
+- **Nadie reporta cambios a mano.** El cambio se captura en el documento donde ocurre: una revisión nueva de un plano, una cotización o un mensaje.
+- **Lo vigente es un consenso.** El valor vigente cambia solo cuando todos los afectados lo confirman. Una disputa no lo borra.
+- **La autoridad es explícita.** El plano y la EETT mandan sobre el diseño, la cotización y el presupuesto sobre el precio, y la Carta Gantt y el acta sobre las fechas. Un WhatsApp o el libro de obra proponen, pero no deciden.
+- **Cada valor sabe de dónde viene.** Revisión, espacio, autor y quién lo confirmó.
+- **Solo lo que impacta.** Cada afectado recibe lo suyo; el ruido hace que los avisos se ignoren. Quien queda fuera ve por qué.
 - **En el canal que ya se usa.** Correo, Slack/Teams, WhatsApp o la propia herramienta.
 
 ## Flujo
 
 ```mermaid
 flowchart LR
-  autor["Autor del cambio"] --> sw["Software del proyecto<br/>BIM, planificación, costos,<br/>gestión documental"]
-  sw -->|captura automática| cambio["Cambio"]
+  autor["Autor del cambio"] --> sw["Documentos en sus espacios<br/>planos, cotizaciones, Gantt,<br/>actas, WhatsApp, libro de obra"]
+  sw -->|captura automática| lago["Lago de hechos<br/>contra lo vigente"]
+  lago -->|diferencia con autoridad| cambio["Cambio propuesto"]
   cambio --> impacto["Impacto<br/>elementos, decisiones y equipos;<br/>costo y plazo estimados"]
   impacto -->|solo lo relevante| notif["Notificación<br/>resumen, impacto y enlace"]
   notif --> canal["Canal del afectado<br/>correo, Slack/Teams,<br/>WhatsApp, su herramienta"]
   canal --> afectado["Afectado"]
   afectado -->|revisado o tengo un problema| respuesta["Respuesta"]
+  respuesta -->|todos confirman| lago
   respuesta --> autor
 
   classDef actor fill:#E7F5FF,stroke:#1C7ED6,color:#0B3D6B
   classDef domain fill:#E6FCF5,stroke:#12B886,color:#0B3D2E
   classDef external fill:#F3F0FF,stroke:#7048E8,color:#2E1A6B
   class autor,afectado actor
-  class cambio,impacto,notif,respuesta domain
+  class lago,cambio,impacto,notif,respuesta domain
   class sw,canal external
 ```
 
@@ -49,7 +54,7 @@ El impacto se decide con reglas sobre el grafo del proyecto, no a criterio:
 - **Costo.** Lo que cambia la cantidad de cada partida, multiplicado por su precio unitario. Si el total cambia, se entera quien lleva el presupuesto.
 - **Plazo.** Lo que cambia la duración de las tareas que dependen de esa cantidad, recorrido por la ruta crítica. Quien lleva el plazo se entera solo si la entrega se mueve; si la holgura absorbe el cambio, no se le avisa y queda registrada la razón.
 
-La muestra que presentamos aplica este flujo a un proyecto ficticio: [la muestra](muestra.md).
+Cómo se decide qué es un cambio y cuándo pasa a lo vigente (autoridad, discrepancias, consenso, desfases y procedencia) está en [multijugador](multijugador.md#el-lago-y-el-consenso). La muestra que presentamos aplica este flujo a un proyecto ficticio: [la muestra](muestra.md).
 
 ## Actores
 
@@ -70,25 +75,38 @@ Una misma persona puede ser autor de un cambio y afectada por otro.
 - **HU-05 · Afectado.** Quiero que la notificación incluya el resumen del cambio, el impacto estimado en costo/plazo y un enlace al detalle.
 - **HU-06 · Afectado.** Quiero responder desde mi canal si el cambio está revisado o si me complica, para que el autor lo sepa sin una reunión.
 - **HU-07 · Autor del cambio.** Quiero ver a quién le llegó mi cambio, quién lo revisó y quién tiene un problema, para coordinar sin perseguir a nadie.
+- **HU-08 · Equipo.** Quiero que lo vigente cambie solo cuando todos los afectados lo confirman, para que nadie avance con un valor que otro todavía disputa.
+- **HU-09 · Dueño de un valor.** Quiero que un mensaje o un folio que contradice un valor me avise a mí sin cambiar nada, hasta que un documento con autoridad lo respalde.
+- **HU-10 · Dueño de un documento.** Quiero saber cuándo mi documento quedó desfasado respecto de lo vigente, para actualizarlo o confirmar que no cambia.
+- **HU-11 · Cualquiera del equipo.** Quiero tocar un valor del proyecto y ver de dónde salió, quién lo afirmó y quién lo confirmó.
 
 ## Glosario
 
-| Término      | En el código           | Qué es                                                                                                     |
-| ------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Proyecto     | `Project`              | La obra: los equipos, su software y las dependencias entre ellos                                           |
-| Integración  | `Integration`          | La conexión con un software del proyecto (BIM, planificación, costos, gestión documental)                  |
-| Versión      | `Snapshot`             | El estado del modelo que publica el software de origen; un cambio es la diferencia entre dos versiones     |
-| Cambio       | `Change`               | Una modificación de una decisión, elemento, especificación o condición, capturada en el software de origen |
-| Dependencia  | `Dependency`           | La relación por la que el trabajo de un equipo depende de un elemento o una decisión de otro               |
-| Partida      | `BudgetItem`           | Una línea del presupuesto: cantidad de un tipo de elemento por un precio unitario                          |
-| Tarea        | `Task`                 | Una faena del plan, con su duración y las tareas que deben terminar antes                                  |
-| Holgura      | `floatDays`            | Los días que una tarea puede atrasarse sin mover la entrega; en la ruta crítica es cero                    |
-| Impacto      | `Impact`               | Lo que un cambio afecta: elementos, decisiones y equipos, con su costo y plazo estimados                   |
-| Hallazgo     | `Finding`              | Lo que un impacto significa para un afectado: qué le cambia, sus números y qué debería hacer               |
-| Afectado     | `Stakeholder`          | Un equipo o persona alcanzada por el impacto de un cambio                                                  |
-| Canal        | `Channel`              | Donde el afectado recibe la notificación: correo, Slack/Teams, WhatsApp o la propia herramienta            |
-| Notificación | `Notification`         | El aviso a un afectado: resumen del cambio, impacto estimado en costo y plazo, y enlace al detalle         |
-| Respuesta    | `NotificationResponse` | Lo que el afectado contesta a una notificación: revisado o tengo un problema, con una nota opcional        |
+| Término      | En el código           | Qué es                                                                                                              |
+| ------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Proyecto     | `Project`              | La obra: los equipos, su software y las dependencias entre ellos                                                    |
+| Integración  | `Integration`          | La conexión con un software del proyecto (BIM, planificación, costos, gestión documental)                           |
+| Espacio      | `Space`                | Lugar donde ya vive la información: Drive, planillas de costos, correo, WhatsApp, libro de obra; tiene un dueño     |
+| Documento    | `documentId`           | Artefacto de identidad estable: plano, EETT, presupuesto, Carta Gantt, cotización, acta, mensaje, folio             |
+| Revisión     | `Revision`             | Versión inmutable de un documento, con espacio, autor, fecha, hash y puntero al origen                              |
+| Hecho        | `Claim`                | Lo que una revisión afirma (o usa) sobre una propiedad de un elemento, con su localizador de origen                 |
+| Lo vigente   | `BaselineEntry`        | El valor consolidado y consensuado de una propiedad, con su procedencia e historial                                 |
+| Cambio       | `Change`               | Una modificación de una decisión, elemento, especificación o condición, capturada en el documento de origen         |
+| Propuesta    | `Proposal`             | Una diferencia con autoridad entre una revisión y lo vigente; pasa a lo vigente cuando todos sus revisores aprueban |
+| Discrepancia | `Discrepancy`          | Un valor distinto de lo vigente que viene de una fuente sin autoridad; avisa solo al dueño del valor                |
+| Desfase      | `StaleDocument`        | Un documento vigente que dice o usa un valor distinto de lo vigente                                                 |
+| Procedencia  | `Provenance`           | La cadena que responde de dónde salió un valor: revisión, espacio, autor, propuesta y aprobaciones                  |
+| Consenso     | `ConsensusIndex`       | Documentos al día sobre documentos totales; al completarse, la obra queda consensuada                               |
+| Dependencia  | `Dependency`           | La relación por la que el trabajo de un equipo depende de un elemento o una decisión de otro                        |
+| Partida      | `BudgetItem`           | Una línea del presupuesto: cantidad de un tipo de elemento por un precio unitario                                   |
+| Tarea        | `Task`                 | Una faena del plan, con su duración y las tareas que deben terminar antes                                           |
+| Holgura      | `floatDays`            | Los días que una tarea puede atrasarse sin mover la entrega; en la ruta crítica es cero                             |
+| Impacto      | `Impact`               | Lo que un cambio afecta: elementos, decisiones y equipos, con su costo y plazo estimados                            |
+| Hallazgo     | `Finding`              | Lo que un impacto significa para un afectado: qué le cambia, sus números y qué debería hacer                        |
+| Afectado     | `Stakeholder`          | Un equipo o persona alcanzada por el impacto de un cambio                                                           |
+| Canal        | `Channel`              | Donde el afectado recibe la notificación: correo, Slack/Teams, WhatsApp o la propia herramienta                     |
+| Notificación | `Notification`         | El aviso a un afectado: resumen del cambio, impacto estimado en costo y plazo, y enlace al detalle                  |
+| Respuesta    | `NotificationResponse` | Lo que el afectado contesta a una notificación: revisado o tengo un problema, con una nota opcional                 |
 
 ## Modelo de negocio
 

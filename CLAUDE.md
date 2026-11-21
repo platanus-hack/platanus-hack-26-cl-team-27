@@ -2,7 +2,7 @@
 
 Monorepo de la hackatón: Nx 24 + pnpm 10, una web en Next.js 16 (React 19, Tailwind 4), una API en NestJS 12, PostgreSQL con Prisma 7 y el dominio en contextos hexagonales. En `tool-use-case/` viven los conectores reales con el software del proyecto, como el add-in de Revit en C#. El producto se llama Vigente ([docs/marca.md](docs/marca.md)) y convierte cada cambio de un proyecto de construcción en avisos a los equipos que afecta, en las herramientas que ya usan. El modelo de negocio todavía se está definiendo.
 
-Lo que se construye es una muestra para el pitch, no un MVP. Va en un espacio controlado: un proyecto ficticio con un elenco fijo, el software de origen y los canales simulados dentro de la web, y sin gestión de equipos, organizaciones ni usuarios. Se avanza por segmentos ([docs/muestra.md](docs/muestra.md#segmentos)), y cada uno se cierra con tests, docs y `pnpm check` en verde.
+Lo que se construye es una muestra para el pitch, no un MVP. Va en un espacio controlado: un proyecto ficticio con un elenco fijo, los canales simulados dentro de la web, y sin gestión de equipos, organizaciones ni usuarios. La API no sabe que existe una demo. Lo único simulado es el ETL (`apps/etl`): lee el lago ficticio de archivos, carga los documentos a la API y juega los asientos que nadie tomó. Se avanza por segmentos ([docs/muestra.md](docs/muestra.md#segmentos)), y cada uno se cierra con tests, docs y `pnpm check` en verde.
 
 ## Documentación
 

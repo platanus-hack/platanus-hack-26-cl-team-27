@@ -4,5 +4,5 @@ Cada diagrama vive en su carpeta: la especificación (`<slug>.archify.json`) es 
 
 | Diagrama                                                          | Responde                                                                                   | Revisión de la evidencia |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------ |
-| [Arquitectura y DevOps](sistema/sistema.html)                     | Qué corre dónde, cómo se habla la web con la API y los contextos, y qué hay de CI y deploy | `7b2549d`                |
-| [Flujo de datos de un cambio](flujo-de-datos/flujo-de-datos.html) | Cómo un documento soltado se vuelve hechos, propuesta, avisos, votos y lo vigente          | —                        |
+| [Arquitectura y DevOps](sistema/sistema.html) | Qué corre dónde, cómo hablan la web y el ETL con la API y los contextos, y qué hay de CI y deploy | `8d85002` |
+| [Flujo de datos de un cambio](flujo-de-datos/flujo-de-datos.html) | Cómo una revisión que llega por `POST /api/revisions` se vuelve hechos, propuesta, avisos, votos y lo vigente | — |

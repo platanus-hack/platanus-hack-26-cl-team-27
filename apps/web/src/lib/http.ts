@@ -100,18 +100,12 @@ export const describeError = (error: unknown): string => {
     switch (error.code) {
       case 'seat_taken':
         return 'Alguien se te adelantó con ese asiento.';
-      case 'already_ingested':
-        return 'Ese documento ya está en el repositorio.';
-      case 'blocked':
-        return error.message && error.message !== 'blocked'
-          ? error.message
-          : 'Todavía no se cumple lo que ese documento necesita.';
-      case 'template_invalid':
-        return 'El archivo no sigue la plantilla.';
+      case 'seat_held':
+        return 'Ese asiento lo tiene otra persona.';
       default:
     }
     if (error.status === 401) return 'Tu asiento o tu clave ya no son válidos.';
-    if (error.status === 403) return 'Ese documento no es de tu asiento.';
+    if (error.status === 403) return 'Esa acción no le toca a tu asiento.';
     if (error.status === 404) return 'Eso ya no existe.';
     if (error.status === 429) return 'Vas muy rápido. Espera un momento.';
     return error.message;

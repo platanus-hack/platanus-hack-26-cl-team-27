@@ -48,7 +48,7 @@ Cada revisión produce afirmaciones sobre las propiedades de los elementos del p
 - **Usa**: el documento se calculó sobre ese valor (el presupuesto usa el espesor de la losa).
 - **Localizador**: celda, página o frase de origen (`Partidas!C14`, `cajetín rev C`, `folio 44`).
 
-La extracción es determinista. La revisión del catálogo trae sus hechos escritos a mano, la minuta de Revit los trae ya extraídos por el add-in (`InlineFactExtractor`), y un lector de la plantilla CSV fija de cotización o presupuesto produce los mismos hechos desde un archivo real, detrás del mismo puerto `FactExtractor`. En producción, un modelo de lenguaje o un lector de planos emitiría los mismos hechos, con confianza, detrás de ese puerto. La muestra no lo usa.
+La extracción es determinista y ocurre en el conector, antes de llegar a la API: la revisión trae sus hechos (`InlineFactExtractor`). En la muestra, el ETL ([`apps/etl`](../apps/etl/README.md)) lee los archivos del lago ficticio (planos en JSON, EETT en Markdown, presupuesto, Gantt y cotización en CSV, acta, WhatsApp y folios en texto) con un parser por tipo; un test de oro fija los hechos que produce cada archivo. El add-in de Revit manda los suyos en la minuta. En producción, un lector de planos o un modelo de lenguaje emitiría los mismos hechos, con confianza; la muestra no lo usa.
 
 ### Lo vigente
 
@@ -97,7 +97,7 @@ Las respuestas son idempotentes.
 
 ### Desfase
 
-El desfase es una vista derivada, sin tabla. Un documento vigente queda **desfasado** cuando alguno de sus hechos (los que afirma con autoridad y los que usa) difiere de lo vigente y no pertenece a una propuesta abierta. Se muestra con su dueño, el valor usado y el valor vigente, y se recalcula tras cada ingreso y fusión. Una revisión nueva del mismo documento lo cierra si coincide. El dueño también puede **confirmar sin cambio** con una nota obligatoria: el desfase queda visible como aviso amarillo, no como consenso ciego. El desfase es de un nivel: lo declaran los hechos «usa» del catálogo.
+El desfase es una vista derivada, sin tabla. Un documento vigente queda **desfasado** cuando alguno de sus hechos (los que afirma con autoridad y los que usa) difiere de lo vigente y no pertenece a una propuesta abierta. Se muestra con su dueño, el valor usado y el valor vigente, y se recalcula tras cada ingreso y fusión. Una revisión nueva del mismo documento lo cierra si coincide. El dueño también puede **confirmar sin cambio** con una nota obligatoria: el desfase queda visible como aviso amarillo, no como consenso ciego. El desfase es de un nivel: lo declaran los hechos «usa» de cada revisión.
 
 ### Procedencia
 
@@ -136,7 +136,7 @@ Los contextos nunca se importan entre sí: la API los compone. La sala (asientos
 - **Dominio**: `Space`, `Revision`, `Claim`, `Authority`, `BaselineEntry`, `Proposal`, `Review`, `Discrepancy`, `Acknowledgement`. Funciones puras: `classifyClaims`, `decideProposal`, `reopenFor`, `computeStaleness`, `consensusIndex`, `buildProvenance`.
 - **Puertos**: un repositorio por agregado y `FactExtractor`.
 - **Casos de uso**: `IngestRevision`, `OpenProposal`, `RecordReview`, `ReopenProposal`, `WithdrawProposal`, `DismissDiscrepancy`, `AcknowledgeStale`, `GetBaseline`, `GetProvenance`, `ListStale`, `ListProposals`, `GetConsensus`.
-- **Adapters** (subpath `/adapters`): Prisma por repositorio, `InlineFactExtractor` (los hechos vienen en la revisión), `FixtureFactExtractor` y `TemplateCsvFactExtractor`.
+- **Adapters** (subpath `/adapters`): Prisma por repositorio e `InlineFactExtractor` (los hechos vienen en la revisión).
 
 ### `capture`
 
@@ -294,7 +294,7 @@ El proyecto, el elenco, el grafo, los espacios, los sujetos, los atributos y el 
 
 ### La carga inicial
 
-Nueve documentos, todos al día y con unos 16 hechos vigentes confirmados:
+Nueve documentos, todos al día, que dejan 15 valores vigentes confirmados:
 
 | Documento                         | Espacio  | Dueño    | Hechos                                                              |
 | --------------------------------- | -------- | -------- | ------------------------------------------------------------------- |
@@ -332,18 +332,21 @@ Fernanda abre `/sala` en el proyector, `/presentador` en el notebook y `pnpm etl
 
 ## Segmentos de construcción
 
-1. **S3. Repositorio y consenso.** `lake`, `DetectChanges`, `ReopenResponse`, migración, catálogo, orquestación y endpoints de datos. Aceptación: `pnpm check` en verde; los tres cambios producen sus cifras por la API; consenso, disputa, reapertura, procedencia, discrepancia con respaldo y desfase se verifican con llamadas concretas.
-2. **S4. Sala.** Asientos con token, eventos, época, reinicio, bandeja, `x-act-as`, ingesta genérica y carga inicial. Aceptación: con el ETL en modo automático y sin asientos tomados, el sondeo lleva a «Obra consensuada» en menos de 90 s a velocidad 4x, con la disputa de Paula visible.
-3. **S5. Web.** Las siete rutas con el look de canal y la procedencia. Aceptación: el telón se mueve en vivo con el ETL, el celular de 390 px vota y se refleja en menos de 2 s, la procedencia abre con nombres y notas.
-4. **S6. Pulido.** Ensayo cronometrado, acceso desde los celulares (despliegue o red local), docs finales, lector opcional de la plantilla CSV. Aceptación: el guion dura entre 2:50 y 3:10 y un celular externo entra por el QR.
+| Segmento        | Qué cubre                                                                                           | Aceptación                                                                                                                                                           | Estado    |
+| --------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Lago y consenso | `lake`, `DetectChanges`, `ReopenResponse`, orquestación y endpoints de datos                        | Los tres cambios producen sus cifras por la API; consenso, disputa, reapertura, procedencia, discrepancia con respaldo y desfase se verifican con llamadas concretas | Listo     |
+| Sala            | Asientos con token, eventos, época, reinicio, bandeja, `x-act-as`, ingesta genérica y carga inicial | Un humano en un asiento impide que el ETL juegue por él (`seat_held`)                                                                                                | Listo     |
+| Web             | Las siete rutas con el look de canal y la procedencia                                               | El telón se mueve en vivo con el ETL y el celular vota                                                                                                               | Listo     |
+| ETL             | Lago de archivos, parsers, guion y jugadores fuera de la API                                        | Test de oro de los 59 hechos; con `pnpm etl auto --velocidad 4` y sin humanos, el guion llega a «Obra consensuada» con las cifras verificadas                        | Listo     |
+| Pulido          | Ensayo cronometrado y acceso desde los celulares (despliegue o red local)                           | El guion dura entre 2:50 y 3:10 y un celular externo entra por el QR                                                                                                 | Pendiente |
 
 ## Alcance
 
-**Imprescindible.** El contexto `lake` con detección, propuestas y consenso; el catálogo que reproduce las tres cifras; capture, impact y notification reutilizados; procedencia; desfase; discrepancia con respaldo; asientos, `x-act-as`, ingesta genérica, carga inicial y reinicio; sondeo con cursor; `/sala`, `/asiento/[castId]` y `/presentador`.
+**Imprescindible.** El contexto `lake` con detección, propuestas y consenso; el lago de archivos del ETL, que reproduce las tres cifras; capture, impact y notification reutilizados; procedencia; desfase; discrepancia con respaldo; asientos, `x-act-as`, ingesta genérica, carga inicial y reinicio; sondeo con cursor; `/sala`, `/asiento/[castId]` y `/presentador`.
 
 **Deseable.** Reapertura solo al disputante y retiro; confirmar sin cambio con nota; sello con la línea de quién cerró qué; `/espacios`, `/cambios/[id]` y `/valor`; paso del shaft; looks de canal; QR y acceso desde celulares.
 
-**Opcional.** Lector de plantilla CSV o xlsx; árbitro ITO; cambio de precio unitario desde una cotización; escalamiento por falta de respuesta; cascada de más de un nivel; sonido y animaciones extra.
+**Opcional.** Lectura de planos en PDF o del modelo con un modelo de lenguaje; árbitro ITO; cambio de precio unitario desde una cotización; escalamiento por falta de respuesta; cascada de más de un nivel; sonido y animaciones extra.
 
 ## Riesgos
 

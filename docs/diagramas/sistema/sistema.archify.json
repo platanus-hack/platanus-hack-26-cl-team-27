@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "Team 27: arquitectura y DevOps",
+    "title": "Vigente: arquitectura y DevOps",
     "output": "docs/diagramas/sistema/sistema.html",
     "quality_profile": "showcase",
     "viewBox": [
@@ -13,7 +13,7 @@
       "url": "https://github.com/platanus-hack/platanus-hack-26-cl-team-27",
       "provider": "github",
       "link_mode": "local-only",
-      "revision": "7b2549d2eeada4329982c3612cb240aaa62f0a99"
+      "revision": "8d850023983a58025448ecab4cac904cc8a5a030"
     },
     "views": [
       {
@@ -22,13 +22,14 @@
         "focus": [
           "devices",
           "web",
+          "etl",
           "room",
           "coordination",
           "contexts",
           "scenario",
           "postgres"
         ],
-        "note": "La web reenvía /api/* a la API, que compone los contextos y guarda en Postgres."
+        "note": "La web y el ETL hablan con la API por HTTP; la API compone los contextos y guarda en Postgres."
       },
       {
         "id": "devops",
@@ -80,10 +81,30 @@
       ]
     },
     {
+      "id": "etl",
+      "type": "external",
+      "label": "apps/etl",
+      "sublabel": "lago · parsers · jugadores",
+      "pos": [
+        270,
+        440
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "pnpm etl",
+      "sources": [
+        {
+          "path": "apps/etl/README.md"
+        }
+      ]
+    },
+    {
       "id": "room",
       "type": "backend",
       "label": "modules/room",
-      "sublabel": "asientos · eventos · bots",
+      "sublabel": "asientos · eventos",
       "pos": [
         510,
         120
@@ -134,8 +155,8 @@
     {
       "id": "scenario",
       "type": "backend",
-      "label": "Guion Los Aromos",
-      "sublabel": "elenco · grafo · catálogo",
+      "label": "Proyecto Los Aromos",
+      "sublabel": "elenco · grafo · documentos",
       "pos": [
         770,
         500
@@ -272,6 +293,7 @@
       "label": "Runtime de la muestra (hoy, local)",
       "wraps": [
         "web",
+        "etl",
         "room",
         "coordination",
         "contexts",
@@ -319,13 +341,19 @@
     {
       "from": "web",
       "to": "coordination",
-      "label": "POST drops · votos",
+      "label": "votos · reabrir",
       "variant": "emphasis"
     },
     {
-      "from": "room",
+      "from": "etl",
       "to": "coordination",
-      "label": "bots y escenas",
+      "label": "POST /api/revisions",
+      "variant": "emphasis"
+    },
+    {
+      "from": "coordination",
+      "to": "room",
+      "label": "eventos en la tx",
       "labelAt": [
         600,
         262
@@ -383,8 +411,8 @@
       "title": "Runtime",
       "items": [
         "El navegador habla solo con la web; next.config.ts reenvía /api/* a API_URL, sin CORS",
-        "La API compone cuatro contextos hexagonales que nunca se importan entre sí",
-        "Lo que cambia en la muestra vive en Postgres; el guion vive en memoria"
+        "La API no conoce la demo: el ETL lee el lago de archivos, carga las revisiones y juega los asientos vacíos",
+        "Lo que cambia en la muestra vive en Postgres; la definición del proyecto, en memoria"
       ]
     },
     {
@@ -398,7 +426,7 @@
     },
     {
       "dot": "amber",
-      "title": "Pendiente (S6)",
+      "title": "Pendiente",
       "items": [
         "deploy-url todavía apunta al repo de GitHub",
         "Plan: espejo a un repo personal y deploy en Vercel o Render",

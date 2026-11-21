@@ -1,40 +1,65 @@
 # La muestra
 
-Lo que mostramos en la hackatón: un proyecto ficticio, con un elenco fijo, en el que un cambio en el modelo de arquitectura llega solo a quien le impacta, con su costo y su plazo, en el canal de cada uno, y vuelve con la respuesta de cada afectado. No es un MVP: es una muestra en un espacio controlado. El problema y la propuesta están en [negocio](negocio.md); cómo está construida, en [arquitectura](arquitectura.md#coordinación-de-un-cambio).
+Lo que mostramos en la hackatón es un proyecto ficticio con un elenco fijo:
+
+- Sus documentos viven repartidos en cinco espacios: el Drive, la carpeta de costos, el correo, el WhatsApp de la obra y el libro de obra.
+- Cada revisión nueva llega sola al lago de hechos.
+- Lo que contradice lo vigente se vuelve una propuesta que solo revisan los afectados, con su costo y su plazo, cada uno en su canal.
+- Lo vigente cambia cuando todos confirman.
+
+No es un MVP: es una muestra en un espacio controlado. El problema y la propuesta están en [negocio](negocio.md). Cómo funcionan el lago, el consenso y la sala está en [multijugador](multijugador.md), y cómo está construido, en [arquitectura](arquitectura.md#coordinación-de-un-cambio).
 
 ## Qué demuestra
 
-| Historia                                                         | Cómo se ve en la muestra                                                                                      |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| [HU-02](negocio.md#historias-de-usuario) · captura automática    | La arquitecta publica una versión del modelo y el cambio aparece solo, sin que nadie lo reporte               |
-| [HU-03](negocio.md#historias-de-usuario) · solo lo que impacta   | De siete personas, avisamos a tres o cuatro; las demás no reciben nada                                        |
-| [HU-04](negocio.md#historias-de-usuario) · en su canal           | Cada aviso llega al canal de su destinatario: correo, WhatsApp o Slack                                        |
-| [HU-05](negocio.md#historias-de-usuario) · resumen, costo, plazo | El aviso trae el cambio, lo que le toca a esa persona, el costo y el plazo calculados, y el enlace al detalle |
-| [HU-06](negocio.md#historias-de-usuario) · respuesta             | El afectado responde «Revisado» o «Tengo un problema», y el autor lo ve                                       |
+| Historia                                                              | Cómo se ve en la muestra                                                                                                         |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| [HU-02](negocio.md#historias-de-usuario) · captura sin reporte        | Llega el plano E-102 rev C al Drive y el cambio aparece solo, sin que nadie lo informe                                           |
+| [HU-03](negocio.md#historias-de-usuario) · solo lo que impacta        | De siete personas, avisamos a tres o cuatro. Las demás no reciben nada, y quien queda fuera por la holgura ve por qué            |
+| [HU-04](negocio.md#historias-de-usuario) · en su canal                | Cada aviso llega con el look del canal de su destinatario: correo, WhatsApp o Slack                                              |
+| [HU-05](negocio.md#historias-de-usuario) · resumen, costo, plazo      | El aviso trae el cambio, lo que le toca a esa persona, el costo y el plazo calculados, y el enlace al detalle                    |
+| [HU-06](negocio.md#historias-de-usuario) · respuesta                  | El afectado responde «Revisado» o «Tengo un problema» desde su celular                                                           |
+| [HU-07](negocio.md#historias-de-usuario) · quién falta                | El telón muestra quién aprobó, quién disputó y a quién le falta responder                                                        |
+| [HU-08](negocio.md#historias-de-usuario) · lo vigente por consenso    | La losa sigue en 15 cm mientras Paula disputa; pasa a 20 cm cuando todos aprueban                                                |
+| [HU-09](negocio.md#historias-de-usuario) · una fuente débil no decide | El WhatsApp que dice «150 cm» solo abre una discrepancia para Fernanda; el plano A-201 rev C la respalda y recién ahí se propone |
+| [HU-10](negocio.md#historias-de-usuario) · documentos desfasados      | Al fusionarse la losa, la EETT, el presupuesto y la Carta Gantt quedan desfasados, cada uno con su dueño                         |
+| [HU-11](negocio.md#historias-de-usuario) · de dónde salió un valor    | Tocar «20 cm» muestra el plano, el espacio, la autora y las aprobaciones con hora y nota                                         |
 
 ## Espacio controlado
 
-- **Todo es ficticio.** El proyecto, el elenco y sus contactos son inventados: los correos usan el dominio `.example` y los teléfonos, `0000`.
-- **Nada sale de la app.** El software de origen y los canales están simulados dentro de la web. No se manda ni un correo, mensaje o post real.
-- **El software de origen es un editor del modelo.** Publica versiones a la API igual que lo haría un conector con un BIM real.
-- **Revit es el conector real.** El add-in de [`tool-use-case/revit`](../tool-use-case/revit/README.md) arma la minuta de cambios cada vez que se guarda el modelo y la manda a `POST /api/integrations/revit/minutes`, que la ingiere como una revisión del «Modelo Revit de arquitectura» y corre la misma cadena que cualquier revisión que llega por `POST /api/revisions`.
+- **Todo es ficticio.** El proyecto, el elenco, sus contactos y sus documentos son inventados. Los correos usan el dominio `.example` y los teléfonos, `0000`.
+- **Nada sale de la app.** Los canales son maquetas dentro de la web: no se manda ni un correo, mensaje o post real.
+- **La API no conoce la demo.** Recibe revisiones de documentos por `POST /api/revisions`, como de cualquier conector.
+- **El único componente simulado es el ETL** ([`apps/etl`](../apps/etl/README.md)). Cumple dos papeles:
+  - **Conectores:** lee los archivos del lago ficticio, extrae sus hechos con parsers deterministas y los carga a la API.
+  - **Personas ausentes:** juega los asientos que nadie tomó.
+- **Revit es el conector real.** El add-in de [`tool-use-case/revit`](../tool-use-case/revit/README.md) manda la minuta de cambios cada vez que se guarda el modelo, y la API la ingiere por el mismo camino.
 - **Los números salen de reglas.** Cantidades, precios unitarios y ruta crítica; ningún modelo de lenguaje los inventa. El mismo guion da siempre el mismo resultado.
-- **Sin gestión de equipos ni organizaciones.** El elenco, el grafo del proyecto y los atajos del guion vienen en [`apps/api/src/scenario/los-aromos.ts`](../apps/api/src/scenario/los-aromos.ts). No hay usuarios ni permisos.
-- **La API no conoce la demo.** Los documentos de la muestra son archivos del lago ficticio que el ETL (`pnpm etl`, ver [`apps/etl/README.md`](../apps/etl/README.md)) lee y entrega a la API paso a paso, y el ETL juega a los asientos que nadie tomó.
-- **Se reinicia en un paso.** `POST /api/room/reset` vacía la sala y el ETL hace la carga inicial.
+- **Sin gestión de equipos ni organizaciones.** No hay usuarios ni permisos.
+  - El elenco, el grafo del proyecto y el registro de documentos con sus dueños están en [`apps/api/src/scenario`](../apps/api/src/scenario).
+  - Un celular toma un asiento del elenco sin cuenta.
+- **Se reinicia en un paso.** `pnpm etl reiniciar` vacía la sala y hace la carga inicial.
 
 ## El proyecto: Edificio Los Aromos
 
-Cinco pisos y veinte departamentos en Ñuñoa, en obra gruesa. El modelo de arquitectura es de **Fernanda Lagos**, la arquitecta, que es quien hace los cambios.
+Cinco pisos y veinte departamentos en Ñuñoa, en obra gruesa.
 
-| Elemento                  | Propiedades base                                       | Se puede editar                  |
-| ------------------------- | ------------------------------------------------------ | -------------------------------- |
-| Losas nivel 2 a 5         | Espesor 15 cm · área 280 m² · hormigón H30             | Espesor                          |
-| Losa de cubierta          | Igual que las otras losas                              | Espesor                          |
-| Shaft de instalaciones S1 | A 6 m del eje A · 80 × 120 cm · del nivel 1 a cubierta | Distancia al eje A, ancho, largo |
-| Ventanas fachada norte    | 24 ventanas de 120 × 150 cm · PVC termopanel           | Ancho, alto                      |
+| Elemento                  | Lo vigente al empezar                                  |
+| ------------------------- | ------------------------------------------------------ |
+| Losas nivel 2 a 5         | Espesor 15 cm · área 280 m² · hormigón H30             |
+| Losa de cubierta          | Igual que las otras losas                              |
+| Shaft de instalaciones S1 | A 6 m del eje A · 80 × 120 cm · del nivel 1 a cubierta |
+| Ventanas fachada norte    | 24 ventanas de 120 × 150 cm · PVC termopanel           |
 
-- **Plazo:** 108 días. La ruta crítica va de las fundaciones a las losas y los muros de cada nivel, la cubierta, las instalaciones del shaft, las terminaciones y la recepción. Las ventanas quedan fuera de la ruta crítica, con 38 días de holgura.
+- **Plazo:** 108 días. La ruta crítica pasa por:
+  1. las fundaciones;
+  2. las losas y los muros de cada nivel;
+  3. la cubierta;
+  4. las instalaciones del shaft;
+  5. las terminaciones;
+  6. la recepción.
+
+  Las ventanas quedan fuera de la ruta crítica, con 38 días de holgura.
+
 - **Presupuesto:** cuatro partidas:
 
   | Partida                                | Precio                    |
@@ -44,10 +69,23 @@ Cinco pisos y veinte departamentos en Ñuñoa, en obra gruesa. El modelo de arqu
   | 05.04 Perforaciones y sellos del shaft | $95.000/m², en 6 losas    |
   | 07.01 Ventanas de PVC termopanel       | $185.000/m²               |
 
+## Los espacios y sus documentos
+
+| Espacio                  | Dueño    | Documentos                                                            |
+| ------------------------ | -------- | --------------------------------------------------------------------- |
+| Drive del proyecto       | Fernanda | Planos A-201 y E-102, EETT-03 (de Paula) y el acta de coordinación 12 |
+| Carpeta de costos        | Daniela  | Presupuesto itemizado y Carta Gantt (de Marcos)                       |
+| Correo de Quillay        | Quillay  | Cotización Q-118                                                      |
+| WhatsApp Obra Los Aromos | Marcos   | Mensajes del grupo                                                    |
+| Libro de obra            | Marcos   | Folios                                                                |
+
+En el ETL, cada espacio es una carpeta de `apps/etl/lago/` con archivos reales: los planos en JSON con cuadro de rotulación, la EETT en Markdown, el presupuesto, la Gantt y la cotización en CSV, y el acta, el WhatsApp y los folios en texto.
+
 ## El elenco
 
 | Persona          | Rol                      | Canal                       | Recibe avisos cuando cambia…                                |
 | ---------------- | ------------------------ | --------------------------- | ----------------------------------------------------------- |
+| Fernanda Lagos   | Arquitecta, presentadora | —                           | Recibe las discrepancias de los valores que ella respalda   |
 | Paula Rojas      | Ingeniera calculista     | Correo                      | El espesor de una losa, el shaft o el ancho de las ventanas |
 | Marcos Fuentes   | Jefe de obra             | WhatsApp                    | La fecha de entrega (solo si se mueve)                      |
 | Daniela Soto     | Control de costos        | Slack, `#costos-los-aromos` | El presupuesto (solo si cambia)                             |
@@ -58,35 +96,52 @@ Cinco pisos y veinte departamentos en Ñuñoa, en obra gruesa. El modelo de arqu
 
 ## El guion
 
-Tres cambios, cada uno con un resultado distinto. Cada uno tiene un atajo en el editor.
+El ETL parte con la **carga inicial**: lee los 9 documentos de partida y siembra lo vigente, con 15 valores confirmados y 9 de 9 documentos al día. Después, cada paso trae una revisión nueva:
 
-1. **Engrosar la losa del nivel 3, de 15 a 20 cm.** Avisa a 4 de 7:
-   - **Paula:** el peso propio pasa de 3,75 a 5 kN/m². Debe revisar las vigas y pilares que la reciben.
-   - **Javier:** las pasadas sanitarias que cruzan la losa cambian de largo.
-   - **Daniela:** el presupuesto sube $3.636.500 (+14 m³ de hormigón y +1.190 kg de acero).
-   - **Marcos:** el hormigonado pasa de 3 a 4 días y está en la ruta crítica, así que la entrega se corre 1 día.
+| Paso | Llega                           | Qué pasa                                                                                                                                                                                                                         | Al día |
+| ---- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| s1   | Plano E-102 rev C (Drive)       | Propuesta: losa N3 de 15 a 20 cm. Avisa a 4 de 7 (Paula, Javier, Daniela y Marcos), +$3.636.500 y +1 día. Paula disputa, Fernanda reabre, Paula aprueba: pasa a lo vigente. La EETT, el presupuesto y la Gantt quedan desfasados | 6 de 9 |
+| s2   | Presupuesto v3 (Costos)         | Daniela pone al día su presupuesto                                                                                                                                                                                               | 7 de 9 |
+| s3   | Mensaje 2 (WhatsApp)            | «Las ventanas del norte quedaron en 150»: no manda, solo abre una discrepancia para Fernanda                                                                                                                                     | 6 de 9 |
+| s4   | Plano A-201 rev C (Drive)       | Respalda el mensaje y propone ventanas de 120 a 150 cm: 4 de 7 (Quillay, Paula, Tomás y Daniela), +$1.998.000. Marcos no recibe aviso: 38 días de holgura. La cotización Q-118 queda desfasada                                   | 6 de 9 |
+| x1   | Folio 44 (libro de obra)        | El shaft S1 se corre a 8,5 m: otra discrepancia para Fernanda                                                                                                                                                                    | 5 de 9 |
+| x2   | Plano A-201 rev D (Drive)       | Respalda el folio y propone el shaft: 3 de 7 (Paula, Javier y Camila), sin costo ni plazo. Javier disputa y aprueba tras la reapertura                                                                                           | 6 de 9 |
+| s5   | Cotización Q-118 rev 2 (Correo) | Quillay recotiza con 150 cm: el ancho queda corroborado desde dos espacios                                                                                                                                                       | 7 de 9 |
+| s6   | Carta Gantt v5 y EETT-03 rev B  | Marcos y Paula se ponen al día: **«Obra consensuada»**                                                                                                                                                                           | 9 de 9 |
 
-   Camila, Tomás y Ventanas Quillay no reciben nada.
+Al final queda la versión 4 del proyecto, con +$5.634.500 y +1 día, en un plazo de 109 días.
 
-2. **Mover el shaft S1, de 6 a 8,5 m del eje A.** Avisa a 3 de 7: Paula (perforaciones en las losas), Javier (bajadas y ventilaciones) y Camila (montantes eléctricas). No cambia el costo ni el plazo, así que Daniela y Marcos no se enteran.
-3. **Ensanchar las ventanas norte, de 120 a 150 cm.** Avisa a 4 de 7:
-   - **Ventanas Quillay:** la superficie pasa de 43,2 a 54 m².
-   - **Paula:** debe revisar los dinteles.
-   - **Tomás:** los vanos cambian de medida.
-   - **Daniela:** el presupuesto sube $1.998.000.
+## Cómo correrla
 
-   **Marcos no recibe aviso, y el panel muestra por qué:** la instalación pasa de 4 a 5 días, pero tiene 38 días de holgura y la entrega no se mueve.
+```bash
+pnpm db:up && pnpm db:migrate
+pnpm dev          # API en :3001 y web en :3000
+pnpm etl          # en otra terminal: carga inicial y luego Enter = paso siguiente
+```
 
-Para cerrar, un afectado responde desde su canal. Por ejemplo, Paula responde «Tengo un problema: necesito 2 días para recalcular», y el panel de la arquitecta lo muestra.
+- **El telón:** `/sala`, en el proyector.
+- **El presentador:** `/presentador`, con la clave de presentador (en desarrollo, `sala-los-aromos`, de `.env.example`). Desde ahí se ven los asientos, se reabren o retiran propuestas y se reinicia.
+- **Los celulares:** cada uno elige su asiento en `/` y vota desde `/asiento/<id>`. Si una persona toma un asiento, el ETL no juega por ella.
+- **El ETL:** `pnpm etl` es interactivo:
+  - Enter: paso siguiente.
+  - `a`: pasa a automático.
+  - `o`: reabre las disputas.
+  - `r`: reinicia.
+  - `q`: sale.
+
+  También están `pnpm etl auto --velocidad 1|2|4`, `pnpm etl paso <id>`, `pnpm etl estado` y `pnpm etl reiniciar`. A velocidad 4 el guion completo dura unos 20 segundos. Detalle en [`apps/etl/README.md`](../apps/etl/README.md).
 
 ## Segmentos
 
-La muestra se construye por segmentos. Cada uno se cierra con sus tests, su doc y `pnpm check` en verde antes de empezar el siguiente.
+La muestra se construye por segmentos. Cada uno se cierra con sus tests, su doc y `pnpm check` en verde.
 
-| Segmento               | Qué cubre                                                                                                                          | Dónde                             | Estado                         |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------ |
-| 1. Dominio y datos     | Contextos `capture`, `impact` y `notification`, con sus tests; tablas y migración                                                  | `context/*`, `data/main`          | Listo                          |
-| 2. API de coordinación | El guion, los módulos de Nest, la cadena captura → impacto → aviso, las rutas y el reinicio                                        | `apps/api`                        | Listo                          |
-| 3. Web de la muestra   | Editor del modelo con atajos, feed de cambios con impacto, canales simulados con respuesta, detalle del cambio y vista por persona | `apps/web`                        | Pendiente                      |
-| 4. Pulido del pitch    | Animación de la propagación, ensayo cronometrado del guion y despliegue                                                            | `apps/web`, `docs/`               | Pendiente                      |
-| 5. Conector de Revit   | Add-in que arma la minuta de cambios al guardar el modelo, y la ruta de la API que la ingiere                                      | `tool-use-case/revit`, `apps/api` | Falta probarlo dentro de Revit |
+| Segmento             | Qué cubre                                                                                                              | Dónde                             | Estado                                        |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------- | --------------------------------------------- |
+| 1. Dominio y datos   | Contextos `capture`, `impact` y `notification`, tablas y migraciones                                                   | `context/*`, `data/main`          | Listo                                         |
+| 2. Lago y consenso   | Contexto `lake`: hechos, lo vigente, propuestas, discrepancias, desfases y procedencia                                 | `context/lake`, `apps/api`        | Listo                                         |
+| 3. Sala              | Asientos con token, eventos en tiempo real, época y reinicio                                                           | `apps/api`                        | Listo                                         |
+| 4. Web               | Telón, celular con look de canal, presentador, espacios, detalle del cambio y procedencia                              | `apps/web`                        | Listo                                         |
+| 5. ETL de la muestra | Lago de archivos, parsers, guion y jugadores, fuera de la API                                                          | `apps/etl`                        | Listo                                         |
+| 6. Conector de Revit | Add-in que manda la minuta de cambios al guardar el modelo, y la ruta que la ingiere                                   | `tool-use-case/revit`, `apps/api` | Falta probarlo dentro de Revit                |
+| 7. Mano alzada       | Capa de probabilidad: quién más puede estar afectado y qué afirma un documento ([auditoría](auditoria.md#mano-alzada)) | `context/inference`               | El contexto existe; falta conectarlo a la API |
+| 8. Pulido del pitch  | Ensayo cronometrado, acceso desde los celulares (despliegue o red local) y animaciones                                 | `apps/web`, `docs/`               | Pendiente                                     |

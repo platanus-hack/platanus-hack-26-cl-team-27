@@ -128,7 +128,7 @@
       "id": "tray",
       "type": "frontend",
       "label": "Bandeja del asiento",
-      "sublabel": "humano o bot",
+      "sublabel": "persona o ETL",
       "stage": 3,
       "row": 2,
       "width": 148
@@ -167,14 +167,14 @@
     {
       "from": "auth_docs",
       "to": "ingest",
-      "label": "POST drops",
+      "label": "POST /api/revisions",
       "classification": "con autoridad",
       "variant": "emphasis"
     },
     {
       "from": "weak_docs",
       "to": "ingest",
-      "label": "POST drops",
+      "label": "POST /api/revisions",
       "classification": "sin autoridad"
     },
     {
@@ -253,7 +253,7 @@
       "dot": "cyan",
       "title": "Ingesta",
       "items": [
-        "Soltar un documento ejecuta POST /api/spaces/:id/drops",
+        "El ETL, o un conector como Revit, manda cada revisión con sus hechos a POST /api/revisions",
         "Cada revisión se guarda inmutable y se parte en hechos con localizador",
         "Igual a lo vigente corrobora; distinto abre propuesta o discrepancia"
       ]

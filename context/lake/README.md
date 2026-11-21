@@ -55,10 +55,9 @@ Todo es puro: las funciones reciben los datos y devuelven el resultado.
 Subpath `@team27/context-lake/adapters`.
 
 - `PrismaRevisionRepository`, `PrismaClaimRepository`, `PrismaBaselineRepository`, `PrismaProposalRepository`, `PrismaDiscrepancyRepository` y `PrismaAcknowledgementRepository`, sobre las tablas del lago de [`data/main`](../../data/main/README.md). Reciben un `PrismaClient`. Al reemplazar un valor vigente, `PrismaBaselineRepository` guarda el anterior en el historial en la misma transacción.
-- `FixtureFactExtractor(catalog)`: los hechos escritos a mano de cada revisión del catálogo, con la clave `fixtureKey(documentId, label)`. Una revisión fuera del catálogo no tiene hechos.
-- `InlineFactExtractor(claims)`: los hechos que ya trae la revisión, extraídos por el conector; entrega una copia de ellos para cualquier revisión.
+- `InlineFactExtractor(claims)`: los hechos que ya trae la revisión, extraídos por el conector (el ETL de la muestra o el add-in de Revit); entrega una copia de ellos para cualquier revisión.
 
-El lector de la plantilla CSV y el lector con modelo de lenguaje entran detrás del mismo puerto `FactExtractor`; la muestra no los usa.
+La extracción ocurre en el conector, antes de llegar al lago: en la muestra, los parsers del ETL ([`apps/etl`](../../apps/etl/README.md)) leen los archivos y mandan los hechos con la revisión. Un lector dentro de la API (de planos o con un modelo de lenguaje) entraría detrás del mismo puerto `FactExtractor`; hoy no existe.
 
 ## Pruebas
 

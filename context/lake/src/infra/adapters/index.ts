@@ -1,5 +1,3 @@
-export { FixtureFactExtractor, fixtureKey } from './FixtureFactExtractor.ts';
-export type { FixtureCatalog } from './FixtureFactExtractor.ts';
 export { InlineFactExtractor } from './InlineFactExtractor.ts';
 export { PrismaAcknowledgementRepository } from './PrismaAcknowledgementRepository.ts';
 export { PrismaBaselineRepository } from './PrismaBaselineRepository.ts';

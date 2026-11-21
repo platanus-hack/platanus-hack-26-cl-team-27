@@ -53,7 +53,7 @@ src/
 
 ## Cliente de la API (`src/lib`)
 
-Cada módulo declara los tipos de las respuestas y las funciones que las piden. `http.ts` pone los encabezados: `x-seat-token` (asiento), `x-presenter-key` (presentador) y `x-action-id` (un UUID por escritura). Los errores llegan como `ApiError` con `status` y `code` (`seat_taken`, `already_ingested`, `blocked`, `template_invalid`), y `describeError` los traduce.
+Cada módulo declara los tipos de las respuestas y las funciones que las piden. `http.ts` pone los encabezados: `x-seat-token` (asiento), `x-presenter-key` (presentador) y `x-action-id` (un UUID por escritura). Los errores llegan como `ApiError` con `status` y `code` (`seat_taken` al tomar un asiento ocupado, `seat_held` cuando otra persona tiene el asiento), y `describeError` los traduce.
 
 | Módulo               | Endpoints                                                                                                 |
 | -------------------- | --------------------------------------------------------------------------------------------------------- |
