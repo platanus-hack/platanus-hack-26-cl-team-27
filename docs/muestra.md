@@ -24,6 +24,10 @@ No es un MVP: es una muestra en un espacio controlado. El problema y la propuest
 | [HU-10](negocio.md#historias-de-usuario) · documentos desfasados      | Al fusionarse la losa, la EETT, el presupuesto y la Carta Gantt quedan desfasados, cada uno con su dueño                         |
 | [HU-11](negocio.md#historias-de-usuario) · de dónde salió un valor    | Tocar «20 cm» muestra el plano, el espacio, la autora y las aprobaciones con hora y nota                                         |
 
+## El flujo de 4 pasos
+
+El camino del pitch es un solo caso con dos personas reales y sin bots: Paula Rojas mueve el pilar P-12, Vigente detecta que pisa la bandeja E-B-03 de Camila Vera y propone correrla 40 cm, y Camila acepta. Corre en `/caso/paula-rojas`, `/caso/camila-vera` y `/caso` (presentador), sobre `/api/flow`. El caso, los textos y las cifras están en [docs/spec/fuente-de-verdad.md](spec/fuente-de-verdad.md); la API, en [apps/api/README.md](../apps/api/README.md); la web, en [apps/web/README.md](../apps/web/README.md).
+
 ## Espacio controlado
 
 - **Todo es ficticio.** El proyecto, el elenco, sus contactos y sus documentos son inventados. Los correos usan el dominio `.example` y los teléfonos, `0000`.

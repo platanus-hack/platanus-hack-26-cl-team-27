@@ -52,7 +52,7 @@ Cabeceras:
 - `x-act-as: <castId>`, junto con la clave, hace actuar como ese asiento del elenco en todas las acciones de asiento (ingesta, minuta de Revit, votos, reabrir, retirar, descartar, confirmar sin cambio y bandeja). Si una persona tiene el asiento (latido de los últimos 20 s), 409 `seat_held`; si el asiento no existe, 404 `not_found`. El token de asiento manda sobre `x-act-as`. Sin la clave, `x-act-as` no sirve.
 - `x-action-id: <id>` hace idempotentes la ingesta, la minuta y los votos: la misma acción devuelve la respuesta de la primera. Se guarda en memoria del proceso (hasta 500) y el reinicio la limpia.
 
-Tipos de evento (`kind`, repetido en `type`; cada uno trae `message` en español para el ticker y `refs` con los ids que toca): `revision.received`, `minute.received`, `proposal.opened`, `proposal.disputed`, `proposal.reopened`, `proposal.merged`, `proposal.withdrawn`, `proposal.replaced`, `review.approved`, `discrepancy.opened`, `discrepancy.backed`, `discrepancy.dismissed`, `overlap.detected`, `overlap.voted`, `overlap.cleared`, `overlap.confirmed`, `overlap.resolved`, `stale.detected`, `stale.acknowledged`, `consensus.sealed`, `seat.claimed`, `seat.released`, `lake.seeded` y `room.reset`. Las transiciones del orquestador los insertan en su misma transacción.
+Tipos de evento (`kind`, repetido en `type`; cada uno trae `message` en español para el ticker y `refs` con los ids que toca): `revision.received`, `minute.received`, `proposal.opened`, `proposal.disputed`, `proposal.reopened`, `proposal.merged`, `proposal.withdrawn`, `proposal.replaced`, `review.approved`, `discrepancy.opened`, `discrepancy.backed`, `discrepancy.dismissed`, `overlap.detected`, `overlap.voted`, `overlap.cleared`, `overlap.confirmed`, `overlap.resolved`, `stale.detected`, `stale.acknowledged`, `consensus.sealed`, `seat.claimed`, `seat.released`, `lake.seeded`, `room.reset` y los del flujo (`flow.minute.received`, `flow.clash.detected`, `flow.fix.proposed`, `flow.presence`, `flow.fix.accepted`, `flow.fix.applied`, `flow.resolved`, `flow.fix.rejected` y `flow.reset`). Las transiciones del orquestador los insertan en su misma transacción.
 
 Cursor y época: `reset: true` (sin eventos) si `epoch` no es la actual o `after` va por delante del servidor; sin `after`, la respuesta trae solo el cursor actual; sin novedades, `events: []` y 200.
 
@@ -76,6 +76,23 @@ Errores de negocio:
 
 - Los ids de propuestas, avisos, discrepancias, revisiones y cambios son UUID.
 - Cada acción de escritura corre en una transacción de Postgres bajo un advisory lock; el voto además bloquea la fila de la propuesta con `SELECT … FOR UPDATE`.
+
+## El flujo del caso P-12
+
+`modules/flow` es el flujo de cuatro pasos del pitch: una persona cambia un elemento, Vigente detecta el choque y propone un arreglo, y la dueña del elemento afectado decide. El estado vive en memoria (se resiembra solo si cambia la época de la sala) y la lógica espacial es pura, de [`@team27/context-lake`](../../context/lake/README.md#dominio-espacial). El caso (elementos, reglas de holgura, partida de costo y textos) está en `src/scenario/caso-p12.ts`: Paula Rojas mueve el pilar P-12 40 cm al norte y pisa la bandeja E-B-03 de Camila Vera.
+
+Los actores salen de `SeatsService`: token de asiento, o `x-presenter-key` más `x-act-as`. Los eventos `flow.*` van a la tabla de eventos de la sala y los entrega `GET /events`.
+
+| Ruta | Responde |
+| ---- | -------- |
+| `GET /flow` | El `FlowState`: `epoch`, `case`, `elements` (`id`, `name`, `discipline`, `ownerId`, `ownerName`, `box: { min, max }` en metros, `movable`), `change`, `clash`, `proposal` y `presence` |
+| `POST /flow/minutes` | 201 `FlowState`. `{ minuteId, source: 'sala' \| 'revit', model: { title, discipline }, changes: [{ elementId, attribute: 'location', delta: { dx, dy, dz }, reason }] }` (un solo cambio). Corre la detección y la propuesta. 403 `not_owner` si el actor no es dueño del elemento; 404 si no existe; 409 `change_open` si ya hay otro cambio abierto. Idempotente por `minuteId` |
+| `POST /flow/proposals/:id/accept` | 200 `FlowState`. Solo la dueña de la propuesta (403 `not_owner`). Aplica el arreglo, vuelve a detectar y deja la propuesta `resuelta` con `decidedBy`. Idempotente; 409 si ya se rechazó |
+| `POST /flow/proposals/:id/reject` | 200 `FlowState`. `{ reason }`. Solo la dueña. Deja la propuesta `rechazada` con su motivo |
+| `POST /flow/presence` | 200 `FlowState`. `{ viewing: 'plano' \| 'propuesta' \| null }`. Registra qué mira la persona; el primer `propuesta` de la dueña emite `flow.presence` |
+| `POST /flow/reset` | 200 `FlowState`. Resiembra el caso y emite `flow.reset`. Con `x-presenter-key` |
+
+Estados de la propuesta: `propuesta`, `aceptada`, `aplicada`, `resuelta` y `rechazada`. El choque lleva `status` `detectada` o `resuelta`, y `noAutoFix: true` si ningún candidato de hasta 1,0 m sirve (entonces no hay `proposal`). `change` trae `summary` (el texto de la pantalla de quien cambia) y `waiting`; `proposal` trae `texts` (`title`, `why`, `proposal`, `cost`, `footer`), `appliedText` y `resolvedText` (nulos hasta que ocurren).
 
 ## Estructura
 

@@ -13,6 +13,7 @@ export class ApiError extends Error {
 export interface Auth {
   readonly seatToken?: string | null;
   readonly presenterKey?: string | null;
+  readonly actAs?: string | null;
 }
 
 export interface RequestOptions extends Auth {
@@ -24,6 +25,7 @@ export interface RequestOptions extends Auth {
 
 export const SEAT_HEADER = 'x-seat-token';
 export const PRESENTER_HEADER = 'x-presenter-key';
+export const ACT_AS_HEADER = 'x-act-as';
 export const ACTION_HEADER = 'x-action-id';
 
 export const newActionId = (): string => crypto.randomUUID();
@@ -31,6 +33,7 @@ export const newActionId = (): string => crypto.randomUUID();
 export const buildHeaders = ({
   seatToken,
   presenterKey,
+  actAs,
   body,
   write,
 }: RequestOptions): Record<string, string> => {
@@ -38,6 +41,7 @@ export const buildHeaders = ({
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (seatToken) headers[SEAT_HEADER] = seatToken;
   if (presenterKey) headers[PRESENTER_HEADER] = presenterKey;
+  if (actAs) headers[ACT_AS_HEADER] = actAs;
   if (write) headers[ACTION_HEADER] = newActionId();
   return headers;
 };
