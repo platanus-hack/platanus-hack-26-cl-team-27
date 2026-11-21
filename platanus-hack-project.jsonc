@@ -1,6 +1,6 @@
 {
   // Your project's name, as it will appear on the voting page.
-  "project-name": "<FILL THIS>",
+  "project-name": "Team 27",
 
   // Short one-line summary of your project (in Spanish).
   "project-oneliner-spanish": "Convertimos cada cambio de un proyecto de construcción en acción coordinada antes de que sus consecuencias se propaguen.",
@@ -12,5 +12,5 @@
   // Must be a valid URL, for example: https://my-project.vercel.app
   // If your project is an app, put the download link here instead
   // (for example, a URL to download an APK).
-  "deploy-url": "<FILL THIS>"
+  "deploy-url": "https://github.com/platanus-hack/platanus-hack-26-cl-team-27"
 }
