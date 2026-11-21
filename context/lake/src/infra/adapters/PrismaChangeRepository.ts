@@ -28,9 +28,11 @@ const toChange = (row: ChangeRow): Change => ({
 
 export class PrismaChangeRepository implements ChangeRepository {
   private readonly prisma: PrismaClient;
+  private readonly projectId: string;
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient, projectId: string) {
     this.prisma = prisma;
+    this.projectId = projectId;
   }
 
   async saveMany(drafts: readonly ChangeDraft[]): Promise<Change[]> {
@@ -38,6 +40,7 @@ export class PrismaChangeRepository implements ChangeRepository {
       drafts.map((draft) =>
         this.prisma.change.create({
           data: {
+            projectId: this.projectId,
             sourceId: draft.sourceId,
             elementId: draft.element.id,
             elementName: draft.element.name,
@@ -56,6 +59,7 @@ export class PrismaChangeRepository implements ChangeRepository {
 
   async listRecent(limit: number): Promise<Change[]> {
     const rows = await this.prisma.change.findMany({
+      where: { projectId: this.projectId },
       orderBy: [{ detectedAt: 'desc' }, { elementName: 'asc' }],
       take: limit,
     });
@@ -63,7 +67,9 @@ export class PrismaChangeRepository implements ChangeRepository {
   }
 
   async findById(id: string): Promise<Change | null> {
-    const row = await this.prisma.change.findUnique({ where: { id } });
+    const row = await this.prisma.change.findUnique({
+      where: { id, projectId: this.projectId },
+    });
     return row ? toChange(row) : null;
   }
 }

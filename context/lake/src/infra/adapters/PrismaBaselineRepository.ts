@@ -37,13 +37,16 @@ const toHistory = (row: HistoryRow): BaselineHistoryItem => ({
 
 export class PrismaBaselineRepository implements BaselineRepository {
   private readonly prisma: PrismaClient;
+  private readonly projectId: string;
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient, projectId: string) {
     this.prisma = prisma;
+    this.projectId = projectId;
   }
 
   async list(): Promise<BaselineEntry[]> {
     const rows = await this.prisma.baselineEntry.findMany({
+      where: { projectId: this.projectId },
       orderBy: [{ subject: 'asc' }, { attribute: 'asc' }],
     });
     return rows.map(toEntry);
@@ -54,7 +57,13 @@ export class PrismaBaselineRepository implements BaselineRepository {
     attribute: string,
   ): Promise<BaselineEntry | null> {
     const row = await this.prisma.baselineEntry.findUnique({
-      where: { subject_attribute: { subject, attribute } },
+      where: {
+        projectId_subject_attribute: {
+          projectId: this.projectId,
+          subject,
+          attribute,
+        },
+      },
     });
     return row ? toEntry(row) : null;
   }
@@ -72,7 +81,8 @@ export class PrismaBaselineRepository implements BaselineRepository {
     await this.prisma.$transaction(async (tx) => {
       const current = await tx.baselineEntry.findUnique({
         where: {
-          subject_attribute: {
+          projectId_subject_attribute: {
+            projectId: this.projectId,
             subject: entry.subject,
             attribute: entry.attribute,
           },
@@ -81,6 +91,7 @@ export class PrismaBaselineRepository implements BaselineRepository {
       if (current) {
         await tx.baselineHistory.create({
           data: {
+            projectId: this.projectId,
             subject: current.subject,
             attribute: current.attribute,
             value: toJson(current.value),
@@ -94,7 +105,8 @@ export class PrismaBaselineRepository implements BaselineRepository {
         });
         await tx.baselineEntry.update({
           where: {
-            subject_attribute: {
+            projectId_subject_attribute: {
+              projectId: this.projectId,
               subject: entry.subject,
               attribute: entry.attribute,
             },
@@ -104,7 +116,12 @@ export class PrismaBaselineRepository implements BaselineRepository {
         return;
       }
       await tx.baselineEntry.create({
-        data: { subject: entry.subject, attribute: entry.attribute, ...data },
+        data: {
+          projectId: this.projectId,
+          subject: entry.subject,
+          attribute: entry.attribute,
+          ...data,
+        },
       });
     });
   }
@@ -114,13 +131,15 @@ export class PrismaBaselineRepository implements BaselineRepository {
     attribute: string,
   ): Promise<BaselineHistoryItem[]> {
     const rows = await this.prisma.baselineHistory.findMany({
-      where: { subject, attribute },
+      where: { projectId: this.projectId, subject, attribute },
       orderBy: { until: 'desc' },
     });
     return rows.map(toHistory);
   }
 
   async clear(): Promise<void> {
-    await this.prisma.baselineEntry.deleteMany();
+    await this.prisma.baselineEntry.deleteMany({
+      where: { projectId: this.projectId },
+    });
   }
 }

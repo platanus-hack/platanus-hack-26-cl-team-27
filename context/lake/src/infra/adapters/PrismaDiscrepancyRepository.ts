@@ -32,14 +32,17 @@ const toDiscrepancy = (row: DiscrepancyRow): Discrepancy => ({
 
 export class PrismaDiscrepancyRepository implements DiscrepancyRepository {
   private readonly prisma: PrismaClient;
+  private readonly projectId: string;
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient, projectId: string) {
     this.prisma = prisma;
+    this.projectId = projectId;
   }
 
   async create(draft: DiscrepancyDraft): Promise<Discrepancy> {
     const row = await this.prisma.discrepancy.create({
       data: {
+        projectId: this.projectId,
         subject: draft.subject,
         attribute: draft.attribute,
         value: toJson(draft.value),
@@ -59,7 +62,7 @@ export class PrismaDiscrepancyRepository implements DiscrepancyRepository {
     resolution: DiscrepancyResolution,
   ): Promise<Discrepancy> {
     const row = await this.prisma.discrepancy.update({
-      where: { id },
+      where: { id, projectId: this.projectId },
       data: {
         status: resolution.status,
         backedByRevisionId: resolution.backedByRevisionId,
@@ -71,12 +74,15 @@ export class PrismaDiscrepancyRepository implements DiscrepancyRepository {
   }
 
   async findById(id: string): Promise<Discrepancy | null> {
-    const row = await this.prisma.discrepancy.findUnique({ where: { id } });
+    const row = await this.prisma.discrepancy.findUnique({
+      where: { id, projectId: this.projectId },
+    });
     return row ? toDiscrepancy(row) : null;
   }
 
   async list(): Promise<Discrepancy[]> {
     const rows = await this.prisma.discrepancy.findMany({
+      where: { projectId: this.projectId },
       orderBy: { createdAt: 'asc' },
     });
     return rows.map(toDiscrepancy);
@@ -84,13 +90,15 @@ export class PrismaDiscrepancyRepository implements DiscrepancyRepository {
 
   async listOpen(): Promise<Discrepancy[]> {
     const rows = await this.prisma.discrepancy.findMany({
-      where: { status: 'open' },
+      where: { projectId: this.projectId, status: 'open' },
       orderBy: { createdAt: 'asc' },
     });
     return rows.map(toDiscrepancy);
   }
 
   async clear(): Promise<void> {
-    await this.prisma.discrepancy.deleteMany();
+    await this.prisma.discrepancy.deleteMany({
+      where: { projectId: this.projectId },
+    });
   }
 }

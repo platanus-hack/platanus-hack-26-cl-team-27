@@ -24,9 +24,11 @@ const toClaim = (row: ClaimRow): Claim => ({
 
 export class PrismaClaimRepository implements ClaimRepository {
   private readonly prisma: PrismaClient;
+  private readonly projectId: string;
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient, projectId: string) {
     this.prisma = prisma;
+    this.projectId = projectId;
   }
 
   async saveMany(
@@ -37,6 +39,7 @@ export class PrismaClaimRepository implements ClaimRepository {
       inserts.map((draft) =>
         this.prisma.claim.create({
           data: {
+            projectId: this.projectId,
             revisionId,
             subject: draft.subject,
             attribute: draft.attribute,
@@ -55,6 +58,7 @@ export class PrismaClaimRepository implements ClaimRepository {
 
   async list(): Promise<Claim[]> {
     const rows = await this.prisma.claim.findMany({
+      where: { projectId: this.projectId },
       orderBy: [
         { revision: { ingestOrder: 'asc' } },
         { subject: 'asc' },
@@ -66,13 +70,15 @@ export class PrismaClaimRepository implements ClaimRepository {
 
   async listFor(subject: string, attribute: string): Promise<Claim[]> {
     const rows = await this.prisma.claim.findMany({
-      where: { subject, attribute },
+      where: { projectId: this.projectId, subject, attribute },
       orderBy: { revision: { ingestOrder: 'asc' } },
     });
     return rows.map(toClaim);
   }
 
   async clear(): Promise<void> {
-    await this.prisma.claim.deleteMany();
+    await this.prisma.claim.deleteMany({
+      where: { projectId: this.projectId },
+    });
   }
 }

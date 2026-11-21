@@ -51,14 +51,17 @@ const toOverlap = (row: OverlapRow): Overlap => ({
 
 export class PrismaOverlapRepository implements OverlapRepository {
   private readonly prisma: PrismaClient;
+  private readonly projectId: string;
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient, projectId: string) {
     this.prisma = prisma;
+    this.projectId = projectId;
   }
 
   async create(draft: OverlapDraft): Promise<Overlap> {
     const row = await this.prisma.overlap.create({
       data: {
+        projectId: this.projectId,
         proposalId: draft.proposalId,
         otherProposalId: draft.otherProposalId,
         revisionId: draft.revisionId,
@@ -81,7 +84,7 @@ export class PrismaOverlapRepository implements OverlapRepository {
   async save(overlap: Overlap): Promise<void> {
     await this.prisma.$transaction([
       this.prisma.overlap.update({
-        where: { id: overlap.id },
+        where: { id: overlap.id, projectId: this.projectId },
         data: {
           status: overlap.status,
           resolution: overlap.resolution,
@@ -111,7 +114,7 @@ export class PrismaOverlapRepository implements OverlapRepository {
 
   async findById(id: string): Promise<Overlap | null> {
     const row = await this.prisma.overlap.findUnique({
-      where: { id },
+      where: { id, projectId: this.projectId },
       include: { votes: true },
     });
     return row ? toOverlap(row) : null;
@@ -119,6 +122,7 @@ export class PrismaOverlapRepository implements OverlapRepository {
 
   async list(): Promise<Overlap[]> {
     const rows = await this.prisma.overlap.findMany({
+      where: { projectId: this.projectId },
       include: { votes: true },
       orderBy: { createdAt: 'asc' },
     });
@@ -127,7 +131,10 @@ export class PrismaOverlapRepository implements OverlapRepository {
 
   async listLive(): Promise<Overlap[]> {
     const rows = await this.prisma.overlap.findMany({
-      where: { status: { in: ['abierto', 'confirmado'] } },
+      where: {
+        projectId: this.projectId,
+        status: { in: ['abierto', 'confirmado'] },
+      },
       include: { votes: true },
       orderBy: { createdAt: 'asc' },
     });
@@ -135,6 +142,8 @@ export class PrismaOverlapRepository implements OverlapRepository {
   }
 
   async clear(): Promise<void> {
-    await this.prisma.overlap.deleteMany();
+    await this.prisma.overlap.deleteMany({
+      where: { projectId: this.projectId },
+    });
   }
 }

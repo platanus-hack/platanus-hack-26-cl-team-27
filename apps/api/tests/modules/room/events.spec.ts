@@ -1,3 +1,4 @@
+import { project } from '../../project.ts';
 import { diffEvents, type Observed } from '../../../src/modules/room/events.ts';
 
 const observed = (overrides: Partial<Observed>): Observed => ({
@@ -12,7 +13,7 @@ const observed = (overrides: Partial<Observed>): Observed => ({
 describe('diffEvents', () => {
   it('no emite nada si nada cambió', () => {
     const state = observed({});
-    expect(diffEvents(state, state)).toEqual([]);
+    expect(diffEvents(project, state, state)).toEqual([]);
   });
 
   it('emite la fusión, el desfase nuevo y el sello en ese orden', () => {
@@ -34,7 +35,7 @@ describe('diffEvents', () => {
         ],
       ]),
     });
-    const events = diffEvents(before, after);
+    const events = diffEvents(project, before, after);
     expect(events.map((event) => event.kind)).toEqual([
       'proposal.merged',
       'stale.detected',
@@ -59,10 +60,9 @@ describe('diffEvents', () => {
         ['p3', { status: 'merged', title: 'C' }],
       ]),
     });
-    expect(diffEvents(before, after).map((event) => event.kind)).toEqual([
-      'proposal.replaced',
-      'proposal.withdrawn',
-    ]);
+    expect(
+      diffEvents(project, before, after).map((event) => event.kind),
+    ).toEqual(['proposal.replaced', 'proposal.withdrawn']);
   });
 
   it('emite el solapamiento nuevo con quienes validan y sus cambios de estado', () => {
@@ -77,7 +77,7 @@ describe('diffEvents', () => {
     const detected = observed({
       overlaps: new Map([['o1', overlap('abierto')]]),
     });
-    const opened = diffEvents(none, detected);
+    const opened = diffEvents(project, none, detected);
     expect(opened.map((event) => event.kind)).toEqual(['overlap.detected']);
     expect(opened[0]?.message).toContain('nivel 3 · C-D/3 · sanitarias');
     expect(opened[0]?.message).toContain('Fernanda Lagos y Javier Muñoz');
@@ -88,6 +88,7 @@ describe('diffEvents', () => {
 
     const next = (status: 'confirmado' | 'descartado' | 'resuelto') =>
       diffEvents(
+        project,
         detected,
         observed({ overlaps: new Map([['o1', overlap(status)]]) }),
       ).map((event) => event.kind);
@@ -100,10 +101,11 @@ describe('diffEvents', () => {
     });
     expect(
       diffEvents(
+        project,
         confirmed,
         observed({ overlaps: new Map([['o1', overlap('resuelto')]]) }),
       ).map((event) => event.kind),
     ).toEqual(['overlap.resolved']);
-    expect(diffEvents(confirmed, confirmed)).toEqual([]);
+    expect(diffEvents(project, confirmed, confirmed)).toEqual([]);
   });
 });

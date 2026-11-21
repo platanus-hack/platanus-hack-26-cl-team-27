@@ -365,7 +365,7 @@ Retirar, descartar y reiniciar piden confirmación. «Esperar el plano» se recu
 
 ## El escenario
 
-El proyecto, el elenco, el grafo, los espacios, los sujetos, los atributos y el registro de documentos con su dueño están en [`apps/api/src/scenario`](../apps/api/src/scenario) (`los-aromos.ts` y `documents.ts`): es la definición del proyecto, no la demo. Lo que ocurre en la muestra (los archivos del lago, la carga inicial, el guion y los jugadores que votan por los asientos vacíos) vive en el ETL: ver [`apps/etl/README.md`](../apps/etl/README.md).
+El proyecto, el elenco, el grafo, los espacios, los sujetos, los atributos y el registro de documentos con su dueño están en la base (ver [`data/main`](../data/main/README.md#el-proyecto)), y en local se siembran con `pnpm db:seed` desde [`data/main/seed/los-aromos.ts`](../data/main/seed/los-aromos.ts): es la definición del proyecto, no la demo. Lo que ocurre en la muestra (los archivos del lago, la carga inicial, el guion y los jugadores que votan por los asientos vacíos) vive en el ETL: ver [`apps/etl/README.md`](../apps/etl/README.md).
 
 ### La carga inicial
 

@@ -19,7 +19,8 @@ import {
 } from '@team27/context-lake';
 import { ListNotifications } from '@team27/context-notification';
 
-import type { SectionId } from '../../scenario/documents.ts';
+import type { ProjectCatalog } from '../project/project-catalog.ts';
+import { PROJECT_CATALOG } from '../project/project.module.ts';
 import {
   BASELINE_REPOSITORY,
   CHUNK_REPOSITORY,
@@ -65,6 +66,7 @@ export class QueryService {
   private readonly listNotifications: ListNotifications;
   private readonly listChanges: ListChanges;
   private readonly getChange: GetChange;
+  private readonly project: ProjectCatalog;
 
   constructor(
     @Inject(REVISION_REPOSITORY) revisions: RevisionRepository,
@@ -82,6 +84,7 @@ export class QueryService {
     @Inject(ListNotifications) listNotifications: ListNotifications,
     @Inject(ListChanges) listChanges: ListChanges,
     @Inject(GetChange) getChange: GetChange,
+    @Inject(PROJECT_CATALOG) project: ProjectCatalog,
   ) {
     this.revisions = revisions;
     this.chunks = chunks;
@@ -98,6 +101,7 @@ export class QueryService {
     this.listNotifications = listNotifications;
     this.listChanges = listChanges;
     this.getChange = getChange;
+    this.project = project;
   }
 
   async snapshot(): Promise<LakeSnapshot> {
@@ -128,6 +132,7 @@ export class QueryService {
       this.listNotifications.execute({ changeIds }),
     ]);
     return {
+      project: this.project,
       revisions,
       chunks,
       claims,
@@ -151,7 +156,7 @@ export class QueryService {
     return inboxResponse(await this.snapshot(), castId);
   }
 
-  async baselineView(section: SectionId | undefined) {
+  async baselineView(section: string | undefined) {
     return baselineResponse(await this.snapshot(), section);
   }
 

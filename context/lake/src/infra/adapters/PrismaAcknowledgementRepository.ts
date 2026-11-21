@@ -20,14 +20,17 @@ const toAcknowledgement = (row: AcknowledgementRow): Acknowledgement => ({
 
 export class PrismaAcknowledgementRepository implements AcknowledgementRepository {
   private readonly prisma: PrismaClient;
+  private readonly projectId: string;
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient, projectId: string) {
     this.prisma = prisma;
+    this.projectId = projectId;
   }
 
   async create(draft: AcknowledgementDraft): Promise<Acknowledgement> {
     const row = await this.prisma.acknowledgement.create({
       data: {
+        projectId: this.projectId,
         documentId: draft.documentId,
         revisionId: draft.revisionId,
         signature: draft.signature,
@@ -40,12 +43,15 @@ export class PrismaAcknowledgementRepository implements AcknowledgementRepositor
 
   async list(): Promise<Acknowledgement[]> {
     const rows = await this.prisma.acknowledgement.findMany({
+      where: { projectId: this.projectId },
       orderBy: { at: 'asc' },
     });
     return rows.map(toAcknowledgement);
   }
 
   async clear(): Promise<void> {
-    await this.prisma.acknowledgement.deleteMany();
+    await this.prisma.acknowledgement.deleteMany({
+      where: { projectId: this.projectId },
+    });
   }
 }

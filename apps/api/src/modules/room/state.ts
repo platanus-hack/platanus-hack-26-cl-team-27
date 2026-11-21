@@ -1,7 +1,5 @@
 import type { Prisma } from '@team27/data-main';
 
-export const ROOM_STATE_ID = 1;
-
 export const PRESENCE_MS = 20_000;
 
 export interface RoomStateView {
@@ -10,10 +8,11 @@ export interface RoomStateView {
 
 export const readState = async (
   db: Prisma.TransactionClient,
+  projectId: string,
 ): Promise<RoomStateView> => {
   const row = await db.roomState.upsert({
-    where: { id: ROOM_STATE_ID },
-    create: { id: ROOM_STATE_ID },
+    where: { projectId },
+    create: { projectId },
     update: {},
   });
   return { epoch: row.epoch };

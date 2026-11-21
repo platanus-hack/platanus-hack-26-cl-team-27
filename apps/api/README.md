@@ -108,14 +108,12 @@ src/
 │   ├── provide-use-case.ts       registra un caso de uso de un contexto como provider de Nest
 │   └── api-root.ts               la carpeta de la API (la de su package.json), la misma desde src/ que desde dist/
 ├── scenario/
-│   ├── los-aromos.ts             modelo base, grafo del proyecto y elenco (con Fernanda, que no recibe avisos)
-│   ├── areas.ts                  niveles, grilla de ejes, sistemas y la huella de cada elemento (el modelo de áreas)
-│   ├── caso-p12.ts               el caso P-12 / bandeja E-B-03: elementos, reglas de holgura, costo y los textos de las pantallas
-│   └── documents.ts              espacios, sujetos, atributos con su unidad y el registro de documentos con su dueño (incluidos el modelo de Revit y el IS-301)
+│   └── caso-p12.ts               el caso P-12 / bandeja E-B-03: elementos, reglas de holgura, costo y los textos de las pantallas
 └── modules/
     ├── database/                 el PrismaClient (token PRISMA_CLIENT), global, y UnitOfWork (transacción con lock)
+    ├── project/                  carga el proyecto de la base al arrancar (token PROJECT_CATALOG, global), lo valida (project-schema.ts) y arma el ProjectCatalog: elenco, modelo, grafo, espacios, documentos, sujetos, atributos, grilla y huellas
     ├── health/                   /api/health y /api/health/ready
-    ├── lake/                     adapters por token y casos de uso de context-lake (con DetectChanges, ListChanges y GetChange); buildLake(db, extractor?) los arma sobre una transacción
+    ├── lake/                     adapters por token y casos de uso de context-lake (con DetectChanges, ListChanges y GetChange); buildLake(db, project, extractor?) los arma sobre una transacción
     ├── impact/                   adapters y casos de uso de context-impact: el grafo (sale de la definición del proyecto), el `ClaimReader` (Claude o respuestas fijas, con caché de archivos), el vocabulario del proyecto y `ExtractClaims`
     ├── notification/             adapters y casos de uso de context-notification
     ├── coordination/             orquesta la cadena y expone las rutas de datos; `revision-body.ts` valida la ingesta genérica y la carga inicial, `chunk-reader.ts` lee los fragmentos de texto libre, `revit-minute.ts` valida la minuta de Revit y la convierte en hechos, y `integrations.controller.ts` la recibe
@@ -131,9 +129,10 @@ tests/                            replica src/: Vitest, sin base de datos
 - **Totales.** El costo del proyecto es el presupuesto base del modelo más el `costDelta` de las propuestas fusionadas; el plazo es la entrega vigente más sus `delayDays`; la versión del proyecto es 1 más las propuestas fusionadas.
 - **Reinicio y carga inicial.** El reinicio vacía el lago con `SeedLake` sin revisiones y no siembra; al arrancar tampoco. `POST /lake/seed` carga lo vigente con `SeedLake` solo con el lago vacío. Quien carga y juega es el ETL ([`apps/etl`](../etl/README.md)); la API no sabe que existe una demo.
 - **Eventos.** `CoordinationService.track` compara el estado antes y después de cada transición (propuestas, solapamientos, desfases, sello) y, con los eventos explícitos de la acción, los inserta en la misma transacción.
-- **Variables.** `PRESENTER_KEY` (por defecto `sala-los-aromos` fuera de producción; obligatoria en producción) y `ANTHROPIC_API_KEY` (opcional; ausente o vacía, la lectura de texto libre es determinista: respuestas fijas y grabadas).
+- **Variables.** `PROJECT_ID` (opcional; vacía, la API carga el único proyecto de la base), `PRESENTER_KEY` (por defecto `sala-los-aromos` fuera de producción; obligatoria en producción) y `ANTHROPIC_API_KEY` (opcional; ausente o vacía, la lectura de texto libre es determinista: respuestas fijas y grabadas).
 - **Lectura de texto libre.** Con `ANTHROPIC_API_KEY`, el `ClaimReader` es `CachedClaimReader(ClaudeClaimReader)` y la primera respuesta queda grabada; sin clave, `CachedClaimReader(FixtureClaimReader)` con las respuestas fijas de la muestra (WhatsApp mensajes 1 y 2, folios 41 y 44, acta 12, con confianza 0,9). La caché es `inference-cache/`, una carpeta versionada de la API con un JSON por consulta: la demo reproduce lo grabado sin red. Sin clave no sale nada a la red.
-- **Modelo de áreas.** `scenario/areas.ts` define los niveles `n1` a `n5` y la cubierta `n6`, la grilla (ejes A a E a 0, 4, 8, 12 y 16 m y transversales 1 a 4), los sistemas y la huella de cada elemento: las losas son soporte, el shaft S1, las ventanas y el colector B2 son ocupantes, y las partidas y el proyecto no ocupan espacio. El lago recibe ese modelo como un `FootprintModel`.
+- **El proyecto.** `ProjectModule` lee de la base el proyecto de `PROJECT_ID` (o el único que hay), lo valida con `project-schema.ts` y entrega un `ProjectCatalog`. Sin proyecto, con varios y sin `PROJECT_ID`, o con uno mal formado, la API no arranca y dice por qué. En local, `pnpm db:seed` siembra Los Aromos. Los servicios lo reciben por `PROJECT_CATALOG`; las vistas, dentro del `LakeSnapshot`; y `buildLake`, `buildImpact` y `buildNotification`, como argumento. Cada adapter Prisma recibe `project.id` y filtra por él. Un cambio en la definición se ve al reiniciar la API.
+- **Modelo de áreas.** Sale de la definición del proyecto: los niveles, los ejes longitudinales con sus metros, los transversales, los sistemas y la huella de cada sujeto. Una huella es una regla en datos: el tipo (`soporte` u `ocupante`), los niveles, las celdas (`all`, las de un eje transversal, o la del tramo donde cae un atributo de posición sobre un eje) y los sistemas. En Los Aromos, las losas son soporte; el shaft S1, las ventanas y el colector B2 son ocupantes; y las partidas y el proyecto no ocupan espacio. El lago recibe el modelo como `project.footprintModel`.
 
 ## Modelos BIM (APS)
 

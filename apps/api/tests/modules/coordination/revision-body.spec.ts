@@ -1,3 +1,4 @@
+import { project } from '../../project.ts';
 import {
   checkAuthor,
   checkRevision,
@@ -29,7 +30,7 @@ const parse = (overrides: Record<string, unknown> = {}) =>
 const issuesOf = (overrides: Record<string, unknown>): string[] => {
   const input = parse(overrides);
   try {
-    checkRevision(input, knownDocument(input.documentId));
+    checkRevision(project, input, knownDocument(project, input.documentId));
   } catch (error) {
     return (error as { response: { issues: string[] } }).response.issues;
   }
@@ -40,7 +41,9 @@ describe('cuerpo de una revisión', () => {
   it('acepta una revisión válida y devuelve sus hechos como un fragmento implícito', () => {
     const input = parse();
 
-    expect(checkRevision(input, knownDocument('e102'))).toEqual([
+    expect(
+      checkRevision(project, input, knownDocument(project, 'e102')),
+    ).toEqual([
       {
         locator: 'cuadro de losas rev C',
         kind: 'fila',
@@ -59,10 +62,9 @@ describe('cuerpo de una revisión', () => {
     });
 
     expect(
-      checkRevision(input, knownDocument('e102')).map((chunk) => [
-        chunk.locator,
-        chunk.claims?.length,
-      ]),
+      checkRevision(project, input, knownDocument(project, 'e102')).map(
+        (chunk) => [chunk.locator, chunk.claims?.length],
+      ),
     ).toEqual([
       ['cuadro de losas rev C', 2],
       ['otro cuadro', 1],
@@ -82,7 +84,11 @@ describe('cuerpo de una revisión', () => {
       ],
     });
 
-    const chunks = checkRevision(input, knownDocument('e102'));
+    const chunks = checkRevision(
+      project,
+      input,
+      knownDocument(project, 'e102'),
+    );
     expect(
       chunks.map((chunk) => [chunk.kind, chunk.text, chunk.claims?.length]),
     ).toEqual([
@@ -137,7 +143,7 @@ describe('cuerpo de una revisión', () => {
   });
 
   it('rechaza un documento que el proyecto no tiene con 404', () => {
-    expect(() => knownDocument('nada')).toThrow(
+    expect(() => knownDocument(project, 'nada')).toThrow(
       expect.objectContaining({ status: 404 }),
     );
   });
@@ -145,7 +151,9 @@ describe('cuerpo de una revisión', () => {
   it('rechaza con 422 un espacio distinto al del documento', () => {
     const input = parse({ spaceId: 'whatsapp-obra' });
 
-    expect(() => checkRevision(input, knownDocument('e102'))).toThrow(
+    expect(() =>
+      checkRevision(project, input, knownDocument(project, 'e102')),
+    ).toThrow(
       expect.objectContaining({
         status: 422,
         response: expect.objectContaining({ code: 'invalid_claims' }),
@@ -174,9 +182,9 @@ describe('cuerpo de una revisión', () => {
         revisions: [{ ...valid, authorId: 'fernanda-lagos' }],
       }).success,
     ).toBe(true);
-    expect(() => checkAuthor('nadie')).toThrow(
+    expect(() => checkAuthor(project, 'nadie')).toThrow(
       expect.objectContaining({ status: 422 }),
     );
-    expect(() => checkAuthor('fernanda-lagos')).not.toThrow();
+    expect(() => checkAuthor(project, 'fernanda-lagos')).not.toThrow();
   });
 });

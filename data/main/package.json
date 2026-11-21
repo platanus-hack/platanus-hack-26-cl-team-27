@@ -11,12 +11,18 @@
       "import": "./index.ts",
       "default": "./index.ts"
     },
+    "./seed": {
+      "types": "./seed/los-aromos.ts",
+      "import": "./seed/los-aromos.ts",
+      "default": "./seed/los-aromos.ts"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
     "generate": "prisma generate",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
+    "seed": "node --env-file-if-exists=../../.env seed/main.ts",
     "studio": "prisma studio"
   },
   "nx": {

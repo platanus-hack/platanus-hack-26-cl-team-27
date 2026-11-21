@@ -2,6 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { PrismaClient } from '@team27/data-main';
 
 import { PRISMA_CLIENT } from '../database/prisma-token.ts';
+import type { ProjectCatalog } from '../project/project-catalog.ts';
+import { PROJECT_CATALOG } from '../project/project.module.ts';
 import { type EventDraft, emitEvents } from '../room/events.ts';
 import { type Credentials, SeatsService } from '../room/seats.service.ts';
 import { readState } from '../room/state.ts';
@@ -23,20 +25,23 @@ import {
 export class FlowService {
   private readonly prisma: PrismaClient;
   private readonly seats: SeatsService;
+  private readonly project: ProjectCatalog;
   private store: FlowStore | null = null;
 
   constructor(
     @Inject(PRISMA_CLIENT) prisma: PrismaClient,
     @Inject(SeatsService) seats: SeatsService,
+    @Inject(PROJECT_CATALOG) project: ProjectCatalog,
   ) {
     this.prisma = prisma;
     this.seats = seats;
+    this.project = project;
   }
 
   private async current(): Promise<FlowStore> {
-    const { epoch } = await readState(this.prisma);
+    const { epoch } = await readState(this.prisma, this.project.id);
     if (!this.store || this.store.epoch !== epoch) {
-      this.store = seedStore(epoch);
+      this.store = seedStore(epoch, this.project);
     }
     return this.store;
   }
@@ -45,7 +50,7 @@ export class FlowService {
     store: FlowStore,
     events: readonly EventDraft[],
   ): Promise<FlowState> {
-    await emitEvents(this.prisma, events);
+    await emitEvents(this.prisma, this.project.id, events);
     return viewStore(store, await this.seats.presentIds(), Date.now());
   }
 
@@ -97,8 +102,8 @@ export class FlowService {
 
   async reset(key: string | undefined): Promise<FlowState> {
     this.seats.requirePresenter(key);
-    const { epoch } = await readState(this.prisma);
-    this.store = seedStore(epoch);
+    const { epoch } = await readState(this.prisma, this.project.id);
+    this.store = seedStore(epoch, this.project);
     return this.respond(this.store, [
       { kind: 'flow.reset', message: 'El caso volvió al comienzo.' },
     ]);
