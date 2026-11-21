@@ -2,6 +2,8 @@
 
 Monorepo de la hackatón: Nx 24 + pnpm 10, una web en Next.js 16 (React 19, Tailwind 4), una API en NestJS 12, PostgreSQL con Prisma 7 y el dominio en contextos hexagonales. El producto convierte cada cambio de un proyecto de construcción en avisos a los equipos que afecta, en las herramientas que ya usan. El modelo de negocio todavía se está definiendo.
 
+Lo que se construye es una muestra para el pitch, no un MVP. Va en un espacio controlado: un proyecto ficticio con un elenco fijo, el software de origen y los canales simulados dentro de la web, y sin gestión de equipos, organizaciones ni usuarios. Se avanza por segmentos ([docs/muestra.md](docs/muestra.md#segmentos)), y cada uno se cierra con tests, docs y `pnpm check` en verde.
+
 ## Documentación
 
 Antes de tocar un área, lee su doc. Si cambias un comportamiento, actualiza el doc en el mismo cambio.
@@ -9,6 +11,7 @@ Antes de tocar un área, lee su doc. Si cambias un comportamiento, actualiza el 
 | Área                                                                                                                 | Doc                                            |
 | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | Problema, propuesta, actores, historias de usuario, glosario del dominio                                             | [docs/negocio.md](docs/negocio.md)             |
+| La muestra: espacio controlado, proyecto, elenco, guion y segmentos                                                  | [docs/muestra.md](docs/muestra.md)             |
 | Monorepo, fronteras, contextos hexagonales (y cómo crear uno), web ↔ API, variables, datos, TypeScript, tareas de Nx | [docs/arquitectura.md](docs/arquitectura.md)   |
 | Despliegue (espejo a un repo personal)                                                                               | [docs/despliegue.md](docs/despliegue.md)       |
 | La web                                                                                                               | [apps/web/README.md](apps/web/README.md)       |
@@ -49,7 +52,8 @@ pnpm format
 - El `README.md`, `platanus-hack-project.jsonc`, `project-description.md` y `project-logo.png` de la raíz son la entrega de la hackatón y tienen sus propias reglas: léelas antes de editarlos. Prettier no los toca.
 - Un paquete nuevo del workspace que use la web va también en `transpilePackages` (`apps/web/next.config.ts`). Turbopack no resuelve `./x.js` hacia `x.ts`.
 - `next build` necesita los `.d.ts` de sus dependencias (project references). Corre el build por Nx (`pnpm nx run @team27/web:build`), que primero hace el `typecheck` de las dependencias. Si aparece `TS6305`, es eso.
-- Si borras o mueves una ruta y el build de la web falla con `TS2307` en `.next/dev/types/validator.ts`, son tipos viejos de un `next dev` anterior: borra `apps/web/.next`.
+- Si el build de la web falla en `.next/dev/types/validator.ts` (`TS2307` tras borrar o mover una ruta, o `TS6133`/`TS6196` por imports sin usar), son tipos viejos de un `next dev` anterior: borra `apps/web/.next`.
+- Si `pnpm dev:api` choca con `EADDRINUSE :3001`, quedó vivo un `node dist/main` de un watcher anterior: ciérralo (`ss -ltnp | grep 3001` te da el pid).
 - Después de agregar o quitar una dependencia entre proyectos, corre `pnpm nx sync`.
 - Todo `/api/*` de la web se reenvía a la API (`rewrites` en `apps/web/next.config.ts`): no crees rutas en `apps/web/src/app/api/`, porque le ganan al reenvío. El `rewrite` fija `API_URL` al compilar la web.
 - La CI (`.github/workflows/check.yml`) corre `pnpm install --frozen-lockfile` y `pnpm check` en cada push a `main` y cada PR: si cambias dependencias, commitea el `pnpm-lock.yaml`.
