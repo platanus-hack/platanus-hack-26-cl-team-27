@@ -43,7 +43,7 @@ El camino del pitch es un solo caso con dos personas reales y sin bots: Paula Ro
 - **Revit es el conector real.** El add-in de [`tool-use-case/revit`](../tool-use-case/revit/README.md) manda la minuta de cambios cada vez que se guarda el modelo, y la API la ingiere por el mismo camino.
 - **Los números salen de reglas.** Cantidades, precios unitarios y ruta crítica; ningún modelo de lenguaje los inventa. El mismo guion da siempre el mismo resultado.
 - **Sin gestión de equipos ni organizaciones.** No hay usuarios ni permisos.
-  - El elenco, el grafo del proyecto y el registro de documentos con sus dueños están en [`apps/api/src/scenario`](../apps/api/src/scenario).
+  - El elenco, el grafo del proyecto y el registro de documentos con sus dueños están en la base. En local se siembran con `pnpm db:seed` desde [`data/main/seed/los-aromos.ts`](../data/main/seed/los-aromos.ts).
   - Un celular toma un asiento del elenco sin cuenta.
 - **Se reinicia en un paso.** `pnpm etl reiniciar` vacía la sala y hace la carga inicial.
 
@@ -123,7 +123,7 @@ Al final queda la versión 5 del proyecto (la propuesta del colector suma una), 
 ## Cómo correrla
 
 ```bash
-pnpm db:up && pnpm db:migrate
+pnpm db:up && pnpm db:migrate && pnpm db:seed
 pnpm dev          # API en :3001 y web en :3000
 pnpm etl          # en otra terminal: carga inicial y luego Enter = paso siguiente
 ```

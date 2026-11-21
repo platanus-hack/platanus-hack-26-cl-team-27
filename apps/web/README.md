@@ -26,6 +26,7 @@ pnpm nx run @team27/web:test          # Vitest: los *.spec.ts de src/
 | `/cambios/[id]`                  | Detalle de una propuesta; acepta `?para=<stakeholderId>`                                                     |
 | `/modelos`                       | El visor de APS con todas las disciplinas del catálogo de la API (`GET /api/aps/models`) en una escena: abre con Arquitectura y carga las demás al encenderlas, con un interruptor por disciplina y las propiedades del elemento seleccionado |
 | `/conectores`                    | Los conectores (con la clave del presentador): conectar la cuenta de Google, vincular planillas por su link y ver por cada una la última revisión, el último cambio y el error, con «Revisar ahora» y «Desvincular». Autodesk aparece como próximamente. Vuelve de Google con `?google=conectado` o `?google=error&motivo=` |
+| `/cuenta` | Tu cuenta: entrar con tu correo (sin contraseña, con Auth0), tus organizaciones con tu rol, sus proyectos, el equipo con las invitaciones pendientes y, si eres administrador, invitar un correo. Sin Auth0 configurado, avisa que las cuentas no están activas |
 | `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                                                             |
 
 Los route groups `(site)`, `(sala)`, `(asiento)` y `(caso)` dan a cada pantalla su propio layout: el sitio con encabezado y navegación (marca la sección actual), el telón sin márgenes y el celular en una columna de 430 px y el caso a todo el ancho. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
@@ -81,6 +82,7 @@ Cada módulo declara los tipos de las respuestas y las funciones que las piden. 
 | `aps-api.ts`         | `GET /api/aps/models`, `GET /api/aps/viewer-token`                                                         |
 | `changes-api.ts`     | `GET /api/changes/:id`                                                                                     |
 | `integrations-api.ts` | `GET /api/integrations`, `POST /api/integrations/google/authorize`, `DELETE /api/integrations/google`, `POST /api/integrations/sources`, `POST /api/integrations/sources/:id/check`, `DELETE /api/integrations/sources/:id`; y lo puro: los avisos de cada acción y el estado de cada planilla |
+| `accounts-api.ts`    | `GET /api/me`, `GET /api/projects`, `GET /api/organizations/:id/members`, `POST /api/organizations/:id/invitations`, y `projectsByOrganization` (los proyectos bajo cada organización) |
 
 Con el lago vacío (`lake.empty`), `/sala`, `/presentador` y el celular muestran «Esperando la carga inicial» hasta que el ETL carga lo vigente. La web no sube documentos: la tarjeta de desfase dice «Sube la revisión nueva a tu carpeta y la leemos solos» y ofrece «Confirmo sin cambio».
 
@@ -93,6 +95,15 @@ La lógica de las pantallas vive en `lib`, pura y con tests:
 
 Los formatos (`format.ts`) son es-CL: pesos sin decimales (`$3.636.500`), `1 día` y `4 días`, coma decimal (`8,5 m`), el antes y el después con flecha (`15 cm → 20 cm`) y el tiempo relativo («Hace 2 min»), que `useNow` refresca cada 15 s.
 
+## Cuentas
+
+El login es de Auth0, con `@auth0/nextjs-auth0` en el servidor de Next: la aplicación de Auth0 es una Regular Web Application y el navegador nunca ve el token.
+
+- `lib/auth0.ts` arma el `Auth0Client` solo si están `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_SECRET` y `AUTH0_AUDIENCE` (`authConfigured` en `lib/account-routes.ts`); `APP_BASE_URL` es la URL de la web. Pide `openid profile email offline_access` y un access token para la audiencia de la API. Sin esas variables, `auth0` es `null`: no hay `/auth/*`, `/cuenta` avisa y el resto de la web funciona igual.
+- `src/proxy.ts` (el `middleware` de Next 16) monta `/auth/login`, `/auth/callback` y `/auth/logout` y mantiene viva la sesión. A las rutas de cuenta de la API (`/api/me`, `/api/projects`, `/api/organizations/*`, `needsAccountToken`) les agrega `Authorization: Bearer <access token>` antes del `rewrite`. Las de la sala no lo llevan.
+- `/cuenta` revisa la sesión en el servidor: sin sesión muestra «Entrar con tu correo» (`/auth/login?returnTo=/cuenta`); con sesión, `AccountPanel` y `MembersCard` piden los datos a la API desde el navegador.
+- En Auth0: Allowed Callback URLs `http://localhost:3000/auth/callback`, Allowed Logout URLs y Web Origins `http://localhost:3000`, y una API cuyo identificador es `AUTH0_AUDIENCE`. En esa API, pestaña Application Access, la aplicación tiene que quedar con User Access en Authorized: si no, Auth0 corta el login con «Client … is not authorized to access resource server …».
+
 ## El flujo del caso
 
 Todo el acceso a `/api/flow` vive en `lib/flow-api.ts` (tipos y llamadas: `getFlow`, `postMinute`, `acceptProposal`, `rejectProposal`, `postPresence`, `resetFlow`). `useFlow` lo mantiene vivo con `useLive`: cada evento de la sala vuelve a pedir `GET /api/flow`.
@@ -103,6 +114,7 @@ Todo el acceso a `/api/flow` vive en `lib/flow-api.ts` (tipos y llamadas: `getFl
 - `CamilaView` avisa su presencia (`viewing: 'propuesta'` mientras la tarjeta está a la vista, `'plano'` si no) cada 8 s y al volver a la pestaña. Solo con asiento propio; la vista del presentador no la envía y muestra la presencia de Camila a partir de `flow.presence`. El paso 3 de la línea de tiempo de Paula requiere el asiento real de Camila abierto en su dispositivo.
 - Si el token de un asiento deja de valer (401 al actuar o al avisar presencia), `CaseScreen` lo borra y vuelve a tomar el asiento solo. «Reiniciar caso» deja el hilo del presentador en el último `flow.reset`.
 - El caso no muestra bots.
+- **Historia**: `components/caso/HistoryPanel.tsx` muestra, para P-12 y E-B-03, cada valor vigente con hora, autor, documento o minuta y quién lo aprobó, la propuesta pendiente o rechazada en una entrada punteada y el enlace «Ver procedencia» a `/valor/[subjectId]/ubicacion_m`. Va bajo la línea de tiempo en la pantalla de Paula, bajo el plano o la propuesta en la de Camila y a todo el ancho en `/caso`. Lee `GET /api/flow/history` con `hooks/use-flow-history.ts`, que vuelve a pedirla cuando cambian la época, el estado de la propuesta o la minuta (`historyKey` en `lib/flow-history.ts`). Si la historia no carga, el panel no se muestra y el flujo sigue.
 
 ## Tiempo real
 

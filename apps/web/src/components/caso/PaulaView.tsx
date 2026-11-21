@@ -5,19 +5,27 @@ import { useRef, useState } from 'react';
 
 import { Icon } from '@/components/common/Icon';
 import { authorTimeline, sentText } from '@/lib/case-view';
-import { buildMinute, postMinute, type FlowState } from '@/lib/flow-api';
+import {
+  AUTHOR_ID,
+  buildMinute,
+  postMinute,
+  type FlowState,
+} from '@/lib/flow-api';
 import { ApiError, describeError, newActionId, type Auth } from '@/lib/http';
 
 import { CasePlan } from './CasePlan';
+import { CaseHistory } from './HistoryPanel';
 import { Timeline } from './Timeline';
 
 export function PaulaView({
   flow,
+  hideHistory = false,
   auth,
   onChanged,
   onSeatLost,
 }: {
   readonly flow: FlowState;
+  readonly hideHistory?: boolean;
   readonly auth: Auth;
   readonly onChanged: () => void;
   readonly onSeatLost?: () => void;
@@ -92,6 +100,9 @@ export function PaulaView({
           <Timeline steps={authorTimeline(flow)} />
         </div>
       </Card>
+      {!hideHistory && (
+        <CaseHistory flow={flow} focus="P-12" viewerId={AUTHOR_ID} />
+      )}
     </div>
   );
 }

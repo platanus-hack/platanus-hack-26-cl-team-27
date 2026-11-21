@@ -12,6 +12,12 @@
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["index.ts", "prisma.config.ts", "generated/**/*.ts"],
+  "include": [
+    "index.ts",
+    "prisma.config.ts",
+    "generated/**/*.ts",
+    "project/**/*.ts",
+    "seed/**/*.ts"
+  ],
   "references": []
 }

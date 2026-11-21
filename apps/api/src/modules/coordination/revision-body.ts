@@ -3,13 +3,11 @@ import { CHUNK_KINDS, chunksFromClaims } from '@team27/context-lake';
 import type { ChunkKind, ClaimDraft } from '@team27/context-lake';
 import { z } from 'zod';
 
-import {
-  ATTRIBUTES,
-  type DocumentDef,
-  SUBJECTS,
-} from '../../scenario/documents.ts';
+import type {
+  DocumentDef,
+  ProjectCatalog,
+} from '../project/project-catalog.ts';
 import { fail } from './http-errors.ts';
-import { castMember, documentDef } from './lookup.ts';
 
 const claimBody = z.object({
   subject: z.string().min(1).max(64),
@@ -89,12 +87,11 @@ export type RevisionInput = z.output<typeof revisionBody>;
 
 export type SeedInput = z.output<typeof seedBody>;
 
-const subjectIds = new Set(SUBJECTS.map((subject) => subject.id));
-
-const attributeKeys = new Set(ATTRIBUTES.map((attribute) => attribute.key));
-
-export const knownDocument = (documentId: string): DocumentDef => {
-  const found = documentDef(documentId);
+export const knownDocument = (
+  project: ProjectCatalog,
+  documentId: string,
+): DocumentDef => {
+  const found = project.documentDef(documentId);
   if (!found) {
     throw fail(
       HttpStatus.NOT_FOUND,
@@ -139,6 +136,7 @@ export const rawChunksOf = (
 ];
 
 export const checkRevision = (
+  project: ProjectCatalog,
   input: Pick<RevisionInput, 'spaceId' | 'chunks' | 'claims'>,
   document: DocumentDef,
 ): RawChunk[] => {
@@ -151,10 +149,10 @@ export const checkRevision = (
   const chunks = rawChunksOf(input);
   chunks.forEach((chunk, index) => {
     (chunk.claims ?? []).forEach((claim) => {
-      if (!subjectIds.has(claim.subject)) {
+      if (!project.hasSubject(claim.subject)) {
         issues.push(`chunks[${index}]: no existe el sujeto ${claim.subject}`);
       }
-      if (!attributeKeys.has(claim.attribute)) {
+      if (!project.hasAttribute(claim.attribute)) {
         issues.push(
           `chunks[${index}]: no existe el atributo ${claim.attribute}`,
         );
@@ -174,8 +172,11 @@ export const checkRevision = (
   return chunks;
 };
 
-export const checkAuthor = (authorId: string): void => {
-  if (!castMember(authorId)) {
+export const checkAuthor = (
+  project: ProjectCatalog,
+  authorId: string,
+): void => {
+  if (!project.castMember(authorId)) {
     throw fail(
       HttpStatus.UNPROCESSABLE_ENTITY,
       'invalid_author',

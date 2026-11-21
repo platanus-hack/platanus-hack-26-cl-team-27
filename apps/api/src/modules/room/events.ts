@@ -1,13 +1,10 @@
 import type { Prisma, PrismaClient } from '@team27/data-main';
-import type {
-  OverlapStatus,
-  Proposal,
-  ProposalStatus,
-} from '@team27/context-lake';
+import type { OverlapStatus, ProposalStatus } from '@team27/context-lake';
 
+import { CASE_DOCUMENT_IDS, CASE_EXCLUSION } from '../../scenario/caso-p12.ts';
 import { buildLake } from '../lake/lake.module.ts';
-import { castName } from '../coordination/lookup.ts';
-import { overlapTitle } from '../coordination/views.ts';
+import type { ProjectCatalog } from '../project/project-catalog.ts';
+import { overlapTitle, proposalTitle } from '../coordination/views.ts';
 import { readState } from './state.ts';
 
 export const EVENT_KINDS = [
@@ -58,12 +55,14 @@ export interface EventDraft {
 
 export const emitEvents = async (
   db: Prisma.TransactionClient,
+  projectId: string,
   events: readonly EventDraft[],
 ): Promise<void> => {
   if (events.length === 0) return;
-  const { epoch } = await readState(db);
+  const { epoch } = await readState(db, projectId);
   await db.roomEvent.createMany({
     data: events.map((event) => ({
+      projectId,
       epoch,
       kind: event.kind,
       message: event.message,
@@ -91,22 +90,28 @@ export interface Observed {
 
 export const observe = async (
   db: PrismaClient,
-  titleOf: (proposal: Proposal) => string,
+  project: ProjectCatalog,
 ): Promise<Observed> => {
-  const lake = buildLake(db);
-  const [consensus, proposals, overlaps, revisions] = await Promise.all([
-    lake.consensus.execute(),
+  const lake = buildLake(db, project);
+  const [consensus, allProposals, overlaps, allRevisions] = await Promise.all([
+    lake.consensus.execute(CASE_EXCLUSION),
     lake.ports.proposals.list(),
     lake.ports.overlaps.list(),
     lake.ports.revisions.list(),
   ]);
+  const proposals = allProposals.filter(
+    (item) => !CASE_DOCUMENT_IDS.includes(item.documentId),
+  );
+  const revisions = allRevisions.filter(
+    (item) => !CASE_DOCUMENT_IDS.includes(item.documentId),
+  );
   return {
     sealed: consensus.index.sealed,
     version: 1 + proposals.filter((item) => item.status === 'merged').length,
     proposals: new Map(
       proposals.map((item) => [
         item.id,
-        { status: item.status, title: titleOf(item) },
+        { status: item.status, title: proposalTitle(project, item) },
       ]),
     ),
     overlaps: new Map(
@@ -114,7 +119,7 @@ export const observe = async (
         item.id,
         {
           status: item.status,
-          title: overlapTitle(item, revisions),
+          title: overlapTitle(project, item, revisions),
           validators: item.validators,
         },
       ]),
@@ -134,7 +139,11 @@ export const observe = async (
   };
 };
 
-export const diffEvents = (before: Observed, after: Observed): EventDraft[] => {
+export const diffEvents = (
+  project: ProjectCatalog,
+  before: Observed,
+  after: Observed,
+): EventDraft[] => {
   const events: EventDraft[] = [];
   for (const [id, was] of before.proposals) {
     const now = after.proposals.get(id);
@@ -165,7 +174,7 @@ export const diffEvents = (before: Observed, after: Observed): EventDraft[] => {
     if (!was) {
       events.push({
         kind: 'overlap.detected',
-        message: `Solapamiento: ${now.title}. Validan ${now.validators.map(castName).join(' y ')}.`,
+        message: `Solapamiento: ${now.title}. Validan ${now.validators.map((id) => project.castName(id)).join(' y ')}.`,
         refs: { overlapId: id, castIds: [...now.validators] },
       });
     }
@@ -195,7 +204,7 @@ export const diffEvents = (before: Observed, after: Observed): EventDraft[] => {
     if (before.stale.has(revisionId)) continue;
     events.push({
       kind: 'stale.detected',
-      message: `Quedó desfasado: ${stale.title}. Le toca a ${castName(stale.ownerId)}.`,
+      message: `Quedó desfasado: ${stale.title}. Le toca a ${project.castName(stale.ownerId)}.`,
       refs: { revisionId, castId: stale.ownerId },
     });
   }

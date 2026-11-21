@@ -1,5 +1,4 @@
 import type { Impact } from '@team27/context-impact';
-import { quantityOf } from '@team27/context-impact';
 import type {
   BaselineEntry,
   Change,
@@ -27,38 +26,11 @@ import {
 } from '@team27/context-lake';
 import type { Notification } from '@team27/context-notification';
 
-import {
-  ALL_CELLS,
-  areaLabel,
-  footprintModel,
-  LEVELS,
-  levelLabel,
-  LONGITUDINAL_AXES,
-  SPANS,
-  SYSTEMS,
-  TRANSVERSAL_AXES,
-  spatialKindOf,
-} from '../../scenario/areas.ts';
-import {
-  attributeLabel,
-  DOCUMENTS,
-  type SectionId,
-  SPACES,
-  SUBJECTS,
-  subjectName,
-} from '../../scenario/documents.ts';
-import { LOS_AROMOS } from '../../scenario/los-aromos.ts';
-import {
-  castMember,
-  castName,
-  documentDef,
-  factLabel,
-  revisionTitle,
-  spaceName,
-  spaceOf,
-} from './lookup.ts';
+import type { CastMember, ProjectCatalog } from '../project/project-catalog.ts';
+import { authorName, revisionTitle } from './lookup.ts';
 
 export interface LakeSnapshot {
+  readonly project: ProjectCatalog;
   readonly revisions: readonly Revision[];
   readonly claims: readonly Claim[];
   readonly baseline: readonly BaselineEntry[];
@@ -77,37 +49,13 @@ export interface StaleRef {
   readonly attribute: string;
 }
 
-const BASE_COST = Math.round(
-  LOS_AROMOS.graph.budgetItems.reduce(
-    (total, item) =>
-      total +
-      LOS_AROMOS.model
-        .filter((element) => element.category === item.category)
-        .reduce((sum, element) => {
-          const properties = Object.fromEntries(
-            element.properties.map((property) => [
-              property.key,
-              property.value,
-            ]),
-          );
-          return (
-            sum +
-            quantityOf(item.category, item.quantity, properties) *
-              item.factor *
-              item.unitPrice
-          );
-        }, 0),
-    0,
-  ),
-);
-
-const sectionOf = (subject: string): SectionId =>
-  SUBJECTS.find((candidate) => candidate.id === subject)?.section ?? 'costos';
-
 export const printable = (value: ClaimValue): number | string =>
   typeof value === 'boolean' ? String(value) : value;
 
-export const proposalTitle = (proposal: Pick<Proposal, 'changes'>) => {
+export const proposalTitle = (
+  project: ProjectCatalog,
+  proposal: Pick<Proposal, 'changes'>,
+) => {
   const bySubject = new Map<string, Proposal['changes'][number][]>();
   for (const change of proposal.changes) {
     bySubject.set(change.subject, [
@@ -118,29 +66,33 @@ export const proposalTitle = (proposal: Pick<Proposal, 'changes'>) => {
   return [...bySubject.entries()]
     .map(
       ([subject, changes]) =>
-        `${subjectName(subject)} · ${changes
+        `${project.subjectName(subject)} · ${changes
           .map(
             (change) =>
-              `${attributeLabel(change.attribute)}: ${formatValue(printable(change.before), change.unit)} → ${formatValue(printable(change.after), change.unit)}`,
+              `${project.attributeLabel(change.attribute)}: ${formatValue(printable(change.before), change.unit)} → ${formatValue(printable(change.after), change.unit)}`,
           )
           .join(' · ')}`,
     )
     .join(' + ');
 };
 
-const backingTitle = (backing: Overlap['otherBacking']): string =>
-  `${documentDef(backing.documentId)?.name ?? backing.documentId} ${backing.label}`;
+const backingTitle = (
+  project: ProjectCatalog,
+  backing: Overlap['otherBacking'],
+): string =>
+  `${project.documentDef(backing.documentId)?.name ?? backing.documentId} ${backing.label}`;
 
 export const overlapTitle = (
+  project: ProjectCatalog,
   overlap: Overlap,
   revisions: readonly Revision[],
 ): string => {
   const revision = revisions.find((item) => item.id === overlap.revisionId);
   const incoming = revision ? revisionTitle(revision) : overlap.revisionId;
   if (overlap.area === null) {
-    return `${subjectName(overlap.subjectId)}: ${incoming} y ${backingTitle(overlap.otherBacking)} cambian datos distintos del mismo elemento`;
+    return `${project.subjectName(overlap.subjectId)}: ${incoming} y ${backingTitle(project, overlap.otherBacking)} cambian datos distintos del mismo elemento`;
   }
-  return `${subjectName(overlap.subjectId)} (${incoming}) y ${subjectName(overlap.otherSubjectId)} (${backingTitle(overlap.otherBacking)}) · ${areaLabel(overlap.area)}`;
+  return `${project.subjectName(overlap.subjectId)} (${incoming}) y ${project.subjectName(overlap.otherSubjectId)} (${backingTitle(project, overlap.otherBacking)}) · ${project.areaLabel(overlap.area)}`;
 };
 
 export const mergedProposals = (snapshot: LakeSnapshot): Proposal[] =>
@@ -173,7 +125,7 @@ export const totalsOf = (snapshot: LakeSnapshot) => {
     )?.value ?? 0,
   );
   return {
-    costTotal: BASE_COST + costDelta,
+    costTotal: snapshot.project.baseCost + costDelta,
     costDelta,
     projectDays: baseDays + delayDays,
     delayDays,
@@ -191,8 +143,8 @@ export const staleRefs = (stale: readonly StaleDocument[]): StaleRef[] =>
       })),
     );
 
-const reviewerInfo = (stakeholderId: string) => {
-  const member = castMember(stakeholderId);
+const reviewerInfo = (project: ProjectCatalog, stakeholderId: string) => {
+  const member = project.castMember(stakeholderId);
   return {
     name: member?.name ?? stakeholderId,
     role: member?.role ?? '',
@@ -200,7 +152,7 @@ const reviewerInfo = (stakeholderId: string) => {
   };
 };
 
-export const progressOf = (proposal: Proposal) => {
+export const progressOf = (project: ProjectCatalog, proposal: Proposal) => {
   const approved = proposal.reviews.filter(
     (review) => review.decision === 'approve',
   ).length;
@@ -211,7 +163,7 @@ export const progressOf = (proposal: Proposal) => {
     required: proposal.reviews.length,
     missing: proposal.reviews
       .filter((review) => review.decision !== 'approve')
-      .map((review) => castName(review.reviewerId)),
+      .map((review) => project.castName(review.reviewerId)),
   };
 };
 
@@ -235,6 +187,7 @@ export const blockedByOverlap = (
   overlapsOfProposal(snapshot, proposal.id).some(isLiveOverlap);
 
 export const overlapView = (snapshot: LakeSnapshot, overlap: Overlap) => {
+  const { project } = snapshot;
   const revision = snapshot.revisions.find(
     (item) => item.id === overlap.revisionId,
   );
@@ -243,41 +196,41 @@ export const overlapView = (snapshot: LakeSnapshot, overlap: Overlap) => {
     kind: overlap.kind,
     status: overlap.status,
     relation: overlap.relation,
-    title: overlapTitle(overlap, snapshot.revisions),
+    title: overlapTitle(project, overlap, snapshot.revisions),
     area: overlap.area
       ? {
           nivel: overlap.area.nivel,
-          nivelLabel: levelLabel(overlap.area.nivel),
+          nivelLabel: project.levelLabel(overlap.area.nivel),
           celda: overlap.area.celda,
           sistemas: [...overlap.area.sistemas],
-          label: areaLabel(overlap.area),
+          label: project.areaLabel(overlap.area),
         }
       : null,
     subjectId: overlap.subjectId,
-    subjectName: subjectName(overlap.subjectId),
+    subjectName: project.subjectName(overlap.subjectId),
     otherSubjectId: overlap.otherSubjectId,
-    otherSubjectName: subjectName(overlap.otherSubjectId),
+    otherSubjectName: project.subjectName(overlap.otherSubjectId),
     chunkLocator: overlap.chunkLocator,
     revisionId: overlap.revisionId,
     revisionTitle: revision ? revisionTitle(revision) : overlap.revisionId,
     otherBacking: {
       documentId: overlap.otherBacking.documentId,
       label: overlap.otherBacking.label,
-      title: backingTitle(overlap.otherBacking),
+      title: backingTitle(project, overlap.otherBacking),
       ownerId: overlap.otherBacking.ownerId,
-      ownerName: castName(overlap.otherBacking.ownerId),
+      ownerName: project.castName(overlap.otherBacking.ownerId),
     },
     proposalId: overlap.proposalId,
     otherProposalId: overlap.otherProposalId,
     validators: [...overlap.validators],
     validatorsInfo: overlap.validators.map((id) => ({
       id,
-      name: castName(id),
-      role: castMember(id)?.role ?? '',
+      name: project.castName(id),
+      role: project.castMember(id)?.role ?? '',
     })),
     votes: overlap.votes.map((vote) => ({
       validatorId: vote.validatorId,
-      validatorName: castName(vote.validatorId),
+      validatorName: project.castName(vote.validatorId),
       kind: vote.kind,
       note: vote.note,
       at: vote.at,
@@ -290,12 +243,12 @@ export const overlapView = (snapshot: LakeSnapshot, overlap: Overlap) => {
 
 export type OverlapView = ReturnType<typeof overlapView>;
 
-const hunksOf = (proposal: Proposal) => [
+const hunksOf = (project: ProjectCatalog, proposal: Proposal) => [
   ...proposal.changes.map((change) => ({
     subjectId: change.subject,
-    subjectName: subjectName(change.subject),
+    subjectName: project.subjectName(change.subject),
     attribute: change.attribute,
-    label: attributeLabel(change.attribute),
+    label: project.attributeLabel(change.attribute),
     unit: change.unit,
     before: change.before,
     after: change.after,
@@ -304,9 +257,9 @@ const hunksOf = (proposal: Proposal) => [
   })),
   ...proposal.context.map((item) => ({
     subjectId: item.subject,
-    subjectName: subjectName(item.subject),
+    subjectName: project.subjectName(item.subject),
     attribute: item.attribute,
-    label: attributeLabel(item.attribute),
+    label: project.attributeLabel(item.attribute),
     unit: item.unit,
     before: item.value,
     after: item.value,
@@ -316,6 +269,7 @@ const hunksOf = (proposal: Proposal) => [
 ];
 
 export const proposalView = (snapshot: LakeSnapshot, proposal: Proposal) => {
+  const { project } = snapshot;
   const impacts = impactsOf(snapshot, proposal);
   const { costDelta, delayDays } = sumOf(impacts);
   const notifications = snapshot.notifications.filter(
@@ -331,7 +285,7 @@ export const proposalView = (snapshot: LakeSnapshot, proposal: Proposal) => {
           change.attribute === discrepancy.attribute,
       ),
   );
-  const progress = progressOf(proposal);
+  const progress = progressOf(project, proposal);
   const source = snapshot.revisions.find(
     (revision) => revision.id === proposal.sourceRevisionId,
   );
@@ -339,12 +293,12 @@ export const proposalView = (snapshot: LakeSnapshot, proposal: Proposal) => {
   const live = isActive(proposal) ? overlaps.filter(isLiveOverlap) : [];
   const subjects = subjectsOf(proposal);
   const first = proposal.changes[0];
-  const hunks = hunksOf(proposal);
+  const hunks = hunksOf(project, proposal);
   return {
     id: proposal.id,
     changeId: proposal.changeId,
     changeIds: [...proposal.changeIds],
-    title: proposalTitle(proposal),
+    title: proposalTitle(project, proposal),
     status: progress.status,
     documentId: proposal.documentId,
     label: source?.label ?? '',
@@ -355,21 +309,21 @@ export const proposalView = (snapshot: LakeSnapshot, proposal: Proposal) => {
           documentId: source.documentId,
           label: source.label,
           pointer: source.sourcePointer,
-          spaceName: spaceName(source.spaceId),
+          spaceName: project.spaceName(source.spaceId),
         }
       : null,
     elementName:
       subjects.length === 1
-        ? subjectName(subjects[0] ?? '')
-        : subjects.map(subjectName).join(' y '),
+        ? project.subjectName(subjects[0] ?? '')
+        : subjects.map((id) => project.subjectName(id)).join(' y '),
     subjectId: first?.subject ?? '',
     subjectIds: subjects,
     attribute: first?.attribute ?? '',
     diffs: proposal.changes.map((change) => ({
       subjectId: change.subject,
-      subjectName: subjectName(change.subject),
+      subjectName: project.subjectName(change.subject),
       attribute: change.attribute,
-      label: attributeLabel(change.attribute),
+      label: project.attributeLabel(change.attribute),
       unit: change.unit,
       before: change.before,
       after: change.after,
@@ -379,13 +333,13 @@ export const proposalView = (snapshot: LakeSnapshot, proposal: Proposal) => {
     costDelta,
     delayDays,
     authorId: proposal.authorId,
-    authorName: castName(proposal.authorId),
+    authorName: project.castName(proposal.authorId),
     sourceRevisionId: proposal.sourceRevisionId,
     openedAt: proposal.openedAt,
     mergedAt: proposal.status === 'merged' ? proposal.resolvedAt : null,
     reviewers: proposal.reviews.map((review) => ({
       stakeholderId: review.reviewerId,
-      ...reviewerInfo(review.reviewerId),
+      ...reviewerInfo(project, review.reviewerId),
       notificationId:
         notifications.find(
           (notification) => notification.stakeholderId === review.reviewerId,
@@ -396,7 +350,7 @@ export const proposalView = (snapshot: LakeSnapshot, proposal: Proposal) => {
     })),
     filtered: proposal.filtered.map((filtered) => ({
       stakeholderId: filtered.id,
-      name: castName(filtered.id),
+      name: project.castName(filtered.id),
       reason: filtered.reason,
     })),
     progress: {
@@ -425,7 +379,7 @@ export const proposalView = (snapshot: LakeSnapshot, proposal: Proposal) => {
         (candidate) => candidate.id === discrepancy.revisionId,
       );
       return revision
-        ? `${revisionTitle(revision)} · ${spaceName(revision.spaceId)}`
+        ? `${revisionTitle(revision)} · ${project.spaceName(revision.spaceId)}`
         : discrepancy.documentId;
     }),
   };
@@ -433,8 +387,8 @@ export const proposalView = (snapshot: LakeSnapshot, proposal: Proposal) => {
 
 export type ProposalView = ReturnType<typeof proposalView>;
 
-export const voteProposal = (proposal: Proposal) => {
-  const progress = progressOf(proposal);
+export const voteProposal = (project: ProjectCatalog, proposal: Proposal) => {
+  const progress = progressOf(project, proposal);
   return {
     id: progress.id,
     status: progress.status,
@@ -446,8 +400,9 @@ export const voteProposal = (proposal: Proposal) => {
 
 export const baselineResponse = (
   snapshot: LakeSnapshot,
-  section: SectionId | undefined,
+  section: string | undefined,
 ) => {
+  const { project } = snapshot;
   const active = snapshot.proposals.filter(isActive);
   const staleBySubject = (subject: string, attribute: string): number =>
     snapshot.consensus.stale.filter(
@@ -458,7 +413,7 @@ export const baselineResponse = (
         ),
     ).length;
   const entries = snapshot.baseline
-    .filter((entry) => !section || sectionOf(entry.subject) === section)
+    .filter((entry) => !section || project.sectionOf(entry.subject) === section)
     .map((entry) => {
       const status = valueStatus(entry, snapshot.proposals);
       const proposal = active.find((candidate) =>
@@ -483,11 +438,11 @@ export const baselineResponse = (
           current.has(claim.revisionId),
       ).length;
       return {
-        section: sectionOf(entry.subject),
+        section: project.sectionOf(entry.subject),
         subjectId: entry.subject,
-        subjectName: subjectName(entry.subject),
+        subjectName: project.subjectName(entry.subject),
         attribute: entry.attribute,
-        label: attributeLabel(entry.attribute),
+        label: project.attributeLabel(entry.attribute),
         value: entry.value,
         unit: entry.unit,
         status,
@@ -501,7 +456,7 @@ export const baselineResponse = (
     })
     .sort(
       (a, b) =>
-        subjectIndex(a.subjectId) - subjectIndex(b.subjectId) ||
+        project.subjectIndex(a.subjectId) - project.subjectIndex(b.subjectId) ||
         a.attribute.localeCompare(b.attribute),
     );
   return {
@@ -510,9 +465,6 @@ export const baselineResponse = (
     entries,
   };
 };
-
-const subjectIndex = (id: string): number =>
-  SUBJECTS.findIndex((subject) => subject.id === id);
 
 const latestRevisionIds = (revisions: readonly Revision[]): string[] => {
   const latest = new Map<string, Revision>();
@@ -529,13 +481,14 @@ export const provenanceResponse = (
   snapshot: LakeSnapshot,
   provenance: Provenance,
 ) => {
+  const { project } = snapshot;
   const proposalById = new Map(
     snapshot.proposals.map((proposal) => [proposal.id, proposal]),
   );
   const reviewsOf = (proposal: Proposal | null) =>
     (proposal?.reviews ?? []).map((review) => ({
       stakeholderId: review.reviewerId,
-      name: castName(review.reviewerId),
+      name: project.castName(review.reviewerId),
       decision: review.decision,
       note: review.note,
       at: review.at,
@@ -576,11 +529,14 @@ export const provenanceResponse = (
             },
             space: {
               id: input.revision.spaceId,
-              name: spaceName(input.revision.spaceId),
+              name: project.spaceName(input.revision.spaceId),
             },
             author: {
               id: input.revision.authorId,
-              name: castName(input.revision.authorId),
+              name: authorName(
+                (id) => project.castName(id),
+                input.revision.authorId,
+              ),
             },
             proposal: proposalRef(input.proposal),
             reviews: reviewsOf(input.proposal),
@@ -593,15 +549,17 @@ export const provenanceResponse = (
       revisionTitle: revision
         ? revisionTitle(revision)
         : discrepancy.documentId,
-      spaceName: revision ? spaceName(revision.spaceId) : '',
-      authorName: revision ? castName(revision.authorId) : '',
+      spaceName: revision ? project.spaceName(revision.spaceId) : '',
+      authorName: revision
+        ? authorName((id) => project.castName(id), revision.authorId)
+        : '',
       weakValue: discrepancy.value,
     }));
   const primaryClaimId = provenance.claim?.id ?? null;
   return {
     subjectId: provenance.subject,
     attribute: provenance.attribute,
-    label: factLabel(provenance.subject, provenance.attribute),
+    label: project.factLabel(provenance.subject, provenance.attribute),
     current: {
       value: provenance.value,
       unit: provenance.unit,
@@ -639,7 +597,7 @@ export const provenanceResponse = (
               {
                 revisionTitle: revisionTitle(source.revision),
                 label: source.revision.label,
-                spaceName: spaceName(source.revision.spaceId),
+                spaceName: project.spaceName(source.revision.spaceId),
                 role: source.claim.role,
               },
             ]
@@ -677,6 +635,7 @@ const claimOutcome = (
 };
 
 export const spacesResponse = (snapshot: LakeSnapshot) => {
+  const { project } = snapshot;
   const staleByDocument = new Map(
     snapshot.consensus.stale.map((document) => [document.documentId, document]),
   );
@@ -687,92 +646,93 @@ export const spacesResponse = (snapshot: LakeSnapshot) => {
   );
   const current = new Set(latestRevisionIds(snapshot.revisions));
   return {
-    spaces: SPACES.map((space) => ({
+    spaces: project.spaces.map((space) => ({
       id: space.id,
       name: space.name,
       kind: space.kind,
       ownerId: space.ownerId,
-      ownerName: castName(space.ownerId),
-      documents: DOCUMENTS.filter(
-        (document) => document.spaceId === space.id,
-      ).map((document) => {
-        const stale = staleByDocument.get(document.id);
-        const state = stale
-          ? stale.acknowledgement
-            ? 'acknowledged'
-            : 'stale'
-          : discrepancyDocuments.has(document.id)
-            ? 'discrepancy'
-            : 'current';
-        return {
-          id: document.id,
-          title: document.name,
-          kind: document.kind,
-          state,
-          ownerId: document.ownerId,
-          ownerName: castName(document.ownerId),
-          staleFacts: (stale?.items ?? []).map((item) => ({
-            subjectId: item.subject,
-            attribute: item.attribute,
-            label: factLabel(item.subject, item.attribute),
-            usedValue: item.usedValue,
-            currentValue: item.currentValue,
-            unit: item.unit,
-          })),
-          acknowledgedNote: stale?.acknowledgement?.note ?? null,
-          revisions: snapshot.revisions
-            .filter((revision) => revision.documentId === document.id)
-            .sort((a, b) => a.ingestOrder - b.ingestOrder)
-            .map((revision) => ({
-              id: revision.id,
-              label: revision.label,
-              title: revisionTitle(revision),
-              pointer: revision.sourcePointer,
-              author: {
-                id: revision.authorId,
-                name: castName(revision.authorId),
-              },
-              capturedAt: revision.ingestedAt,
-              current: current.has(revision.id),
-              chunks: snapshot.chunks
-                .filter((chunk) => chunk.revisionId === revision.id)
-                .map((chunk) => ({
-                  locator: chunk.locator,
-                  kind: chunk.kind,
-                  text: chunk.text,
-                  rejected: chunk.rejected.map((item) => ({
-                    subjectId: item.subject,
-                    attribute: item.attribute,
-                    label: factLabel(item.subject, item.attribute),
-                    value: item.value,
-                    unit: item.unit,
-                    role: item.role,
-                    confidence: item.confidence,
-                    reason: item.reason,
-                  })),
-                })),
-              claims: snapshot.claims
-                .filter((claim) => claim.revisionId === revision.id)
-                .map((claim) => ({
-                  confidence: claim.confidence,
-                  subjectId: claim.subject,
-                  attribute: claim.attribute,
-                  label: factLabel(claim.subject, claim.attribute),
-                  value: claim.value,
-                  unit: claim.unit,
-                  role: claim.role,
-                  locator: claim.locator,
-                  outcome: claimOutcome(snapshot, claim),
-                })),
+      ownerName: project.castName(space.ownerId),
+      documents: project.documents
+        .filter((document) => document.spaceId === space.id)
+        .map((document) => {
+          const stale = staleByDocument.get(document.id);
+          const state = stale
+            ? stale.acknowledgement
+              ? 'acknowledged'
+              : 'stale'
+            : discrepancyDocuments.has(document.id)
+              ? 'discrepancy'
+              : 'current';
+          return {
+            id: document.id,
+            title: document.name,
+            kind: document.kind,
+            state,
+            ownerId: document.ownerId,
+            ownerName: project.castName(document.ownerId),
+            staleFacts: (stale?.items ?? []).map((item) => ({
+              subjectId: item.subject,
+              attribute: item.attribute,
+              label: project.factLabel(item.subject, item.attribute),
+              usedValue: item.usedValue,
+              currentValue: item.currentValue,
+              unit: item.unit,
             })),
-        };
-      }),
+            acknowledgedNote: stale?.acknowledgement?.note ?? null,
+            revisions: snapshot.revisions
+              .filter((revision) => revision.documentId === document.id)
+              .sort((a, b) => a.ingestOrder - b.ingestOrder)
+              .map((revision) => ({
+                id: revision.id,
+                label: revision.label,
+                title: revisionTitle(revision),
+                pointer: revision.sourcePointer,
+                author: {
+                  id: revision.authorId,
+                  name: project.castName(revision.authorId),
+                },
+                capturedAt: revision.ingestedAt,
+                current: current.has(revision.id),
+                chunks: snapshot.chunks
+                  .filter((chunk) => chunk.revisionId === revision.id)
+                  .map((chunk) => ({
+                    locator: chunk.locator,
+                    kind: chunk.kind,
+                    text: chunk.text,
+                    rejected: chunk.rejected.map((item) => ({
+                      subjectId: item.subject,
+                      attribute: item.attribute,
+                      label: project.factLabel(item.subject, item.attribute),
+                      value: item.value,
+                      unit: item.unit,
+                      role: item.role,
+                      confidence: item.confidence,
+                      reason: item.reason,
+                    })),
+                  })),
+                claims: snapshot.claims
+                  .filter((claim) => claim.revisionId === revision.id)
+                  .map((claim) => ({
+                    confidence: claim.confidence,
+                    subjectId: claim.subject,
+                    attribute: claim.attribute,
+                    label: project.factLabel(claim.subject, claim.attribute),
+                    value: claim.value,
+                    unit: claim.unit,
+                    role: claim.role,
+                    locator: claim.locator,
+                    outcome: claimOutcome(snapshot, claim),
+                  })),
+              })),
+          };
+        }),
     })),
   };
 };
 
 export const sealOf = (snapshot: LakeSnapshot) => {
   if (!snapshot.consensus.index.sealed) return null;
+  const { project } = snapshot;
   const merged = mergedProposals(snapshot);
   const lastAt = merged
     .map((proposal) => proposal.resolvedAt)
@@ -785,7 +745,7 @@ export const sealOf = (snapshot: LakeSnapshot) => {
       const approvals = proposal.reviews.filter(
         (review) => review.decision === 'approve',
       ).length;
-      return `${castName(proposal.authorId)} propuso ${proposalTitle(proposal)} y lo aprobaron ${approvals} de ${proposal.reviews.length}.`;
+      return `${project.castName(proposal.authorId)} propuso ${proposalTitle(project, proposal)} y lo aprobaron ${approvals} de ${proposal.reviews.length}.`;
     }),
   };
 };
@@ -802,34 +762,36 @@ const CHANNEL_PREVIEW = {
   slack: 'Recibes los avisos en tu canal de equipo.',
 } as const;
 
-const previewOf = (member: (typeof LOS_AROMOS.cast)[number]): string =>
-  member.id === LOS_AROMOS.author.id
+const previewOf = (project: ProjectCatalog, member: CastMember): string =>
+  member.id === project.author.id
     ? 'Presentas la muestra y firmas los cambios del proyecto.'
     : `${member.role}. ${CHANNEL_PREVIEW[member.channel]}`;
 
 export const occupantOf = (
+  project: ProjectCatalog,
   castId: string,
   present: ReadonlySet<string>,
 ): 'human' | 'bot' | 'presenter' =>
-  castId === LOS_AROMOS.author.id
+  castId === project.author.id
     ? 'presenter'
     : present.has(castId)
       ? 'human'
       : 'bot';
 
 export const castView = (
-  member: (typeof LOS_AROMOS.cast)[number],
+  project: ProjectCatalog,
+  member: CastMember,
   present: ReadonlySet<string>,
 ) => {
-  const occupant = occupantOf(member.id, present);
+  const occupant = occupantOf(project, member.id, present);
   return {
     id: member.id,
     name: member.name,
     role: member.role,
-    channel: member.id === LOS_AROMOS.author.id ? null : member.channel,
-    handle: member.id === LOS_AROMOS.author.id ? null : member.handle,
-    presenter: member.id === LOS_AROMOS.author.id,
-    preview: previewOf(member),
+    channel: member.id === project.author.id ? null : member.channel,
+    handle: member.id === project.author.id ? null : member.handle,
+    presenter: member.id === project.author.id,
+    preview: previewOf(project, member),
     occupant,
     occupied: occupant === 'human',
     present: occupant === 'human',
@@ -838,27 +800,31 @@ export const castView = (
 };
 
 export const roomResponse = (snapshot: LakeSnapshot, extras: RoomExtras) => {
+  const { project } = snapshot;
   const { index } = snapshot.consensus;
   return {
     epoch: extras.epoch,
     cursor: extras.cursor,
     lake: { empty: snapshot.revisions.length === 0 },
     projectVersion: projectVersion(snapshot),
-    project: LOS_AROMOS.project,
+    project: project.info,
     totals: totalsOf(snapshot),
     consensus: index,
-    cast: LOS_AROMOS.cast.map((member) => castView(member, extras.present)),
-    spaces: SPACES.map((space) => ({
+    cast: project.cast.map((member) =>
+      castView(project, member, extras.present),
+    ),
+    spaces: project.spaces.map((space) => ({
       id: space.id,
       name: space.name,
       kind: space.kind,
       ownerId: space.ownerId,
-      ownerName: castName(space.ownerId),
+      ownerName: project.castName(space.ownerId),
       members: [] as { id: string; name: string }[],
-      documents: DOCUMENTS.filter((document) => document.spaceId === space.id)
-        .length,
+      documents: project.documents.filter(
+        (document) => document.spaceId === space.id,
+      ).length,
       revisions: snapshot.revisions.filter(
-        (revision) => spaceOf(revision.spaceId)?.id === space.id,
+        (revision) => project.spaceOf(revision.spaceId)?.id === space.id,
       ).length,
     })),
     counters: {
@@ -874,6 +840,7 @@ export const roomResponse = (snapshot: LakeSnapshot, extras: RoomExtras) => {
 };
 
 export const inboxResponse = (snapshot: LakeSnapshot, castId: string) => {
+  const { project } = snapshot;
   const revisionById = new Map(
     snapshot.revisions.map((revision) => [revision.id, revision]),
   );
@@ -885,7 +852,7 @@ export const inboxResponse = (snapshot: LakeSnapshot, castId: string) => {
         .find((candidate) => candidate.changeId === notification.changeId);
       if (!proposal) return [];
       const { costDelta, delayDays } = sumOf(impactsOf(snapshot, proposal));
-      const progress = progressOf(proposal);
+      const progress = progressOf(project, proposal);
       return [
         {
           type: 'vote' as const,
@@ -920,16 +887,18 @@ export const inboxResponse = (snapshot: LakeSnapshot, castId: string) => {
       return {
         type: 'discrepancy' as const,
         id: discrepancy.id,
-        subjectName: subjectName(discrepancy.subject),
-        label: attributeLabel(discrepancy.attribute),
+        subjectName: project.subjectName(discrepancy.subject),
+        label: project.attributeLabel(discrepancy.attribute),
         claimedValue: discrepancy.value,
         currentValue: discrepancy.baselineValue,
         unit: discrepancy.unit,
         sourceTitle: revision
           ? revisionTitle(revision)
           : discrepancy.documentId,
-        spaceName: revision ? spaceName(revision.spaceId) : '',
-        authorName: revision ? castName(revision.authorId) : '',
+        spaceName: revision ? project.spaceName(revision.spaceId) : '',
+        authorName: revision
+          ? authorName((id) => project.castName(id), revision.authorId)
+          : '',
         at: discrepancy.createdAt,
       };
     });
@@ -963,7 +932,7 @@ export const inboxResponse = (snapshot: LakeSnapshot, castId: string) => {
         revisionLabel: document.label,
         subjectId: item.subject,
         attribute: item.attribute,
-        label: factLabel(item.subject, item.attribute),
+        label: project.factLabel(item.subject, item.attribute),
         usedValue: item.usedValue,
         currentValue: item.currentValue,
         unit: item.unit,
@@ -979,7 +948,7 @@ export const inboxResponse = (snapshot: LakeSnapshot, castId: string) => {
         id: `${proposal.id}:${castId}`,
         proposalId: proposal.id,
         changeId: proposal.changeId,
-        title: proposalTitle(proposal),
+        title: proposalTitle(project, proposal),
         reason: entry.reason,
         at: proposal.openedAt,
       },
@@ -1022,30 +991,34 @@ export const changeView = (
   };
 };
 
-const areaCellView = (area: {
-  nivel: string;
-  celda: string;
-  sistemas: readonly string[];
-}) => ({
+const areaCellView = (
+  project: ProjectCatalog,
+  area: {
+    nivel: string;
+    celda: string;
+    sistemas: readonly string[];
+  },
+) => ({
   nivel: area.nivel,
   celda: area.celda,
   sistemas: [...area.sistemas],
-  label: areaLabel({ ...area }),
+  label: project.areaLabel({ ...area }),
 });
 
 export const areasResponse = (snapshot: LakeSnapshot) => {
+  const { project } = snapshot;
   const occupants = [
     ...new Set(snapshot.baseline.map((entry) => entry.subject)),
   ]
-    .filter((subject) => spatialKindOf(subject) !== 'ninguno')
-    .sort((a, b) => subjectIndex(a) - subjectIndex(b))
+    .filter((subject) => project.spatialKindOf(subject) !== 'ninguno')
+    .sort((a, b) => project.subjectIndex(a) - project.subjectIndex(b))
     .map((subject) => {
-      const current = footprintModel(
+      const current = project.footprintModel(
         subject,
         baselineValues(subject, snapshot.baseline),
       );
       const proposals = activeFor(subject, snapshot.proposals);
-      const proposed = footprintModel(
+      const proposed = project.footprintModel(
         subject,
         finalValues(subject, snapshot.baseline, snapshot.proposals),
       );
@@ -1058,15 +1031,17 @@ export const areasResponse = (snapshot: LakeSnapshot) => {
       );
       return {
         subjectId: subject,
-        name: subjectName(subject),
-        section: sectionOf(subject),
+        name: project.subjectName(subject),
+        section: project.sectionOf(subject),
         kind: current.kind,
-        areas: current.areas.map(areaCellView),
+        areas: current.areas.map((area) => areaCellView(project, area)),
         proposed:
           latest && !sameFootprint(current, proposed)
             ? {
                 proposalId: latest.id,
-                areas: proposed.areas.map(areaCellView),
+                areas: proposed.areas.map((area) =>
+                  areaCellView(project, area),
+                ),
               }
             : null,
         backing: backingRevision
@@ -1074,7 +1049,7 @@ export const areasResponse = (snapshot: LakeSnapshot) => {
               revisionId: backingRevision.id,
               title: revisionTitle(backingRevision),
               ownerId: backingRevision.authorId,
-              ownerName: castName(backingRevision.authorId),
+              ownerName: project.castName(backingRevision.authorId),
             }
           : null,
         overlapIds: snapshot.overlaps
@@ -1088,14 +1063,17 @@ export const areasResponse = (snapshot: LakeSnapshot) => {
       };
     });
   return {
-    levels: LEVELS.map((level) => ({ id: level.id, label: level.label })),
+    levels: project.levels.map((level) => ({
+      id: level.id,
+      label: level.label,
+    })),
     axes: {
-      longitudinal: LONGITUDINAL_AXES.map((axis) => ({ ...axis })),
-      transversal: [...TRANSVERSAL_AXES],
+      longitudinal: project.longitudinalAxes.map((axis) => ({ ...axis })),
+      transversal: [...project.transversalAxes],
     },
-    spans: [...SPANS],
-    cells: [...ALL_CELLS],
-    systems: SYSTEMS.map((system) => ({ ...system })),
+    spans: [...project.spans],
+    cells: [...project.allCells],
+    systems: project.systems.map((system) => ({ ...system })),
     occupants,
     overlaps: snapshot.overlaps
       .filter(isLiveOverlap)

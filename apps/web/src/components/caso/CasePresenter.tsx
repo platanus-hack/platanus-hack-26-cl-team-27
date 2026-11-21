@@ -14,6 +14,7 @@ import { AFFECTED_ID, AUTHOR_ID, resetFlow } from '@/lib/flow-api';
 import { ApiError, describeError } from '@/lib/http';
 
 import { CamilaView } from './CamilaView';
+import { CaseHistory } from './HistoryPanel';
 import { PaulaView } from './PaulaView';
 
 const REJECTED = 'La clave no es correcta.';
@@ -90,7 +91,12 @@ function Connected({
           <h2 className="mb-2 text-base font-semibold text-ink">
             Paula Rojas · Ingeniera calculista
           </h2>
-          <PaulaView flow={data} auth={asPaula} onChanged={reload} />
+          <PaulaView
+            flow={data}
+            hideHistory
+            auth={asPaula}
+            onChanged={reload}
+          />
         </section>
         <section aria-label="Pantalla de Camila Vera" className="min-w-0">
           <h2 className="mb-2 text-base font-semibold text-ink">
@@ -98,6 +104,7 @@ function Connected({
           </h2>
           <CamilaView
             flow={data}
+            hideHistory
             auth={asCamila}
             reportPresence={false}
             onChanged={reload}
@@ -122,6 +129,7 @@ function Connected({
           )}
         </aside>
       </div>
+      <CaseHistory flow={data} wide />
     </div>
   );
 }

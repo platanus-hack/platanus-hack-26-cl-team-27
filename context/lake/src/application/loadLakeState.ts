@@ -26,10 +26,16 @@ export interface LakeState {
   readonly stale: StaleDocument[];
 }
 
+export interface LakeExclusion {
+  readonly documentIds: readonly string[];
+  readonly subjectPrefix: string;
+}
+
 export const loadLakeState = async (
   repositories: LakeStateRepositories,
+  exclusion?: LakeExclusion,
 ): Promise<LakeState> => {
-  const [revisions, claims, baseline, proposals, acknowledgements] =
+  const [allRevisions, allClaims, allBaseline, allProposals, allAcks] =
     await Promise.all([
       repositories.revisions.list(),
       repositories.claims.list(),
@@ -37,6 +43,29 @@ export const loadLakeState = async (
       repositories.proposals.list(),
       repositories.acknowledgements.list(),
     ]);
+  const excluded = new Set(exclusion?.documentIds ?? []);
+  const hiddenRevisions = new Set(
+    allRevisions
+      .filter((revision) => excluded.has(revision.documentId))
+      .map((revision) => revision.id),
+  );
+  const revisions = allRevisions.filter(
+    (revision) => !hiddenRevisions.has(revision.id),
+  );
+  const claims = allClaims.filter(
+    (claim) => !hiddenRevisions.has(claim.revisionId),
+  );
+  const baseline = exclusion
+    ? allBaseline.filter(
+        (entry) => !entry.subject.startsWith(exclusion.subjectPrefix),
+      )
+    : allBaseline;
+  const proposals = allProposals.filter(
+    (proposal) => !excluded.has(proposal.documentId),
+  );
+  const acknowledgements = allAcks.filter(
+    (ack) => !excluded.has(ack.documentId),
+  );
   const stale = computeStaleness({
     revisions,
     claims,

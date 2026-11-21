@@ -1,6 +1,6 @@
 # Diseño del servicio: el flujo de 4 pasos sobre la verdad central
 
-Estado: el flujo de 4 pasos corre en memoria (`/caso`, `/api/flow`); el resto es diseño. Las cotas del caso son provisorias hasta que alguien que conozca obra las confirme. Todo lo marcado «a verificar» depende de APIs externas (Autodesk, Revit, Excel) que aún no se probaron.
+Estado: el flujo de 4 pasos (`/caso`, `/api/flow`) está guardado en el lago de Postgres y se proyecta desde ahí; el resto es diseño. Las cotas del caso son provisorias hasta que alguien que conozca obra las confirme. Todo lo marcado «a verificar» depende de APIs externas (Autodesk, Revit, Excel) que aún no se probaron.
 
 ## 1. En cinco líneas
 
@@ -145,6 +145,19 @@ Este es el servicio completo. El sábado se construye solo lo marcado en la secc
 3. **Vínculos.** `(source, sourceRef, locator) → elementId`. Lo que no tiene vínculo va a una bandeja de sin vincular, con la minuta intacta en el libro; se vincula después y se reprocesa. Nada se pierde.
 4. **Lo vigente.** Es lo que ya existe en el lago: hechos por sujeto y atributo, con historia y procedencia. El sujeto pasa a ser el `elementId` cuando hay vínculo. Cada valor vigente guarda quién lo aceptó, cuándo, de qué minuta o propuesta salió y una `truthVersion` del proyecto. Volver a cualquier punto es recalcular hasta la versión N.
 
+### Lo que está construido
+
+El caso de 4 pasos ya vive en el lago, con las capas 4 y parte de la 1 de arriba:
+
+- **Lo vigente.** Cada elemento del caso es un sujeto `caso.<id>` con el atributo `ubicacion_m`, cuyo valor es la caja en texto canónico (`encodeBox`/`decodeBox` del lago). Se siembra a demanda con una revisión `base` por documento (`LosAromos_EST`, `LosAromos_ELEC`, `LosAromos_SAN`, `LosAromos_ARQ`).
+- **La minuta de Paula** es una revisión inmutable de `LosAromos_EST` con el `minuteId` como etiqueta única (la clave de idempotencia: el mismo `minuteId` devuelve el mismo estado, también tras reiniciar la API), un fragmento por cambio y su hecho.
+- **El PR del caso** es una propuesta del lago con dos hunks (P-12, el cambio, y E-B-03, el arreglo que Vigente propuso, en una revisión de `LosAromos_ELEC` con autor `vigente`) y como revisora la dueña del elemento afectado. No es vigente hasta que acepta.
+- **Aceptar** registra la revisión de Camila y fusiona la propuesta: lo vigente cambia y su historia guarda el valor anterior; la procedencia dice qué minuta de Paula y a qué hora, que Vigente propuso el arreglo y que Camila lo aprobó a las HH:MM. **Rechazar** registra la disputa con su motivo y deja lo vigente igual.
+- **`GET /api/flow`** es una proyección del lago (más la presencia, en memoria); un reinicio de la API rehidrata el estado exacto, a mitad del flujo o ya resuelto. `GET /api/flow/history` entrega la historia de P-12 y E-B-03 para el panel «Historia» de `/caso`.
+- **Reinicio.** El del caso borra solo sus registros y lo resiembra; el de la sala vacía el lago y el caso se resiembra en el siguiente pedido. Diez ensayos no acumulan historia.
+
+Todavía no existe: el libro de minutas con `sourceVersion`, el registro de elementos con alias, los vínculos y la bandeja de sin vincular, la minuta de Excel, las URLs prefirmadas ni la autoridad por fuente.
+
 ### Regla de aceptación
 
 **El afectado acepta y se aplica.** Una persona por elemento afectado, sin votos: solo el dueño del elemento afectado (asiento humano con token) puede aceptar o rechazar. La aceptación es una transacción: marca la propuesta, escribe los hechos nuevos en lo vigente con procedencia `{ por, cuándo, propuesta }`, sube la versión y emite el evento de aplicado. Es idempotente por id de propuesta.
@@ -216,7 +229,7 @@ Entre datos, sobre el mismo elemento, geométricas entre disciplinas (esta secci
 
 ## 5. Cómo el cambio llega al plano del afectado
 
-**Camino elegido para el sábado: lo vigente, leído por el visor de la web.** Hoy, al aceptar, el servidor mueve la caja de E-B-03 en memoria y emite `flow.fix.applied`, y el plano SVG de `/caso` desliza el tramo. Diseñado para después: escribir en lo vigente, y que el visor de Eléctrico cargue el modelo APS (el que ya existe en `/modelos`, con disciplinas alineadas) y desplaza la bandeja a su posición vigente con una transición breve. La pantalla dice «aplicado en el modelo vigente»: no escribimos en el archivo de Revit y lo decimos en voz alta en el pitch.
+**Camino elegido para el sábado: lo vigente, leído por el visor de la web.** Hoy, al aceptar, el servidor fusiona el arreglo en lo vigente del lago (la caja de E-B-03) y emite `flow.fix.applied`, y el plano SVG de `/caso` desliza el tramo. Diseñado para después: escribir en lo vigente, y que el visor de Eléctrico cargue el modelo APS (el que ya existe en `/modelos`, con disciplinas alineadas) y desplaza la bandeja a su posición vigente con una transición breve. La pantalla dice «aplicado en el modelo vigente»: no escribimos en el archivo de Revit y lo decimos en voz alta en el pitch.
 
 **Respaldo.** Si mover un fragmento en el visor APS no se confirma (el modelo traducido puede no traer la bandeja como elemento propio; cambiar el color por `dbId` ya se hace hoy, mover un fragmento está a verificar), un plano 2D propio en SVG con las cajas muestra el mismo movimiento. Se decide con una prueba de 30 minutos sobre el modelo real antes de las 22:00.
 
@@ -248,7 +261,7 @@ Eventos del flujo en `/events`: `change.recorded`, `clash.detected`, `fix.propos
 - La sala suma la bandera «sin bots»; `/presentador` muestra los eventos nuevos y reinicia el caso.
 - Docs: `docs/multijugador.md` y el contrato del add-in se actualizan en el mismo cambio que el código.
 
-**Se posterga.** Votos, rondas y unanimidad entre varios afectados; solapamientos con validación conjunta como camino principal; Excel como fuente real y sus colisiones de consistencia; los otros cuatro tipos de colisión; libro de minutas completo, vínculos, bandeja de sin vincular, autoridad por atributo, credencial por integración, reproceso y retención; URLs prefirmadas con auditoría completa; Yjs; diferencias por GlobalId sobre IFC y visor IFC en el navegador; escritura real a Revit; persistencia en base de datos (el sábado, en memoria con reinicio; la migración a tablas viene después, derivando las cajas del libro).
+**Se posterga.** Votos, rondas y unanimidad entre varios afectados; solapamientos con validación conjunta como camino principal; Excel como fuente real y sus colisiones de consistencia; los otros cuatro tipos de colisión; libro de minutas completo, vínculos, bandeja de sin vincular, autoridad por atributo, credencial por integración, reproceso y retención; URLs prefirmadas con auditoría completa; Yjs; diferencias por GlobalId sobre IFC y visor IFC en el navegador; escritura real a Revit; tablas propias para elementos y para el libro de minutas (el flujo ya persiste en las tablas del lago).
 
 ## 8. Plan
 
@@ -268,7 +281,7 @@ Eventos del flujo en `/events`: `change.recorded`, `clash.detected`, `fix.propos
 
 **Ensayo.** Diez corridas completas con reinicio de un botón en `/presentador`, plan B si falla la red o el visor (plano 2D), y un caso de reserva solo si el principal ya es sólido.
 
-**Migración del código actual, por segmentos.** (1) Flujo vertical en memoria con `context/clash`. (2) Bandera sin bots y regla `owner`. (3) Contrato de minuta extendido y add-in con ubicación. (4) Persistencia: elementos, propuestas y eventos en base de datos. (5) Libro de minutas, vínculos y bandeja de sin vincular. (6) Excel como fuente. (7) Credenciales por integración, URLs prefirmadas, reproceso y retención. Cada segmento cierra con tests, docs y `pnpm check` en verde.
+**Migración del código actual, por segmentos.** (1) Hecho: flujo vertical con la geometría en `context/lake`. (2) Hecho: regla `owner`. (3) Contrato de minuta extendido y add-in con ubicación. (4) Hecho: persistencia del flujo en el lago (minuta, propuesta, lo vigente con historia y procedencia); falta una tabla propia de elementos. (5) Libro de minutas, vínculos y bandeja de sin vincular. (6) Excel como fuente. (7) Credenciales por integración, URLs prefirmadas, reproceso y retención. Cada segmento cierra con tests, docs y `pnpm check` en verde.
 
 ## 9. Riesgos y decisiones
 

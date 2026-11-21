@@ -28,11 +28,14 @@ export const envSchema = z
               .map((origin) => origin.trim())
               .filter(Boolean),
       ),
+    PROJECT_ID: optionalText,
     PRESENTER_KEY: z.string().min(8).optional(),
     ANTHROPIC_API_KEY: z
       .string()
       .optional()
       .transform((value) => (value && value.trim() !== '' ? value : undefined)),
+    AUTH0_DOMAIN: optionalText,
+    AUTH0_AUDIENCE: optionalText,
     APS_CLIENT_ID: optionalText,
     APS_CLIENT_SECRET: optionalText,
     APS_BUCKET_KEY: optionalText,

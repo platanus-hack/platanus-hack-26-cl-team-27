@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { ConfigService } from '@nestjs/config';
 import type { PrismaClient } from '@team27/data-main';
 
+import { project } from '../../project.ts';
 import type { Env } from '../../../src/config/index.ts';
 import { SeatsService } from '../../../src/modules/room/seats.service.ts';
 
@@ -45,7 +46,7 @@ const build = (rows: SeatRow[]): SeatsService => {
   const config = {
     get: () => KEY,
   } as unknown as ConfigService<Env, true>;
-  return new SeatsService(prisma, config);
+  return new SeatsService(prisma, config, project);
 };
 
 const present = (castId: string): SeatRow => ({

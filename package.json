@@ -22,6 +22,7 @@
     "aps:models": "node --env-file-if-exists=.env apps/aps/src/main.ts models",
     "db:up": "docker compose up -d --wait postgres",
     "db:migrate": "pnpm --filter @team27/data-main migrate:deploy",
+    "db:seed": "pnpm --filter @team27/data-main seed",
     "db:studio": "pnpm --filter @team27/data-main studio",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

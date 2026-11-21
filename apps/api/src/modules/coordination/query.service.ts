@@ -19,7 +19,8 @@ import {
 } from '@team27/context-lake';
 import { ListNotifications } from '@team27/context-notification';
 
-import type { SectionId } from '../../scenario/documents.ts';
+import type { ProjectCatalog } from '../project/project-catalog.ts';
+import { PROJECT_CATALOG } from '../project/project.module.ts';
 import {
   BASELINE_REPOSITORY,
   CHUNK_REPOSITORY,
@@ -29,6 +30,11 @@ import {
   PROPOSAL_REPOSITORY,
   REVISION_REPOSITORY,
 } from '../lake/lake.module.ts';
+import {
+  CASE_DOCUMENT_IDS,
+  CASE_EXCLUSION,
+  CASE_SUBJECT_PREFIX,
+} from '../../scenario/caso-p12.ts';
 import { fail } from './http-errors.ts';
 import {
   areasResponse,
@@ -65,6 +71,7 @@ export class QueryService {
   private readonly listNotifications: ListNotifications;
   private readonly listChanges: ListChanges;
   private readonly getChange: GetChange;
+  private readonly project: ProjectCatalog;
 
   constructor(
     @Inject(REVISION_REPOSITORY) revisions: RevisionRepository,
@@ -82,6 +89,7 @@ export class QueryService {
     @Inject(ListNotifications) listNotifications: ListNotifications,
     @Inject(ListChanges) listChanges: ListChanges,
     @Inject(GetChange) getChange: GetChange,
+    @Inject(PROJECT_CATALOG) project: ProjectCatalog,
   ) {
     this.revisions = revisions;
     this.chunks = chunks;
@@ -98,15 +106,16 @@ export class QueryService {
     this.listNotifications = listNotifications;
     this.listChanges = listChanges;
     this.getChange = getChange;
+    this.project = project;
   }
 
-  async snapshot(): Promise<LakeSnapshot> {
+  async snapshot(withCase = false): Promise<LakeSnapshot> {
     const [
-      revisions,
-      chunks,
-      claims,
-      baseline,
-      proposals,
+      allRevisions,
+      allChunks,
+      allClaims,
+      allBaseline,
+      allProposals,
       discrepancies,
       overlaps,
       consensus,
@@ -118,8 +127,35 @@ export class QueryService {
       this.proposals.list(),
       this.discrepancies.list(),
       this.overlaps.list(),
-      this.getConsensus.execute(),
+      this.getConsensus.execute(withCase ? undefined : CASE_EXCLUSION),
     ]);
+    const caseRevisionIds = new Set(
+      allRevisions
+        .filter((revision) => CASE_DOCUMENT_IDS.includes(revision.documentId))
+        .map((revision) => revision.id),
+    );
+    const outside = <T>(keep: (item: T) => boolean, list: readonly T[]) =>
+      withCase ? list : list.filter(keep);
+    const revisions = outside(
+      (revision) => !caseRevisionIds.has(revision.id),
+      allRevisions,
+    );
+    const chunks = outside(
+      (chunk) => !caseRevisionIds.has(chunk.revisionId),
+      allChunks,
+    );
+    const claims = outside(
+      (claim) => !caseRevisionIds.has(claim.revisionId),
+      allClaims,
+    );
+    const baseline = outside(
+      (entry) => !entry.subject.startsWith(CASE_SUBJECT_PREFIX),
+      allBaseline,
+    );
+    const proposals = outside(
+      (proposal) => !CASE_DOCUMENT_IDS.includes(proposal.documentId),
+      allProposals,
+    );
     const changeIds = [
       ...new Set(proposals.flatMap((proposal) => proposal.changeIds)),
     ];
@@ -128,6 +164,7 @@ export class QueryService {
       this.listNotifications.execute({ changeIds }),
     ]);
     return {
+      project: this.project,
       revisions,
       chunks,
       claims,
@@ -151,7 +188,7 @@ export class QueryService {
     return inboxResponse(await this.snapshot(), castId);
   }
 
-  async baselineView(section: SectionId | undefined) {
+  async baselineView(section: string | undefined) {
     return baselineResponse(await this.snapshot(), section);
   }
 
@@ -164,7 +201,7 @@ export class QueryService {
         `No hay un valor vigente para ${subject}.${attribute}`,
       );
     }
-    return provenanceResponse(await this.snapshot(), provenance);
+    return provenanceResponse(await this.snapshot(true), provenance);
   }
 
   async spaces() {
@@ -178,7 +215,9 @@ export class QueryService {
       this.snapshot(),
     ]);
     return {
-      proposals: list.map((proposal) => proposalView(snapshot, proposal)),
+      proposals: list
+        .filter((proposal) => !CASE_DOCUMENT_IDS.includes(proposal.documentId))
+        .map((proposal) => proposalView(snapshot, proposal)),
     };
   }
 

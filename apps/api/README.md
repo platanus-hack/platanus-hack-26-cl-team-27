@@ -51,6 +51,10 @@ Todas cuelgan de `/api`. Los POST responden 201, salvo los que dicen 204. Los er
 | `GET /aps/viewer-token` | `{ access_token, expires_in }`: un token 2-legged de APS con solo `viewables:read`, para el visor del navegador. Se cachea hasta un minuto antes de vencer y va con `Cache-Control: no-store`. 503 `aps_not_configured` sin `APS_CLIENT_ID` y `APS_CLIENT_SECRET`; 503 `aps_unavailable` si APS no lo entrega |
 | `GET /aps/models` | `{ models: { file, discipline, urn }[] }`: los modelos traducidos del bucket `APS_BUCKET_KEY`, que la API le pide a APS y guarda en memoria 5 minutos, ordenados por archivo. `discipline`: `architectural`, `site`, `structural`, `plumbing`, `hvac`, `electrical` u `other`. 503 `aps_not_configured` sin `APS_CLIENT_ID`, `APS_CLIENT_SECRET` o `APS_BUCKET_KEY`; 503 `aps_unavailable` si APS no entrega la lista |
 | `GET /changes/:id` | Un cambio con su impacto, sus avisos y su propuesta; 404 si no existe |
+| `GET /me` | Con `Authorization: Bearer <token de Auth0>`. `{ user: { id, email, name }, organizations: { id, name, role }[] }`. La primera vez registra a la persona con el correo de su perfil (403 `email_not_verified` si no lo confirmó) y en cada entrada acepta las invitaciones pendientes a su correo. 401 `login_required` sin token, 401 `invalid_token` si no vale, 503 `auth_not_configured` sin `AUTH0_DOMAIN` y `AUTH0_AUDIENCE` |
+| `GET /projects` | Con token. `{ projects: { id, organizationId, name, location, description }[] }`: solo los de sus organizaciones |
+| `GET /organizations/:id/members` | Con token y siendo parte de la organización (403 `not_a_member`). `{ members: { userId, email, name, role }[], invitations: { id, email, role, createdAt }[] }` (las pendientes) |
+| `POST /organizations/:id/invitations` | Con token y rol `admin` (403 `admin_required`). `{ email, role: 'admin' \| 'member' }`. Crea o actualiza la invitación; 409 `already_member` si ya es parte. Se acepta sola cuando esa persona entra |
 
 Cabeceras:
 
@@ -91,20 +95,35 @@ Errores de negocio:
 
 ## El flujo del caso P-12
 
-`modules/flow` es el flujo de cuatro pasos del pitch: una persona cambia un elemento, Vigente detecta el choque y propone un arreglo, y la dueña del elemento afectado decide. El estado vive en memoria (se resiembra solo si cambia la época de la sala) y la lógica espacial es pura, de [`@team27/context-lake`](../../context/lake/README.md#dominio-espacial). El caso (elementos, reglas de holgura, partida de costo y textos) está en `src/scenario/caso-p12.ts`: Paula Rojas mueve el pilar P-12 40 cm al norte y pisa la bandeja E-B-03 de Camila Vera.
+`modules/flow` es el flujo de cuatro pasos del pitch: una persona cambia un elemento, Vigente detecta el choque y propone un arreglo, y la dueña del elemento afectado decide. Cada hecho del caso vive en el lago: la API lo escribe con los casos de uso del lago y `GET /flow` es una proyección de lo que hay en la base, así que un reinicio de la API no pierde nada. La lógica espacial es pura, de [`@team27/context-lake`](../../context/lake/README.md#dominio-espacial). El caso (elementos, reglas de holgura, partida de costo y textos) está en `src/scenario/caso-p12.ts`: Paula Rojas mueve el pilar P-12 40 cm al norte y pisa la bandeja E-B-03 de Camila Vera.
 
 Los actores salen de `SeatsService`: token de asiento, o `x-presenter-key` más `x-act-as`. Los eventos `flow.*` van a la tabla de eventos de la sala y los entrega `GET /events`.
 
 | Ruta | Responde |
 | ---- | -------- |
 | `GET /flow` | El `FlowState`: `epoch`, `case`, `elements` (`id`, `name`, `discipline`, `ownerId`, `ownerName`, `box: { min, max }` en metros, `movable`), `change`, `clash`, `proposal` y `presence` |
-| `POST /flow/minutes` | 201 `FlowState`. `{ minuteId, source: 'sala' \| 'revit', model: { title, discipline }, changes: [{ elementId, attribute: 'location', delta: { dx, dy, dz }, reason }] }` (un solo cambio). Corre la detección y la propuesta. 403 `not_owner` si el actor no es dueño del elemento; 404 si no existe; 409 `change_open` si ya hay otro cambio abierto. Idempotente por `minuteId` |
+| `POST /flow/minutes` | 201 `FlowState`. `{ minuteId, source: 'sala' \| 'revit', model: { title, discipline }, changes: [{ elementId, attribute: 'location', delta: { dx, dy, dz }, reason }] }` (un solo cambio). Corre la detección y la propuesta. 403 `not_owner` si el actor no es dueño del elemento; 404 si no existe; 409 `change_open` si ya hay otro cambio abierto. Idempotente por `minuteId` (400 si es `base` o empieza con `propuesta-`, rótulos reservados) |
 | `POST /flow/proposals/:id/accept` | 200 `FlowState`. Solo la dueña de la propuesta (403 `not_owner`). Aplica el arreglo, vuelve a detectar y deja la propuesta `resuelta` con `decidedBy`. Idempotente; 409 si ya se rechazó |
 | `POST /flow/proposals/:id/reject` | 200 `FlowState`. `{ reason }`. Solo la dueña. Deja la propuesta `rechazada` con su motivo |
 | `POST /flow/presence` | 200 `FlowState`. `{ viewing: 'plano' \| 'propuesta' \| null }`. Registra qué mira la persona; el primer `propuesta` de la dueña emite `flow.presence` |
-| `POST /flow/reset` | 200 `FlowState`. Resiembra el caso y emite `flow.reset`. Con `x-presenter-key` |
+| `GET /flow/history` | 200, público y de solo lectura: la historia de `P-12` y `E-B-03` (ver abajo) |
+| `POST /flow/reset` | 200 `FlowState`. Borra los registros del caso, lo resiembra y emite `flow.reset`. Con `x-presenter-key` |
 
-La frontera es deliberada: el lago aporta la geometría pura (`detectClashes`, `proposeFix`, `canAdvance`) y `flow-engine.ts` orquesta el estado en memoria del caso, la idempotencia por `minuteId`, la dueña de cada acción y los textos; el caso vive en la API y no en un contexto porque es un solo caso fijo y no se persiste.
+La frontera es deliberada: el lago aporta la geometría pura (`detectClashes`, `proposeFix`, `canAdvance`) y los casos de uso de persistencia; `flow-engine.ts` es el motor puro sobre un `FlowStore` (transiciones, dueña de cada acción y textos) y `flow-lake.ts` traduce entre el `FlowStore` y el lago.
+
+**Cómo se guarda el caso.** El caso usa el mismo proyecto de Los Aromos y se distingue por nombre:
+
+- **Sujetos `caso.*`** (`caso.P-12`, `caso.E-B-03`, `caso.B2`, `caso.cielo-n3`) con un solo atributo, `ubicacion_m`, cuyo valor es la caja en texto canónico (`x 29.8..30.2 · y 5.7..6.3 · z 0..2.55`, 4 decimales; `encodeBox` y `decodeBox` del lago). Es lo vigente de cada elemento.
+- **Documentos** `losaromos-est` (`LosAromos_EST`), `losaromos-elec` (`LosAromos_ELEC`), `losaromos-sani` y `losaromos-arq`, con una revisión `base` cada uno (la semilla del caso).
+- **La minuta de Paula** es una revisión inmutable de `LosAromos_EST`, autor `paula-rojas`, con el `minuteId` como etiqueta (única por documento: es la clave de idempotencia, también tras reiniciar), un fragmento con el cambio y su hecho. No toca lo vigente.
+- **El arreglo de Vigente** es una revisión de `LosAromos_ELEC` con autor `vigente` y etiqueta `propuesta-<minuteId>`.
+- **El PR del caso** es una propuesta del lago con dos hunks (`P-12`, el cambio, y `E-B-03`, el arreglo) y revisora Camila (la dueña del elemento afectado). Hasta que acepta no es vigente. Aceptar registra su revisión y fusiona la propuesta en lo vigente, con historia y procedencia (qué minuta de Paula, a qué hora, que Vigente propuso el arreglo y que Camila lo aprobó); rechazar registra la disputa con su motivo y deja lo vigente igual. Sin choque, la propuesta no tiene revisores y se fusiona sola.
+- **El caso se siembra a demanda**: la primera lectura o escritura de `/flow` corre `EnsureBaseline` (idempotente), así que la API arranca sobre una base sin el caso, y no hace falta migración.
+- **`GET /flow` se lee del lago** en cada pedido (lo vigente, la última propuesta del caso y la presencia, que sí vive en memoria). Los ids de `change`, `clash` y `proposal` salen de las revisiones y la propuesta del lago.
+- **Reinicios.** `POST /flow/reset` borra solo las revisiones, propuestas y valores `caso.*` del caso y lo resiembra, sin tocar el resto del lago. `POST /room/reset` vacía todo el lago y el caso se resiembra en el siguiente pedido. `POST /lake/seed` (el ETL) ignora los documentos base del caso al revisar que el lago esté vacío, pero responde 409 `lake_not_empty` si el caso ya tiene una minuta: reinícialo antes.
+- Las vistas generales del lago (`/baseline`, `/proposals`, la sala con su consenso, sello y eventos) no cuentan ni muestran los registros del caso (`GetConsensus` y `loadLakeState` reciben una exclusión de documentos y prefijo de sujeto); `GET /baseline/caso.P-12/ubicacion_m/provenance` sí.
+
+**`GET /flow/history`** responde `{ epoch, elements: [P-12, E-B-03] }`. Cada elemento trae `elementId`, `subjectId`, `attribute` (`ubicacion_m`), `name`, `link` (`/valor/<subjectId>/ubicacion_m`), `pending` y `entries` (la más nueva primero). Cada entrada: `current`, `kind` (`base`, `minuta` o `arreglo`), `value` (la caja en texto), `unit`, `at`, `until` (solo las anteriores), `by { id, name }` (`Vigente` para el arreglo), `document` (`LosAromos_EST minuta-001`), `source` (`sala`, `revit` o `null`), `minuteId`, `reason`, `text`, `approvedBy [{ id, name, at }]` y `proposalId`. `pending` es `null` o `{ value, by, at, status: 'propuesta' \| 'rechazada', awaiting, reason, text }`: la propuesta abierta o rechazada que aún no es vigente. Las horas van en ISO UTC; `text` usa la hora de Santiago.
 
 Estados de la propuesta: `propuesta`, `aceptada`, `aplicada`, `resuelta` y `rechazada`. El choque lleva `status` `detectada` o `resuelta`, y `noAutoFix: true` si ningún candidato de hasta 1,0 m sirve (entonces no hay `proposal`). `change` trae `summary` (el texto de la pantalla de quien cambia) y `waiting`; `proposal` trae `texts` (`title`, `why`, `proposal`, `cost`, `footer`), `appliedText` y `resolvedText` (nulos hasta que ocurren).
 
@@ -120,18 +139,16 @@ src/
 │   ├── provide-use-case.ts       registra un caso de uso de un contexto como provider de Nest
 │   └── api-root.ts               la carpeta de la API (la de su package.json), la misma desde src/ que desde dist/
 ├── scenario/
-│   ├── los-aromos.ts             modelo base, grafo del proyecto y elenco (con Fernanda, que no recibe avisos)
-│   ├── areas.ts                  niveles, grilla de ejes, sistemas y la huella de cada elemento (el modelo de áreas)
-│   ├── caso-p12.ts               el caso P-12 / bandeja E-B-03: elementos, reglas de holgura, costo y los textos de las pantallas
-│   └── documents.ts              espacios, sujetos, atributos con su unidad y el registro de documentos con su dueño (incluidos el modelo de Revit y el IS-301)
+│   └── caso-p12.ts               el caso P-12 / bandeja E-B-03: elementos, reglas de holgura, costo y los textos de las pantallas
 └── modules/
     ├── database/                 el PrismaClient (token PRISMA_CLIENT), global, y UnitOfWork (transacción con lock)
+    ├── project/                  carga el proyecto de la base al arrancar (token PROJECT_CATALOG, global), lo valida (project-schema.ts) y arma el ProjectCatalog: elenco, modelo, grafo, espacios, documentos, sujetos, atributos, grilla y huellas
     ├── health/                   /api/health y /api/health/ready
-    ├── lake/                     adapters por token y casos de uso de context-lake (con DetectChanges, ListChanges y GetChange); buildLake(db, extractor?) los arma sobre una transacción
+    ├── lake/                     adapters por token y casos de uso de context-lake (con DetectChanges, ListChanges y GetChange); buildLake(db, project, extractor?) los arma sobre una transacción
     ├── impact/                   adapters y casos de uso de context-impact: el grafo (sale de la definición del proyecto), el `ClaimReader` (Claude o respuestas fijas, con caché de archivos), el vocabulario del proyecto y `ExtractClaims`
     ├── notification/             adapters y casos de uso de context-notification
     ├── coordination/             orquesta la cadena y expone las rutas de datos; `revision-body.ts` valida la ingesta genérica y la carga inicial, `chunk-reader.ts` lee los fragmentos de texto libre, `revit-minute.ts` valida la minuta de Revit y la convierte en hechos, y `integrations.controller.ts` la recibe
-    ├── flow/                     el flujo de 4 pasos del caso P-12: flow-engine (estado en memoria, transiciones, idempotencia, dueñas y textos), controller, service y módulo
+    ├── flow/                     el flujo de 4 pasos del caso P-12: flow-engine (motor puro: transiciones, dueñas y textos), flow-lake (traduce entre el motor y el lago), flow-history (la historia de P-12 y E-B-03), controller, service y módulo
     ├── room/                     asientos, eventos, reinicio (módulo de la API, no un contexto)
     ├── integrations/             los conectores de context-integrations: la vista y el OAuth de Google, las planillas vinculadas, el sondeo y LoggingChangeListener, que deja cada cambio en el log
     └── aps/                      Autodesk Platform Services (módulo de la API, no un contexto): ApsAuth (token 2-legged cacheado por scopes), ModelsCatalog (los modelos traducidos del bucket) y las rutas del visor
@@ -144,10 +161,21 @@ tests/                            replica src/: Vitest, sin base de datos
 - **Totales.** El costo del proyecto es el presupuesto base del modelo más el `costDelta` de las propuestas fusionadas; el plazo es la entrega vigente más sus `delayDays`; la versión del proyecto es 1 más las propuestas fusionadas.
 - **Reinicio y carga inicial.** El reinicio vacía el lago con `SeedLake` sin revisiones y no siembra; al arrancar tampoco. `POST /lake/seed` carga lo vigente con `SeedLake` solo con el lago vacío. Quien carga y juega es el ETL ([`apps/etl`](../etl/README.md)); la API no sabe que existe una demo.
 - **Eventos.** `CoordinationService.track` compara el estado antes y después de cada transición (propuestas, solapamientos, desfases, sello) y, con los eventos explícitos de la acción, los inserta en la misma transacción.
-- **Variables.** `PRESENTER_KEY` (por defecto `sala-los-aromos` fuera de producción; obligatoria en producción) y `ANTHROPIC_API_KEY` (opcional; ausente o vacía, la lectura de texto libre es determinista: respuestas fijas y grabadas). El conector de Google Sheets usa `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `INTEGRATIONS_ENCRYPTION_KEY` e `INTEGRATIONS_POLL_SECONDS` ([arquitectura](../../docs/arquitectura.md#web-y-api)).
+- **Variables.** `PROJECT_ID` (opcional; vacía, la API carga el único proyecto de la base), `PRESENTER_KEY` (por defecto `sala-los-aromos` fuera de producción; obligatoria en producción) y `ANTHROPIC_API_KEY` (opcional; ausente o vacía, la lectura de texto libre es determinista: respuestas fijas y grabadas). El conector de Google Sheets usa `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `INTEGRATIONS_ENCRYPTION_KEY` e `INTEGRATIONS_POLL_SECONDS` ([arquitectura](../../docs/arquitectura.md#web-y-api)).
 - **Conectores.** `modules/integrations` arma los casos de uso de `context-integrations` solo si están el cliente de Google y la clave de cifrado; si no, la vista dice que falta configurar Google. `IntegrationsService` revisa las planillas vinculadas cada `INTEGRATIONS_POLL_SECONDS`, de a una y nunca dos veces la misma en paralelo, y anota en el log solo los errores nuevos. Es un canal de conexión y escucha: `WatchSource` compara cada revisión con la anterior (que vive en memoria) y `LoggingChangeListener` deja en el log qué celdas cambiaron. No interpreta las planillas, no toca la cadena y no guarda lo que escucha. Cómo configurar Google: [integrations](../../context/integrations/README.md).
 - **Lectura de texto libre.** Con `ANTHROPIC_API_KEY`, el `ClaimReader` es `CachedClaimReader(ClaudeClaimReader)` y la primera respuesta queda grabada; sin clave, `CachedClaimReader(FixtureClaimReader)` con las respuestas fijas de la muestra (WhatsApp mensajes 1 y 2, folios 41 y 44, acta 12, con confianza 0,9). La caché es `inference-cache/`, una carpeta versionada de la API con un JSON por consulta: la demo reproduce lo grabado sin red. Sin clave no sale nada a la red.
-- **Modelo de áreas.** `scenario/areas.ts` define los niveles `n1` a `n5` y la cubierta `n6`, la grilla (ejes A a E a 0, 4, 8, 12 y 16 m y transversales 1 a 4), los sistemas y la huella de cada elemento: las losas son soporte, el shaft S1, las ventanas y el colector B2 son ocupantes, y las partidas y el proyecto no ocupan espacio. El lago recibe ese modelo como un `FootprintModel`.
+- **El proyecto.** `ProjectModule` lee de la base el proyecto de `PROJECT_ID` (o el único que hay), lo valida con `project-schema.ts` y entrega un `ProjectCatalog`. Sin proyecto, con varios y sin `PROJECT_ID`, o con uno mal formado, la API no arranca y dice por qué. En local, `pnpm db:seed` siembra Los Aromos. Los servicios lo reciben por `PROJECT_CATALOG`; las vistas, dentro del `LakeSnapshot`; y `buildLake`, `buildImpact` y `buildNotification`, como argumento. Cada adapter Prisma recibe `project.id` y filtra por él. Un cambio en la definición se ve al reiniciar la API.
+- **Modelo de áreas.** Sale de la definición del proyecto: los niveles, los ejes longitudinales con sus metros, los transversales, los sistemas y la huella de cada sujeto. Una huella es una regla en datos: el tipo (`soporte` u `ocupante`), los niveles, las celdas (`all`, las de un eje transversal, o la del tramo donde cae un atributo de posición sobre un eje) y los sistemas. En Los Aromos, las losas son soporte; el shaft S1, las ventanas y el colector B2 son ocupantes; y las partidas y el proyecto no ocupan espacio. El lago recibe el modelo como `project.footprintModel`.
+
+## Cuentas, organizaciones y roles
+
+Las rutas del producto (`/me`, `/projects`, `/organizations/*`) piden una cuenta; las de la sala y la muestra siguen con el token de asiento y `PRESENTER_KEY`, sin cuentas.
+
+- **Auth0 solo dice quién es.** `AccountGuard` lee el `Bearer`, y `Auth0Identity` lo valida con `jose` contra las llaves públicas del tenant (`https://<AUTH0_DOMAIN>/.well-known/jwks.json`), el emisor y la audiencia `AUTH0_AUDIENCE`, en RS256. La primera vez que llega un `sub`, pide el perfil a `/userinfo` para tener el correo confirmado.
+- **Lo demás vive en Postgres.** `users` (por `auth_subject` y correo), `organizations`, `memberships` con su rol e `invitations` por correo. Cada proyecto es de una organización.
+- **Roles.** `admin` configura la organización e invita; `member` es parte del equipo y ve sus proyectos. Autor y afectado no son roles: cambian de un cambio a otro ([negocio](../../docs/negocio.md#actores)).
+- **Se entra por invitación.** Un administrador invita un correo; quien entra con ese correo confirmado queda como miembro con el rol de la invitación. En local, `SEED_ADMIN_EMAIL=<tu correo> pnpm db:seed` te invita como administrador de Inmobiliaria Los Aromos.
+- **Sin Auth0 configurado** la API arranca igual y esas rutas responden 503 `auth_not_configured`.
 
 ## Modelos BIM (APS)
 

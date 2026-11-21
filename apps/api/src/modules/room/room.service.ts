@@ -2,9 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { PrismaClient } from '@team27/data-main';
 
 import { CoordinationService } from '../coordination/coordination.service.ts';
-import { castMember } from '../coordination/lookup.ts';
 import { QueryService } from '../coordination/query.service.ts';
 import { castView } from '../coordination/views.ts';
+import type { ProjectCatalog } from '../project/project-catalog.ts';
+import { PROJECT_CATALOG } from '../project/project.module.ts';
 import { PRISMA_CLIENT } from '../database/prisma-token.ts';
 import { SeatsService } from './seats.service.ts';
 import { readState } from './state.ts';
@@ -22,21 +23,25 @@ export class RoomService {
   private readonly coordination: CoordinationService;
   private readonly queries: QueryService;
   private readonly seats: SeatsService;
+  private readonly project: ProjectCatalog;
 
   constructor(
     @Inject(PRISMA_CLIENT) prisma: PrismaClient,
     @Inject(CoordinationService) coordination: CoordinationService,
     @Inject(QueryService) queries: QueryService,
     @Inject(SeatsService) seats: SeatsService,
+    @Inject(PROJECT_CATALOG) project: ProjectCatalog,
   ) {
     this.prisma = prisma;
     this.coordination = coordination;
     this.queries = queries;
     this.seats = seats;
+    this.project = project;
   }
 
   private async cursor(): Promise<number> {
     const aggregate = await this.prisma.roomEvent.aggregate({
+      where: { projectId: this.project.id },
       _max: { seq: true },
     });
     return aggregate._max.seq ?? 0;
@@ -44,7 +49,7 @@ export class RoomService {
 
   async room() {
     const [state, cursor, present] = await Promise.all([
-      readState(this.prisma),
+      readState(this.prisma, this.project.id),
       this.cursor(),
       this.seats.presentIds(),
     ]);
@@ -57,18 +62,18 @@ export class RoomService {
 
   async claim(castId: string) {
     const claimed = await this.seats.claim(castId);
-    const member = castMember(castId);
+    const member = this.project.castMember(castId);
     return {
       castId: claimed.castId,
       token: claimed.token,
-      cast: member ? castView(member, new Set([castId])) : null,
+      cast: member ? castView(this.project, member, new Set([castId])) : null,
     };
   }
 
   async events(request: EventsRequest) {
     const seat = await this.seats.heartbeat(request.token);
     const [state, cursor] = await Promise.all([
-      readState(this.prisma),
+      readState(this.prisma, this.project.id),
       this.cursor(),
     ]);
     const base = { epoch: state.epoch, seat };
@@ -80,7 +85,11 @@ export class RoomService {
       return { ...base, cursor, reset: false, events: [] };
     }
     const rows = await this.prisma.roomEvent.findMany({
-      where: { seq: { gt: request.after }, epoch: state.epoch },
+      where: {
+        projectId: this.project.id,
+        seq: { gt: request.after },
+        epoch: state.epoch,
+      },
       orderBy: { seq: 'asc' },
       take: request.limit,
     });
@@ -102,7 +111,7 @@ export class RoomService {
 
   async reset(): Promise<{ epoch: number }> {
     await this.coordination.reset();
-    const state = await readState(this.prisma);
+    const state = await readState(this.prisma, this.project.id);
     return { epoch: state.epoch };
   }
 }

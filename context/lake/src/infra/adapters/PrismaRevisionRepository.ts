@@ -22,14 +22,17 @@ export const toRevision = (row: RevisionRow): Revision => ({
 
 export class PrismaRevisionRepository implements RevisionRepository {
   private readonly prisma: PrismaClient;
+  private readonly projectId: string;
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient, projectId: string) {
     this.prisma = prisma;
+    this.projectId = projectId;
   }
 
   async save(draft: RevisionDraft): Promise<Revision> {
     const row = await this.prisma.revision.create({
       data: {
+        projectId: this.projectId,
         documentId: draft.documentId,
         documentName: draft.documentName,
         label: draft.label,
@@ -45,24 +48,44 @@ export class PrismaRevisionRepository implements RevisionRepository {
 
   async findByKey(documentId: string, label: string): Promise<Revision | null> {
     const row = await this.prisma.revision.findUnique({
-      where: { documentId_label: { documentId, label } },
+      where: {
+        projectId_documentId_label: {
+          projectId: this.projectId,
+          documentId,
+          label,
+        },
+      },
     });
     return row ? toRevision(row) : null;
   }
 
   async findById(id: string): Promise<Revision | null> {
-    const row = await this.prisma.revision.findUnique({ where: { id } });
+    const row = await this.prisma.revision.findUnique({
+      where: { id, projectId: this.projectId },
+    });
     return row ? toRevision(row) : null;
   }
 
   async list(): Promise<Revision[]> {
     const rows = await this.prisma.revision.findMany({
+      where: { projectId: this.projectId },
       orderBy: { ingestOrder: 'asc' },
     });
     return rows.map(toRevision);
   }
 
+  async deleteByDocuments(documentIds: readonly string[]): Promise<void> {
+    await this.prisma.revision.deleteMany({
+      where: {
+        projectId: this.projectId,
+        documentId: { in: [...documentIds] },
+      },
+    });
+  }
+
   async clear(): Promise<void> {
-    await this.prisma.revision.deleteMany();
+    await this.prisma.revision.deleteMany({
+      where: { projectId: this.projectId },
+    });
   }
 }

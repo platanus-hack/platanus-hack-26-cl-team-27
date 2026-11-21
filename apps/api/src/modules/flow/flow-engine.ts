@@ -13,6 +13,7 @@ import {
   detectClashes,
   gapBetween,
   proposeFix,
+  roundBox,
   translate,
 } from '@team27/context-lake';
 
@@ -38,7 +39,7 @@ import {
   sentText,
 } from '../../scenario/caso-p12.ts';
 import { fail } from '../coordination/http-errors.ts';
-import { castMember, castName } from '../coordination/lookup.ts';
+import type { ProjectCatalog } from '../project/project-catalog.ts';
 import type { EventDraft } from '../room/events.ts';
 
 export const PRESENCE_TTL_MS = 20_000;
@@ -63,7 +64,7 @@ export interface MinuteInput {
   }[];
 }
 
-interface ChangeRecord {
+export interface ChangeRecord {
   readonly id: string;
   readonly minuteId: string;
   readonly elementId: string;
@@ -77,7 +78,7 @@ interface ChangeRecord {
   readonly summary: string;
 }
 
-interface ClashRecord {
+export interface ClashRecord {
   readonly id: string;
   readonly a: string;
   readonly b: string;
@@ -87,7 +88,7 @@ interface ClashRecord {
   noAutoFix: boolean;
 }
 
-interface ProposalRecord {
+export interface ProposalRecord {
   readonly id: string;
   readonly clashId: string;
   readonly elementId: string;
@@ -110,6 +111,7 @@ interface PresenceRecord {
 
 export interface FlowStore {
   epoch: number;
+  readonly cast: CastNames;
   elements: CaseElement[];
   change: ChangeRecord | null;
   clash: ClashRecord | null;
@@ -121,7 +123,10 @@ export interface Outcome {
   readonly events: EventDraft[];
 }
 
-export const seedStore = (epoch: number): FlowStore => ({
+export type CastNames = Pick<ProjectCatalog, 'castName' | 'castMember'>;
+
+export const seedStore = (epoch: number, cast: CastNames): FlowStore => ({
+  cast,
   epoch,
   elements: CASE_ELEMENTS.map((element) => ({ ...element })),
   change: null,
@@ -130,7 +135,7 @@ export const seedStore = (epoch: number): FlowStore => ({
   presence: new Map(),
 });
 
-const toSpatial = (element: CaseElement): SpatialElement => ({
+export const toSpatial = (element: CaseElement): SpatialElement => ({
   id: element.id,
   discipline: element.discipline,
   box: element.box,
@@ -150,7 +155,7 @@ const rules = CLEARANCE_RULES.map((rule) => ({ ...rule }));
 
 const AXIS_INDEX = { x: 0, y: 1, z: 2 } as const;
 
-const dominant = (
+export const dominant = (
   delta: Delta,
 ): { axis: Axis; sign: 1 | -1; distance: number } => {
   const entries: [Axis, number][] = [
@@ -168,8 +173,8 @@ const dominant = (
   };
 };
 
-const roleOf = (id: string): string =>
-  (castMember(id)?.role ?? '').toLowerCase();
+const roleOf = (store: FlowStore, id: string): string =>
+  (store.cast.castMember(id)?.role ?? '').toLowerCase();
 
 const gapLabel = (id: string, gap: number): string =>
   id === 'P-12' ? `P-12 (${centimeters(gap)} cm)` : id;
@@ -205,7 +210,7 @@ export const submitMinute = (
     throw fail(
       HttpStatus.FORBIDDEN,
       'not_owner',
-      `${change.elementId} es de ${castName(target.ownerId)}`,
+      `${change.elementId} es de ${store.cast.castName(target.ownerId)}`,
     );
   }
   if (store.change) {
@@ -218,10 +223,10 @@ export const submitMinute = (
   }
   const { axis, sign, distance } = dominant(change.delta);
   const before = target.box;
-  replaceBox(store, target.id, translate(before, change.delta));
+  replaceBox(store, target.id, roundBox(translate(before, change.delta)));
   const moved = byId(store, target.id) as CaseElement;
   const text = {
-    authorName: castName(actor),
+    authorName: store.cast.castName(actor),
     elementId: target.id,
     distance,
     axis,
@@ -238,7 +243,10 @@ export const submitMinute = (
     .filter((element): element is CaseElement => element !== undefined);
   const affectedOwners = [
     ...new Map(affectedElements.map((e) => [e.ownerId, e])).values(),
-  ].map((e) => ({ name: castName(e.ownerId), discipline: e.discipline }));
+  ].map((e) => ({
+    name: store.cast.castName(e.ownerId),
+    discipline: e.discipline,
+  }));
   store.change = {
     id: randomUUID(),
     minuteId: input.minuteId,
@@ -291,7 +299,7 @@ export const submitMinute = (
     clash.noAutoFix = true;
     events.push({
       kind: 'flow.clash.detected',
-      message: `Sin arreglo automático para ${victim.id}: ${castName(victim.ownerId)} tiene que resolverlo.`,
+      message: `Sin arreglo automático para ${victim.id}: ${store.cast.castName(victim.ownerId)} tiene que resolverlo.`,
       refs: { clashId: clash.id, castId: victim.ownerId },
     });
     return { events };
@@ -312,7 +320,7 @@ export const submitMinute = (
     checks,
     texts: proposalTexts({
       ...text,
-      authorRole: roleOf(actor),
+      authorRole: roleOf(store, actor),
       at: now,
       reason: change.reason,
       centerBefore: centerOn(before, axis),
@@ -339,7 +347,7 @@ export const submitMinute = (
   store.proposal = proposal;
   events.push({
     kind: 'flow.fix.proposed',
-    message: `Vigente propone correr ${centimeters(fix.distance)} cm ${direction(axis, sign)} el tramo de ${victim.id} de ${castName(victim.ownerId)}.`,
+    message: `Vigente propone correr ${centimeters(fix.distance)} cm ${direction(axis, sign)} el tramo de ${victim.id} de ${store.cast.castName(victim.ownerId)}.`,
     refs: { proposalId: proposal.id, castId: victim.ownerId },
   });
   return { events };
@@ -356,12 +364,16 @@ const openProposal = (store: FlowStore, id: string): ProposalRecord => {
   return store.proposal;
 };
 
-const requireOwner = (proposal: ProposalRecord, actor: string): void => {
+const requireOwner = (
+  store: FlowStore,
+  proposal: ProposalRecord,
+  actor: string,
+): void => {
   if (proposal.ownerId !== actor) {
     throw fail(
       HttpStatus.FORBIDDEN,
       'not_owner',
-      `Solo ${castName(proposal.ownerId)} decide esta propuesta`,
+      `Solo ${store.cast.castName(proposal.ownerId)} decide esta propuesta`,
     );
   }
 };
@@ -384,7 +396,7 @@ export const acceptProposal = (
   now: Date,
 ): Outcome => {
   const proposal = openProposal(store, id);
-  requireOwner(proposal, actor);
+  requireOwner(store, proposal, actor);
   if (
     proposal.status === 'aceptada' ||
     proposal.status === 'aplicada' ||
@@ -392,7 +404,7 @@ export const acceptProposal = (
   ) {
     return { events: [] };
   }
-  const name = castName(actor);
+  const name = store.cast.castName(actor);
   const time = clock(now);
   advance(proposal, 'aceptada');
   proposal.decidedBy = actor;
@@ -412,12 +424,7 @@ export const acceptProposal = (
     message: `Aplicado en el plano de ${name} a las ${time}.`,
     refs: { proposalId: proposal.id, elementId: proposal.elementId },
   });
-  const remaining = detectClashes(
-    store.elements.map(toSpatial),
-    rules,
-    store.clash?.axis ?? 'y',
-  ).filter((clash) => involves(clash, store.change?.elementId));
-  if (remaining.length === 0) {
+  if (!hasRemainingClash(store)) {
     advance(proposal, 'resuelta');
     if (store.clash) store.clash.status = 'resuelta';
     proposal.resolvedText = `Resuelto por ${name} a las ${time}`;
@@ -433,6 +440,13 @@ export const acceptProposal = (
 const involves = (clash: Clash, id: string | undefined): boolean =>
   id !== undefined && (clash.a === id || clash.b === id);
 
+export const hasRemainingClash = (store: FlowStore): boolean =>
+  detectClashes(
+    store.elements.map(toSpatial),
+    rules,
+    store.clash?.axis ?? 'y',
+  ).some((clash) => involves(clash, store.change?.elementId));
+
 export const rejectProposal = (
   store: FlowStore,
   id: string,
@@ -441,7 +455,7 @@ export const rejectProposal = (
   now: Date,
 ): Outcome => {
   const proposal = openProposal(store, id);
-  requireOwner(proposal, actor);
+  requireOwner(store, proposal, actor);
   if (proposal.status === 'rechazada') return { events: [] };
   advance(proposal, 'rechazada');
   proposal.decidedBy = actor;
@@ -451,7 +465,7 @@ export const rejectProposal = (
     events: [
       {
         kind: 'flow.fix.rejected',
-        message: `${castName(actor)} tiene un problema con la propuesta: ${reason}`,
+        message: `${store.cast.castName(actor)} tiene un problema con la propuesta: ${reason}`,
         refs: { proposalId: proposal.id, castId: actor },
       },
     ],
@@ -482,7 +496,7 @@ export const recordPresence = (
       events: [
         {
           kind: 'flow.presence',
-          message: `${castName(actor)} está revisando tu cambio`,
+          message: `${store.cast.castName(actor)} está revisando tu cambio`,
           refs: { castId: actor, proposalId: proposal.id },
         },
       ],
@@ -513,7 +527,7 @@ export const viewStore = (
       name: element.name,
       discipline: element.discipline,
       ownerId: element.ownerId,
-      ownerName: castName(element.ownerId),
+      ownerName: store.cast.castName(element.ownerId),
       box: element.box,
       movable: element.movable,
     })),
@@ -524,10 +538,10 @@ export const viewStore = (
       delta: change.delta,
       reason: change.reason,
       authorId: change.authorId,
-      authorName: castName(change.authorId),
+      authorName: store.cast.castName(change.authorId),
       at: change.at.toISOString(),
       summary: change.summary,
-      waiting: `Esperando a ${castName(AFFECTED_ID).split(' ')[0]}…`,
+      waiting: `Esperando a ${store.cast.castName(AFFECTED_ID).split(' ')[0]}…`,
     },
     clash: clash && {
       id: clash.id,
@@ -558,7 +572,9 @@ export const viewStore = (
       texts: proposal.texts,
       status: proposal.status,
       decidedBy: proposal.decidedBy,
-      decidedByName: proposal.decidedBy ? castName(proposal.decidedBy) : null,
+      decidedByName: proposal.decidedBy
+        ? store.cast.castName(proposal.decidedBy)
+        : null,
       decidedAt: proposal.decidedAt?.toISOString() ?? null,
       rejectReason: proposal.rejectReason,
       appliedText: proposal.appliedText,
@@ -569,7 +585,7 @@ export const viewStore = (
       const live = seen !== undefined && now - seen.at <= PRESENCE_TTL_MS;
       return {
         castId,
-        name: castName(castId),
+        name: store.cast.castName(castId),
         online: online.has(castId) || live,
         viewing: live ? seen.viewing : null,
       };

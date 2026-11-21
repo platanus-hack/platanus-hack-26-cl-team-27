@@ -13,17 +13,18 @@ import type { PrismaClient } from '@team27/data-main';
 
 import { provideUseCase } from '../../common/provide-use-case.ts';
 import type { Env } from '../../config/index.ts';
-import { LOS_AROMOS } from '../../scenario/los-aromos.ts';
 import { PRISMA_CLIENT } from '../database/database.module.ts';
+import type { ProjectCatalog } from '../project/project-catalog.ts';
+import { PROJECT_CATALOG } from '../project/project.module.ts';
 import { chooseClaimReader } from './claim-reader.ts';
 
 export const PROJECT_GRAPH = 'PROJECT_GRAPH';
 export const IMPACT_REPOSITORY = 'IMPACT_REPOSITORY';
 export const CLAIM_READER = 'CLAIM_READER';
 
-export const buildImpact = (db: PrismaClient) => {
-  const graph = new InMemoryProjectGraph(LOS_AROMOS.graph);
-  const impacts = new PrismaImpactRepository(db);
+export const buildImpact = (db: PrismaClient, project: ProjectCatalog) => {
+  const graph = new InMemoryProjectGraph(project.graph);
+  const impacts = new PrismaImpactRepository(db, project.id);
   return {
     analyzeChange: new AnalyzeChange(graph, impacts),
     getImpacts: new GetImpacts(impacts),
@@ -34,12 +35,15 @@ export const buildImpact = (db: PrismaClient) => {
   providers: [
     {
       provide: PROJECT_GRAPH,
-      useFactory: () => new InMemoryProjectGraph(LOS_AROMOS.graph),
+      inject: [PROJECT_CATALOG],
+      useFactory: (project: ProjectCatalog) =>
+        new InMemoryProjectGraph(project.graph),
     },
     {
       provide: IMPACT_REPOSITORY,
-      inject: [PRISMA_CLIENT],
-      useFactory: (prisma: PrismaClient) => new PrismaImpactRepository(prisma),
+      inject: [PRISMA_CLIENT, PROJECT_CATALOG],
+      useFactory: (prisma: PrismaClient, project: ProjectCatalog) =>
+        new PrismaImpactRepository(prisma, project.id),
     },
     {
       provide: CLAIM_READER,

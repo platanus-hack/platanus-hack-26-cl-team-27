@@ -23,9 +23,11 @@ const toChunk = (row: ChunkRow): Chunk => ({
 
 export class PrismaChunkRepository implements ChunkRepository {
   private readonly prisma: PrismaClient;
+  private readonly projectId: string;
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient, projectId: string) {
     this.prisma = prisma;
+    this.projectId = projectId;
   }
 
   async saveMany(
@@ -36,6 +38,7 @@ export class PrismaChunkRepository implements ChunkRepository {
       drafts.map((draft, position) =>
         this.prisma.chunk.create({
           data: {
+            projectId: this.projectId,
             revisionId,
             position,
             locator: draft.locator,
@@ -51,12 +54,15 @@ export class PrismaChunkRepository implements ChunkRepository {
 
   async list(): Promise<Chunk[]> {
     const rows = await this.prisma.chunk.findMany({
+      where: { projectId: this.projectId },
       orderBy: [{ revision: { ingestOrder: 'asc' } }, { position: 'asc' }],
     });
     return rows.map(toChunk);
   }
 
   async clear(): Promise<void> {
-    await this.prisma.chunk.deleteMany();
+    await this.prisma.chunk.deleteMany({
+      where: { projectId: this.projectId },
+    });
   }
 }

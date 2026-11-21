@@ -63,6 +63,35 @@ export const CASE_ELEMENTS: readonly CaseElement[] = [
   },
 ];
 
+export const CASE_SUBJECT_PREFIX = 'caso.';
+export const CASE_ATTRIBUTE = 'ubicacion_m';
+export const CASE_UNIT = 'm';
+export const CASE_SPACE = 'drive-proyecto';
+export const BASE_LABEL = 'base';
+export const FIX_LABEL_PREFIX = 'propuesta-';
+export const VIGENTE_ID = 'vigente';
+export const VIGENTE_NAME = 'Vigente';
+
+export const caseSubject = (elementId: string): string =>
+  `${CASE_SUBJECT_PREFIX}${elementId}`;
+
+export const caseElementId = (subject: string): string =>
+  subject.slice(CASE_SUBJECT_PREFIX.length);
+
+export const CASE_DOCUMENTS = [
+  { id: 'losaromos-est', name: 'LosAromos_EST', elementId: 'P-12' },
+  { id: 'losaromos-elec', name: 'LosAromos_ELEC', elementId: 'E-B-03' },
+  { id: 'losaromos-sani', name: 'LosAromos_SAN', elementId: 'B2' },
+  { id: 'losaromos-arq', name: 'LosAromos_ARQ', elementId: 'cielo-n3' },
+] as const;
+
+export const CASE_DOCUMENT_IDS: readonly string[] = CASE_DOCUMENTS.map(
+  (document) => document.id,
+);
+
+export const documentOfElement = (elementId: string) =>
+  CASE_DOCUMENTS.find((document) => document.elementId === elementId);
+
 export const CLEARANCE_RULES = [
   { a: 'estructura', b: 'eléctricas', meters: 0.15 },
   { a: 'eléctricas', b: 'arquitectura', meters: 0.05 },
@@ -207,3 +236,8 @@ export const proposalTexts = (input: ProposalTextInput) => {
     footer: 'Vigente propone; tú decides. No se cambia nada hasta que aceptes.',
   };
 };
+
+export const CASE_EXCLUSION = {
+  documentIds: CASE_DOCUMENT_IDS,
+  subjectPrefix: CASE_SUBJECT_PREFIX,
+} as const;

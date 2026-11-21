@@ -10,6 +10,7 @@ const LINKS = [
   { href: '/modelos', label: 'Modelos' },
   { href: '/conectores', label: 'Conectores' },
   { href: '/presentador', label: 'Presentador' },
+  { href: '/cuenta', label: 'Cuenta' },
 ] as const;
 
 export function SiteNav() {
