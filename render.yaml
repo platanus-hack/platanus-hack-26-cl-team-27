@@ -17,6 +17,8 @@ services:
         - docs/**
         - tool-use-case/**
         - '**/*.md'
+        - platanus-hack-project.jsonc
+        - project-logo.png
     envVars:
       - key: NODE_ENV
         value: production

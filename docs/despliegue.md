@@ -39,7 +39,7 @@ Si cambia el dueño del espejo, cambia `MIRROR_REPO` en `mirror.yml` y el token,
 - **La imagen** ([`apps/api/Dockerfile`](../apps/api/Dockerfile), con la raíz como contexto) instala el workspace completo y compila con `pnpm nx run @team27/api:build`. Node ejecuta los contextos y `data/main` como TypeScript y no quita tipos dentro de `node_modules`, así que la imagen no puede usar `pnpm deploy` ni podar el workspace.
 - **Al arrancar** corre `prisma migrate deploy`, siembra Los Aromos solo si la base no tiene proyectos (`seed/main.ts --si-no-hay`) y después `node dist/main.js`. Las migraciones y la semilla no tienen un paso aparte. Una definición ya guardada no se pisa al redesplegar.
 - **Una sola instancia.** El registro de `x-action-id` vive en la memoria del proceso.
-- **Se despliega en cada push**, salvo cuando el cambio solo toca la web, el ETL, la CLI de APS, `packages/`, `docs/`, el add-in o archivos Markdown (`buildFilter`).
+- **Se despliega en cada push**, salvo cuando el cambio solo toca la web, el ETL, la CLI de APS, `packages/`, `docs/`, el add-in, archivos Markdown o los archivos de la entrega (`platanus-hack-project.jsonc` y `project-logo.png`) (`buildFilter`). Así, editar la entrega a última hora no reinicia la API ni el estado en memoria del flujo.
 - **El plan gratis** se duerme tras 15 minutos sin peticiones y tarda cerca de un minuto en despertar, con 0,1 CPU. Con la sala abierta, el sondeo la mantiene despierta. Si la sala se pone lenta con muchos celulares, sube el servicio a Starter en el panel. El Postgres gratis vence a los 30 días.
 
 | Variable                             | Valor                                             | Por qué                                                                                                                                                                                                                                                                                                                            |
@@ -88,7 +88,7 @@ La opción «Include files outside the Root Directory in the Build Step» tiene 
    API_URL=https://vigente-api.onrender.com PRESENTER_KEY=<clave> pnpm etl
    ```
 
-6. Pon la URL de la web en `deploy-url` de [`platanus-hack-project.jsonc`](../platanus-hack-project.jsonc): es el botón «ver aplicación» de la página de votación.
+6. Pon la URL de la web (`https://hack-team-27.vercel.app`) en `deploy-url` de [`platanus-hack-project.jsonc`](../platanus-hack-project.jsonc): es el botón «ver aplicación» de la página de votación.
 7. En la config del add-in de Revit ([README](../tool-use-case/revit/README.md)), cambia `apiUrl` (`https://vigente-api.onrender.com/api`), `webUrl` (`https://hack-team-27.vercel.app`) y `presenterKey`.
 
 ## El día del pitch
