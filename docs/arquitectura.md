@@ -6,13 +6,14 @@ La vista completa, con DevOps y el flujo de datos de un cambio, está en los [di
 
 ## Estructura
 
-| Carpeta                                   | Proyecto                | Tags                           | Qué es                                                                     |
-| ----------------------------------------- | ----------------------- | ------------------------------ | -------------------------------------------------------------------------- |
-| [`apps/web`](../apps/web/README.md)       | `@team27/web`           | `type:app`                     | Next.js 16 (App Router, Turbopack): el panel, en `:3000`                   |
-| [`apps/api`](../apps/api/README.md)       | `@team27/api`           | `type:app`                     | NestJS 12: la API HTTP, en `:3001/api`                                     |
-| [`context/<ctx>`](../context/README.md)   | `@team27/context-<ctx>` | `type:context`, `scope:<ctx>`  | Un bounded context hexagonal: `lake`, `capture`, `impact` y `notification` |
-| [`data/main`](../data/main/README.md)     | `@team27/data-main`     | `type:data`                    | Prisma 7 sobre PostgreSQL: schema, migraciones y cliente                   |
-| [`packages/ui`](../packages/ui/README.md) | `@team27/ui`            | `type:package`, `scope:shared` | Tema (tokens claro y oscuro) y componentes de React                        |
+| Carpeta                                                   | Proyecto                | Tags                           | Qué es                                                                                                                                      |
+| --------------------------------------------------------- | ----------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`apps/web`](../apps/web/README.md)                       | `@team27/web`           | `type:app`                     | Next.js 16 (App Router, Turbopack): el panel, en `:3000`                                                                                    |
+| [`apps/api`](../apps/api/README.md)                       | `@team27/api`           | `type:app`                     | NestJS 12: la API HTTP, en `:3001/api`                                                                                                      |
+| [`context/<ctx>`](../context/README.md)                   | `@team27/context-<ctx>` | `type:context`, `scope:<ctx>`  | Un bounded context hexagonal: `lake`, `capture`, `impact` y `notification`                                                                  |
+| [`data/main`](../data/main/README.md)                     | `@team27/data-main`     | `type:data`                    | Prisma 7 sobre PostgreSQL: schema, migraciones y cliente                                                                                    |
+| [`packages/ui`](../packages/ui/README.md)                 | `@team27/ui`            | `type:package`, `scope:shared` | Tema (tokens claro y oscuro) y componentes de React                                                                                         |
+| [`tool-use-case/revit`](../tool-use-case/revit/README.md) | fuera de Nx             | —                              | Add-in de Revit en C# (.NET 8 y 10): manda la minuta de cambios de cada guardado a la API. Se compila con `dotnet`; `pnpm check` no lo toca |
 
 ```mermaid
 flowchart LR

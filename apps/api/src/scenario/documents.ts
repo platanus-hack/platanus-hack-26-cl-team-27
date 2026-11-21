@@ -55,6 +55,8 @@ export interface Fixture {
   readonly claims: readonly ClaimDraft[];
 }
 
+export const REVIT_MODEL_ID = 'modelo-revit';
+
 export const SPACES: readonly Space[] = [
   {
     id: 'drive-proyecto',
@@ -207,6 +209,13 @@ export const DOCUMENTS: readonly DocumentDef[] = [
     kind: 'mensaje',
     spaceId: 'whatsapp-obra',
     ownerId: 'marcos-fuentes',
+  },
+  {
+    id: REVIT_MODEL_ID,
+    name: 'Modelo Revit de arquitectura',
+    kind: 'plano',
+    spaceId: 'drive-proyecto',
+    ownerId: 'fernanda-lagos',
   },
 ];
 

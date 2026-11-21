@@ -16,7 +16,8 @@ Lo que mostramos en la hackatón: un proyecto ficticio, con un elenco fijo, en e
 
 - **Todo es ficticio.** El proyecto, el elenco y sus contactos son inventados: los correos usan el dominio `.example` y los teléfonos, `0000`.
 - **Nada sale de la app.** El software de origen y los canales están simulados dentro de la web. No se manda ni un correo, mensaje o post real.
-- **El software de origen es un editor del modelo.** Publica versiones a la API igual que lo haría un conector con un BIM real (`POST /api/integrations/:id/versions`).
+- **El software de origen es un editor del modelo.** Publica versiones a la API igual que lo haría un conector con un BIM real.
+- **Revit es el conector real.** El add-in de [`tool-use-case/revit`](../tool-use-case/revit/README.md) arma la minuta de cambios cada vez que se guarda el modelo y la manda a `POST /api/integrations/revit/minutes`, que la ingiere como una revisión del «Modelo Revit de arquitectura» y corre la misma cadena que un documento soltado.
 - **Los números salen de reglas.** Cantidades, precios unitarios y ruta crítica; ningún modelo de lenguaje los inventa. El mismo guion da siempre el mismo resultado.
 - **Sin gestión de equipos ni organizaciones.** El elenco, el grafo del proyecto y los atajos del guion vienen en [`apps/api/src/scenario/los-aromos.ts`](../apps/api/src/scenario/los-aromos.ts). No hay usuarios ni permisos.
 - **Se reinicia en un paso.** `POST /api/demo/reset` borra lo publicado y vuelve al modelo base.
@@ -81,9 +82,10 @@ Para cerrar, un afectado responde desde su canal. Por ejemplo, Paula responde «
 
 La muestra se construye por segmentos. Cada uno se cierra con sus tests, su doc y `pnpm check` en verde antes de empezar el siguiente.
 
-| Segmento               | Qué cubre                                                                                                                          | Dónde                    | Estado    |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | --------- |
-| 1. Dominio y datos     | Contextos `capture`, `impact` y `notification`, con sus tests; tablas y migración                                                  | `context/*`, `data/main` | Listo     |
-| 2. API de coordinación | El guion, los módulos de Nest, la cadena captura → impacto → aviso, las rutas y el reinicio                                        | `apps/api`               | Listo     |
-| 3. Web de la muestra   | Editor del modelo con atajos, feed de cambios con impacto, canales simulados con respuesta, detalle del cambio y vista por persona | `apps/web`               | Pendiente |
-| 4. Pulido del pitch    | Animación de la propagación, ensayo cronometrado del guion y despliegue                                                            | `apps/web`, `docs/`      | Pendiente |
+| Segmento               | Qué cubre                                                                                                                          | Dónde                             | Estado                         |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------ |
+| 1. Dominio y datos     | Contextos `capture`, `impact` y `notification`, con sus tests; tablas y migración                                                  | `context/*`, `data/main`          | Listo                          |
+| 2. API de coordinación | El guion, los módulos de Nest, la cadena captura → impacto → aviso, las rutas y el reinicio                                        | `apps/api`                        | Listo                          |
+| 3. Web de la muestra   | Editor del modelo con atajos, feed de cambios con impacto, canales simulados con respuesta, detalle del cambio y vista por persona | `apps/web`                        | Pendiente                      |
+| 4. Pulido del pitch    | Animación de la propagación, ensayo cronometrado del guion y despliegue                                                            | `apps/web`, `docs/`               | Pendiente                      |
+| 5. Conector de Revit   | Add-in que arma la minuta de cambios al guardar el modelo, y la ruta de la API que la ingiere                                      | `tool-use-case/revit`, `apps/api` | Falta probarlo dentro de Revit |

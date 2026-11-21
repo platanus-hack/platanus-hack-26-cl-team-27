@@ -1,4 +1,5 @@
 import {
+  HttpException,
   HttpStatus,
   Inject,
   Injectable,
@@ -6,12 +7,15 @@ import {
   type OnApplicationBootstrap,
 } from '@nestjs/common';
 import { formatValue } from '@team27/context-capture';
+import { InlineFactExtractor } from '@team27/context-lake/adapters';
 import type { PrismaClient } from '@team27/data-main';
 
 import {
+  documentOf,
   findFixture,
   fixtureRevision,
   type Fixture,
+  REVIT_MODEL_ID,
   seededRevisions,
 } from '../../scenario/documents.ts';
 import { LOS_AROMOS } from '../../scenario/los-aromos.ts';
@@ -43,6 +47,11 @@ import {
   spaceName,
 } from './lookup.ts';
 import { QueryService } from './query.service.ts';
+import {
+  mapMinute,
+  type MappedMinute,
+  type RevitMinute,
+} from './revit-minute.ts';
 import {
   progressOf,
   printable,
@@ -98,6 +107,40 @@ const costSuffix = (proposal: {
     );
   }
   return parts.length > 0 ? ` (${parts.join(' · ')})` : '';
+};
+
+const plural = (count: number, one: string, many: string): string =>
+  `${count} ${count === 1 ? one : many}`;
+
+const minuteSummary = (
+  ingested: IngestedRevision,
+  proposals: readonly OpenedForDrop[],
+  mapped: MappedMinute,
+): string => {
+  const label = ingested.revision.label;
+  const head = `${label.startsWith('guardado') ? `La minuta del ${label}` : 'La minuta'} trae ${plural(mapped.claims.length, 'cambio', 'cambios')}`;
+  const unchanged = ingested.outcomes.every(
+    (outcome) => outcome.kind === 'same' || outcome.kind === 'corroborates',
+  );
+  let body: string;
+  if (proposals.length > 0) {
+    const notified = new Set(
+      proposals.flatMap((proposal) => proposal.reviewers),
+    );
+    body = `abrimos ${plural(proposals.length, 'propuesta', 'propuestas')} y avisamos a ${notified.size} de ${LOS_AROMOS.stakeholders.length}.`;
+  } else if (unchanged) {
+    body = 'la obra ya tenía esos valores, no abrimos propuestas.';
+  } else {
+    body = 'no abrimos propuestas.';
+  }
+  const skipped = mapped.ignored.length;
+  const tail =
+    skipped === 0
+      ? ''
+      : skipped === 1
+        ? ' 1 cambio no entró.'
+        : ` ${skipped} cambios no entraron.`;
+  return `${head}: ${body}${tail}`;
 };
 
 const lockProposal = async (db: Db, id: string): Promise<void> => {
@@ -231,15 +274,10 @@ export class CoordinationService implements OnApplicationBootstrap {
       }
     }
     const result = await lake.ingestRevision.execute(fixtureRevision(fixture));
-    const opened: OpenedForDrop[] = [];
-    for (const draft of result.drafts) {
-      opened.push(await this.openProposal(db, draft));
-    }
-    const title = revisionTitle(result.revision);
-    const events: EventDraft[] = [
+    return this.announce(db, result, [
       {
         kind: 'document.dropped',
-        message: `${castName(seat)} soltó ${title} en ${spaceName(fixture.spaceId)}.`,
+        message: `${castName(seat)} soltó ${revisionTitle(result.revision)} en ${spaceName(fixture.spaceId)}.`,
         refs: {
           castId: seat,
           revisionId: result.revision.id,
@@ -247,6 +285,17 @@ export class CoordinationService implements OnApplicationBootstrap {
           fixtureId: fixture.id,
         },
       },
+    ]);
+  }
+
+  private async announce(db: Db, result: IngestedRevision, lead: EventDraft[]) {
+    const opened: OpenedForDrop[] = [];
+    for (const draft of result.drafts) {
+      opened.push(await this.openProposal(db, draft));
+    }
+    const title = revisionTitle(result.revision);
+    const events: EventDraft[] = [
+      ...lead,
       ...result.openedDiscrepancies.map((discrepancy): EventDraft => ({
         kind: 'discrepancy.opened',
         message: `${title} dice ${formatValue(printable(discrepancy.value), discrepancy.unit)} en ${factLabel(discrepancy.subject, discrepancy.attribute)} y lo vigente es ${formatValue(printable(discrepancy.baselineValue), discrepancy.unit)}. Le avisamos a ${castName(discrepancy.ownerId)}.`,
@@ -366,6 +415,105 @@ export class CoordinationService implements OnApplicationBootstrap {
       backed: ingested.backedDiscrepancies.map((discrepancy) => discrepancy.id),
       stale: staleRefs(snapshot.consensus.stale),
     };
+  }
+
+  receiveMinute(input: { seat: string; minute: RevitMinute }) {
+    const { seat, minute } = input;
+    const owner = documentOf(REVIT_MODEL_ID).ownerId;
+    if (seat !== owner) {
+      throw fail(
+        HttpStatus.FORBIDDEN,
+        'not_your_document',
+        `El modelo de Revit es de ${castName(owner)}`,
+      );
+    }
+    const mapped = mapMinute(minute, seat);
+    if (mapped.claims.length === 0) {
+      throw new HttpException(
+        {
+          code: 'minute_empty',
+          message:
+            'Ningún cambio de la minuta corresponde a valores que siga el proyecto',
+          ignored: mapped.ignored,
+        },
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
+    }
+    return this.actions.once(minute.minuteId, `minute:${seat}`, () =>
+      this.performMinute(seat, minute.minuteId, mapped),
+    );
+  }
+
+  private async performMinute(
+    seat: string,
+    minuteId: string,
+    mapped: MappedMinute,
+  ) {
+    const { ingested, proposals } = await this.uow.run((db) =>
+      this.track(db, () => this.ingestMinute(db, seat, minuteId, mapped)),
+    );
+    const response = await this.dropResponse(ingested, proposals);
+    return {
+      minuteId,
+      revisionId: response.revisionId,
+      documentId: ingested.revision.documentId,
+      label: ingested.revision.label,
+      title: revisionTitle(ingested.revision),
+      claims: response.claims,
+      proposals: proposals.map((proposal) => ({
+        id: proposal.id,
+        changeId: proposal.changeId,
+        title: proposal.title,
+        costDelta: proposal.costDelta,
+        delayDays: proposal.delayDays,
+        reviewers: proposal.reviewers.map((id) => ({
+          id,
+          name: castName(id),
+        })),
+        filtered: proposal.filtered.map((item) => ({
+          stakeholderId: item.stakeholderId,
+          name: castName(item.stakeholderId),
+          reason: item.reason,
+        })),
+        link: proposal.changeId ? `/cambios/${proposal.changeId}` : null,
+      })),
+      discrepancies: response.discrepancies,
+      backed: response.backed,
+      stale: response.stale,
+      ignored: mapped.ignored,
+      summary: minuteSummary(ingested, proposals, mapped),
+    };
+  }
+
+  private async ingestMinute(
+    db: Db,
+    seat: string,
+    minuteId: string,
+    mapped: MappedMinute,
+  ) {
+    const lake = buildLake(db, new InlineFactExtractor(mapped.claims));
+    const { documentId, label, spaceId } = mapped.revision;
+    const existing = await lake.ports.revisions.findByKey(documentId, label);
+    if (existing) {
+      throw fail(
+        HttpStatus.CONFLICT,
+        'already_ingested',
+        `Ya hay una revisión «${label}» del modelo en el repositorio`,
+      );
+    }
+    const result = await lake.ingestRevision.execute(mapped.revision);
+    return this.announce(db, result, [
+      {
+        kind: 'minute.received',
+        message: `${castName(seat)} guardó el modelo en Revit (${label}): la minuta trae ${plural(mapped.claims.length, 'cambio', 'cambios')}.`,
+        refs: {
+          castId: seat,
+          revisionId: result.revision.id,
+          spaceId,
+          minuteId,
+        },
+      },
+    ]);
   }
 
   vote(input: {

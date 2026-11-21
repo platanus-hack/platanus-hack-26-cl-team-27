@@ -1,6 +1,6 @@
 # Team 27 — Monorepo de Platanus Hack 26
 
-Monorepo de la hackatón: Nx 24 + pnpm 10, una web en Next.js 16 (React 19, Tailwind 4), una API en NestJS 12, PostgreSQL con Prisma 7 y el dominio en contextos hexagonales. El producto convierte cada cambio de un proyecto de construcción en avisos a los equipos que afecta, en las herramientas que ya usan. El modelo de negocio todavía se está definiendo.
+Monorepo de la hackatón: Nx 24 + pnpm 10, una web en Next.js 16 (React 19, Tailwind 4), una API en NestJS 12, PostgreSQL con Prisma 7 y el dominio en contextos hexagonales. En `tool-use-case/` viven los conectores reales con el software del proyecto, como el add-in de Revit en C#. El producto convierte cada cambio de un proyecto de construcción en avisos a los equipos que afecta, en las herramientas que ya usan. El modelo de negocio todavía se está definiendo.
 
 Lo que se construye es una muestra para el pitch, no un MVP. Va en un espacio controlado: un proyecto ficticio con un elenco fijo, el software de origen y los canales simulados dentro de la web, y sin gestión de equipos, organizaciones ni usuarios. Se avanza por segmentos ([docs/muestra.md](docs/muestra.md#segmentos)), y cada uno se cierra con tests, docs y `pnpm check` en verde.
 
@@ -8,19 +8,20 @@ Lo que se construye es una muestra para el pitch, no un MVP. Va en un espacio co
 
 Antes de tocar un área, lee su doc. Si cambias un comportamiento, actualiza el doc en el mismo cambio.
 
-| Área                                                                                                                 | Doc                                                  |
-| -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Problema, propuesta, actores, historias de usuario, glosario del dominio                                             | [docs/negocio.md](docs/negocio.md)                   |
-| La muestra: espacio controlado, proyecto, elenco, guion y segmentos                                                  | [docs/muestra.md](docs/muestra.md)                   |
-| La sala de la obra: el lago de hechos, el consenso multijugador, asientos, bots, API y web de la muestra             | [docs/multijugador.md](docs/multijugador.md)         |
-| Monorepo, fronteras, contextos hexagonales (y cómo crear uno), web ↔ API, variables, datos, TypeScript, tareas de Nx | [docs/arquitectura.md](docs/arquitectura.md)         |
-| Diagramas de arquitectura, DevOps y flujo de datos                                                                   | [docs/diagramas/README.md](docs/diagramas/README.md) |
-| Auditoría de la idea: debate adversarial, la idea purificada (Mano alzada), soporte del producto y plan              | [docs/auditoria.md](docs/auditoria.md)               |
-| Despliegue (espejo a un repo personal)                                                                               | [docs/despliegue.md](docs/despliegue.md)             |
-| La web                                                                                                               | [apps/web/README.md](apps/web/README.md)             |
-| La API                                                                                                               | [apps/api/README.md](apps/api/README.md)             |
-| Base de datos y migraciones                                                                                          | [data/main/README.md](data/main/README.md)           |
-| Tema y componentes                                                                                                   | [packages/ui/README.md](packages/ui/README.md)       |
+| Área                                                                                                                 | Doc                                                            |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Problema, propuesta, actores, historias de usuario, glosario del dominio                                             | [docs/negocio.md](docs/negocio.md)                             |
+| La muestra: espacio controlado, proyecto, elenco, guion y segmentos                                                  | [docs/muestra.md](docs/muestra.md)                             |
+| La sala de la obra: el lago de hechos, el consenso multijugador, asientos, bots, API y web de la muestra             | [docs/multijugador.md](docs/multijugador.md)                   |
+| Monorepo, fronteras, contextos hexagonales (y cómo crear uno), web ↔ API, variables, datos, TypeScript, tareas de Nx | [docs/arquitectura.md](docs/arquitectura.md)                   |
+| Diagramas de arquitectura, DevOps y flujo de datos                                                                   | [docs/diagramas/README.md](docs/diagramas/README.md)           |
+| Auditoría de la idea: debate adversarial, la idea purificada (Mano alzada), soporte del producto y plan              | [docs/auditoria.md](docs/auditoria.md)                         |
+| Despliegue (espejo a un repo personal)                                                                               | [docs/despliegue.md](docs/despliegue.md)                       |
+| La web                                                                                                               | [apps/web/README.md](apps/web/README.md)                       |
+| La API                                                                                                               | [apps/api/README.md](apps/api/README.md)                       |
+| Base de datos y migraciones                                                                                          | [data/main/README.md](data/main/README.md)                     |
+| El add-in de Revit: la minuta de cambios al guardar, compilar, instalar y preparar el modelo                         | [tool-use-case/revit/README.md](tool-use-case/revit/README.md) |
+| Tema y componentes                                                                                                   | [packages/ui/README.md](packages/ui/README.md)                 |
 
 ## Comandos
 
@@ -65,9 +66,11 @@ pnpm format
 - Nx carga el `.env` de la raíz en cada tarea, y `data/main/prisma.config.ts` también lo lee. La API no lee archivos: toma el entorno y no arranca si una variable no cumple su schema.
 - Si `pnpm db:up` falla en WSL con «docker could not be found», activa la integración con WSL en Docker Desktop, o apunta `DATABASE_URL` a otro Postgres.
 - En WSL, el shell puede traer un Node viejo: `nvm use` antes de `pnpm`.
+- `tool-use-case/` no es parte de Nx ni de pnpm: `pnpm check` no compila el add-in de Revit. Se compila con `dotnet` (sin el SDK, con el contenedor `mcr.microsoft.com/dotnet/sdk:10.0`). Si cambias la forma de la minuta, cambia `tool-use-case/revit/contract/` y los dos lados: el test de la API parsea ese archivo.
 
 ## Toolchain
 
 - Node 24 (`.nvmrc`), pnpm 10.33 (`packageManager`, con corepack), Nx 24.0.6.
 - TypeScript 6.0 (`typescript-eslint` exige `< 6.1`), ESLint 9 (`eslint-plugin-react` exige `<= 9`), Next 16.4, React 19.3, Tailwind 4.3, Vitest 5.
 - NestJS 12.6, Prisma 7.10 (el tag `latest` de `prisma` apunta a un RC de la 8: fija la 7), PostgreSQL 18 en compose.
+- Add-in de Revit: SDK de .NET 10; Revit 2025 y 2026 en .NET 8 y Revit 2027 en .NET 10, con los ensamblados de referencia `Nice3point.Revit.Api.*`.

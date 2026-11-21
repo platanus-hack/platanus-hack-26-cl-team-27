@@ -1,0 +1,19 @@
+{
+  "apiUrl": "http://localhost:3001/api",
+  "webUrl": "http://localhost:3000",
+  "presenterKey": "sala-los-aromos",
+  "subjectParameter": "Clave obra",
+  "gridName": "A",
+  "sendOnSave": true,
+  "confirmBeforeSend": false,
+  "showResult": true,
+  "timeoutSeconds": 10,
+  "categories": [
+    "OST_Floors",
+    "OST_Roofs",
+    "OST_Windows",
+    "OST_Doors",
+    "OST_ShaftOpening",
+    "OST_GenericModel"
+  ]
+}

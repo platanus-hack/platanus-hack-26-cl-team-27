@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import {
   AcknowledgeStale,
   DismissDiscrepancy,
+  type FactExtractor,
   GetBaseline,
   GetConsensus,
   GetProvenance,
@@ -37,14 +38,16 @@ export const DISCREPANCY_REPOSITORY = 'DISCREPANCY_REPOSITORY';
 export const ACKNOWLEDGEMENT_REPOSITORY = 'ACKNOWLEDGEMENT_REPOSITORY';
 export const FACT_EXTRACTOR = 'FACT_EXTRACTOR';
 
-export const buildLake = (db: PrismaClient) => {
+export const buildLake = (
+  db: PrismaClient,
+  extractor: FactExtractor = new FixtureFactExtractor(fixtureCatalog()),
+) => {
   const revisions = new PrismaRevisionRepository(db);
   const claims = new PrismaClaimRepository(db);
   const baseline = new PrismaBaselineRepository(db);
   const proposals = new PrismaProposalRepository(db);
   const discrepancies = new PrismaDiscrepancyRepository(db);
   const acknowledgements = new PrismaAcknowledgementRepository(db);
-  const extractor = new FixtureFactExtractor(fixtureCatalog());
   return {
     ports: { revisions, claims, baseline, proposals, discrepancies },
     ingestRevision: new IngestRevision(

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Team 27 · Minuta de cambios</Name>
+    <Assembly>Team27.Minuta\Team27.Minuta.Revit.dll</Assembly>
+    <AddInId>4E7B9C2A-1D3F-4A6B-8C5E-2F9A7B1D3C60</AddInId>
+    <FullClassName>Team27.Minuta.Revit.App</FullClassName>
+    <VendorId>TEAM27</VendorId>
+    <VendorDescription>Team 27 · Platanus Hack 26</VendorDescription>
+  </AddIn>
+</RevitAddIns>

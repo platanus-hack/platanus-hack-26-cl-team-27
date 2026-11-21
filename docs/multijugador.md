@@ -34,7 +34,7 @@ Cinco lugares ficticios donde ya vive la información, cada uno con un asiento d
 | WhatsApp Obra Los Aromos   | whatsapp   | Marcos Fuentes   | Mensajes                            |
 | Libro de obra              | libro_obra | Marcos Fuentes   | Folios                              |
 
-Para el repositorio un espacio es de solo lectura. El conector de la muestra es el botón de soltar un documento de la carpeta del dueño, que ejecuta la misma ingesta que haría un conector real.
+Para el repositorio un espacio es de solo lectura. El conector de la muestra es el botón de soltar un documento de la carpeta del dueño, que ejecuta la misma ingesta que haría un conector real. El add-in de Revit ([`tool-use-case/revit`](../tool-use-case/revit/README.md)) es un conector real: cada guardado del modelo llega como una revisión del documento «Modelo Revit de arquitectura», en el Drive y de Fernanda, con los hechos que cambiaron.
 
 ### Documentos y revisiones
 
@@ -48,7 +48,7 @@ Cada revisión produce afirmaciones sobre las propiedades de los elementos del p
 - **Usa**: el documento se calculó sobre ese valor (el presupuesto usa el espesor de la losa).
 - **Localizador**: celda, página o frase de origen (`Partidas!C14`, `cajetín rev C`, `folio 44`).
 
-La extracción es determinista. La revisión del catálogo trae sus hechos escritos a mano, y un lector de la plantilla CSV fija de cotización o presupuesto produce los mismos hechos desde un archivo real, detrás del mismo puerto `FactExtractor`. En producción, un modelo de lenguaje o un lector de planos emitiría los mismos hechos, con confianza, detrás de ese puerto. La muestra no lo usa.
+La extracción es determinista. La revisión del catálogo trae sus hechos escritos a mano, la minuta de Revit los trae ya extraídos por el add-in (`InlineFactExtractor`), y un lector de la plantilla CSV fija de cotización o presupuesto produce los mismos hechos desde un archivo real, detrás del mismo puerto `FactExtractor`. En producción, un modelo de lenguaje o un lector de planos emitiría los mismos hechos, con confianza, detrás de ese puerto. La muestra no lo usa.
 
 ### Lo vigente
 
@@ -175,6 +175,7 @@ Todas las rutas cuelgan de `/api`. Las acciones de asiento llevan `x-seat-token`
 | `GET /spaces`                                        | Espacios, documentos, revisiones y estado                                      |
 | `GET /seats/:castId/tray`                            | Documentos que el asiento puede soltar                                         |
 | `POST /spaces/:spaceId/drops`                        | Suelta un documento del catálogo (o la plantilla CSV) y ejecuta toda la cadena |
+| `POST /integrations/revit/minutes`                   | Recibe la minuta de cambios del add-in de Revit y ejecuta toda la cadena       |
 | `GET /seats/:castId/inbox`                           | Votos, discrepancias, desfases y filtrados del asiento                         |
 | `GET /proposals?status`                              | Propuestas con revisores, filtrados y respaldo                                 |
 | `POST /notifications/:id/response`                   | Voto `reviewed` o `issue` con nota; fusiona si hay consenso                    |

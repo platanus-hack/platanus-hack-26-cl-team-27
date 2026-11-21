@@ -14,6 +14,12 @@
       "scope:api"
     ],
     "targets": {
+      "test": {
+        "inputs": [
+          "...",
+          "{workspaceRoot}/tool-use-case/revit/contract/minuta.example.json"
+        ]
+      },
       "build": {
         "cache": true,
         "inputs": [

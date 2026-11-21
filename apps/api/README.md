@@ -33,6 +33,7 @@ Todas cuelgan de `/api`. Los POST responden 201, salvo los que dicen 204. Los er
 | `GET /baseline/:subjectId/:attribute/provenance` | La cadena de procedencia: valor vigente y anteriores con revisión, espacio, autor, propuesta, votos con nota y hora y discrepancias que lo respaldaron; 404 si no hay valor |
 | `GET /seats/:castId/tray` | Los documentos que el asiento puede soltar, con la vista previa de sus hechos, `available`, `blockedReason` y `dropped`; solo el dueño del asiento (o la presentadora, para Fernanda); 404 si el asiento no existe |
 | `POST /spaces/:spaceId/drops` | `{ fixtureId }`: suelta un documento del catálogo y ejecuta toda la cadena. Responde `{ revisionId, claims, proposals, discrepancies, backed, stale }` |
+| `POST /integrations/revit/minutes` | La minuta de cambios que el add-in de Revit ([`tool-use-case/revit`](../../tool-use-case/revit/README.md)) arma al guardar el modelo (`tool-use-case/revit/contract/minuta.example.json`). Con `x-presenter-key` actúa como Fernanda, dueña del modelo. Valida el cuerpo, convierte cada cambio de un valor que sigue el proyecto en un hecho, ingiere una revisión nueva del documento `modelo-revit` («Modelo Revit de arquitectura», rótulo `guardado N` o `minuta <8 primeros del minuteId>`) y corre la misma cadena que un drop. Responde 201 `{ minuteId, revisionId, documentId, label, title, claims, proposals, discrepancies, backed, stale, ignored, summary }`; `proposals` trae los revisores y los filtrados con su nombre y el `link` al cambio. Idempotente por el `minuteId` del cuerpo. Lo que no entra (elemento o atributo que el proyecto no sigue, unidad distinta, elemento eliminado, valor negativo) vuelve en `ignored` con su motivo |
 | `GET /proposals?status=` | `{ proposals }`. `status`: `open`, `disputed`, `merged`, `withdrawn`, `replaced` o `active` (abiertas y en disputa) |
 | `POST /notifications/:id/response` | `{ kind: "reviewed" \| "issue", note? }`: el voto. Responde `{ notification, proposal, merged, stale, projectVersion }` |
 | `POST /proposals/:id/reopen` | La autora reabre una propuesta en disputa: solo quien disputó vuelve a pendiente. Responde la propuesta |
@@ -48,7 +49,7 @@ Cabeceras:
 - `x-presenter-key: <clave>` es `PRESENTER_KEY`. Autoriza escenas, autoplay, reinicio y soltar asientos, y hace actuar como Fernanda (la presentadora y autora) en drops, reabrir y retirar. Sin clave válida, 401 `presenter_required`.
 - `x-action-id: <id>` hace idempotentes los drops y los votos: la misma acción devuelve la respuesta de la primera. Se guarda en memoria del proceso (hasta 500) y el reinicio la limpia.
 
-Tipos de evento (`kind`, repetido en `type`; cada uno trae `message` en español para el ticker y `refs` con los ids que toca): `document.dropped`, `proposal.opened`, `proposal.disputed`, `proposal.reopened`, `proposal.merged`, `proposal.withdrawn`, `proposal.replaced`, `review.approved`, `discrepancy.opened`, `discrepancy.backed`, `discrepancy.dismissed`, `stale.detected`, `stale.acknowledged`, `consensus.sealed`, `seat.claimed`, `seat.released`, `scene.started`, `autoplay.changed` y `room.reset`. Las transiciones del orquestador los insertan en su misma transacción.
+Tipos de evento (`kind`, repetido en `type`; cada uno trae `message` en español para el ticker y `refs` con los ids que toca): `document.dropped`, `minute.received`, `proposal.opened`, `proposal.disputed`, `proposal.reopened`, `proposal.merged`, `proposal.withdrawn`, `proposal.replaced`, `review.approved`, `discrepancy.opened`, `discrepancy.backed`, `discrepancy.dismissed`, `stale.detected`, `stale.acknowledged`, `consensus.sealed`, `seat.claimed`, `seat.released`, `scene.started`, `autoplay.changed` y `room.reset`. Las transiciones del orquestador los insertan en su misma transacción.
 
 Cursor y época: `reset: true` (sin eventos) si `epoch` no es la actual o `after` va por delante del servidor; sin `after`, la respuesta trae solo el cursor actual; sin novedades, `events: []` y 200.
 
@@ -59,13 +60,14 @@ Errores de negocio:
 | 400 | La entrada no cumple su schema de zod |
 | 401 `seat_required` | Falta el token de asiento, o ya no es válido |
 | 401 `presenter_required` | Falta la clave del presentador o no es correcta |
-| 403 `not_your_fixture` / `not_your_notification` / `not_author` / `not_owner` / `not_your_seat` / `presenter_seat` | El asiento no es el del documento, el aviso, la propuesta, el valor o la bandeja, o se intenta tomar el asiento de la presentadora |
+| 403 `not_your_fixture` / `not_your_document` / `not_your_notification` / `not_author` / `not_owner` / `not_your_seat` / `presenter_seat` | El asiento no es el del documento (o, en una minuta de Revit, el dueño del modelo), el aviso, la propuesta, el valor o la bandeja, o se intenta tomar el asiento de la presentadora |
 | 404 `fixture_not_found` / `not_found` | El fixture no está en ese espacio, o no existe el recurso |
 | 409 `seat_taken` | El asiento tiene latido de los últimos 20 s (el cuerpo trae `error` y `code`) |
 | 409 `scene_unavailable` | La escena ya se jugó, hay otra en curso o falta una precondición |
-| 409 `already_ingested` | La revisión del fixture ya está en el repositorio |
+| 409 `already_ingested` | La revisión del fixture, o el rótulo de la minuta, ya está en el repositorio |
 | 409 `blocked` | Falta ingerir la revisión que el fixture necesita (`a201-revD` pide `a201-revC`) |
 | 409 `invalid_state` | Una regla del dominio lo impide: votar distinto de lo ya votado, votar una propuesta cerrada, reabrir una que no está en disputa |
+| 422 `minute_empty` | Ningún cambio de la minuta corresponde a valores que siga el proyecto (el cuerpo trae `ignored`) |
 
 - Los ids de propuestas, avisos, discrepancias, revisiones y cambios son UUID.
 - Cada acción de escritura corre en una transacción de Postgres bajo un advisory lock; el voto además bloquea la fila de la propuesta con `SELECT … FOR UPDATE`.
@@ -81,17 +83,17 @@ src/
 ├── common/provide-use-case.ts    registra un caso de uso de un contexto como provider de Nest
 ├── scenario/
 │   ├── los-aromos.ts             modelo base, grafo del proyecto y elenco (con Fernanda, que no recibe avisos)
-│   ├── documents.ts              espacios, documentos, revisiones sembradas y fixtures con sus hechos
+│   ├── documents.ts              espacios, documentos (con el modelo de Revit, sin revisión sembrada), revisiones sembradas y fixtures con sus hechos
 │   ├── bots.ts                   retardos por asiento, notas y quién disputa (Paula la losa, Javier el shaft); funciones puras
 │   └── scenes.ts                 las escenas s1 a s6 y x1, x2, y el orden del autoplay
 └── modules/
     ├── database/                 el PrismaClient (token PRISMA_CLIENT), global, y UnitOfWork (transacción con lock)
     ├── health/                   /api/health y /api/health/ready
-    ├── lake/                     adapters por token y casos de uso de context-lake; buildLake(db) los arma sobre una transacción
+    ├── lake/                     adapters por token y casos de uso de context-lake; buildLake(db, extractor?) los arma sobre una transacción
     ├── capture/                  adapters y casos de uso de context-capture
     ├── impact/                   adapters y casos de uso de context-impact (el grafo sale del guion)
     ├── notification/             adapters y casos de uso de context-notification
-    ├── coordination/             orquesta la cadena y expone las rutas de datos
+    ├── coordination/             orquesta la cadena y expone las rutas de datos; `revit-minute.ts` valida la minuta de Revit y la convierte en hechos, y `integrations.controller.ts` la recibe
     └── room/                     asientos, eventos, tick de bots, escenas, autoplay y reinicio (módulo de la API, no un contexto)
 tests/                            replica src/: Vitest; scenario/ prueba el catálogo con los casos de uso reales sobre puertos en memoria
 ```

@@ -1,0 +1,57 @@
+{
+  "minuteId": "6f1c2b9e-3d4a-4f8b-9c1e-2a7d5b8e0f31",
+  "trigger": "save",
+  "createdAt": "2026-11-21T17:32:05Z",
+  "model": {
+    "title": "LosAromos_ARQ",
+    "saveNumber": 42,
+    "versionGuid": "0f4e5d6c-7b8a-4c9d-8e1f-2a3b4c5d6e7f",
+    "revitVersion": "2026"
+  },
+  "addin": {
+    "name": "Team27.Minuta",
+    "version": "1.0.0"
+  },
+  "changes": [
+    {
+      "subjectId": "losa-n3",
+      "attribute": "espesor_cm",
+      "before": 15,
+      "after": 20,
+      "unit": "cm",
+      "elements": [
+        {
+          "id": 312456,
+          "uniqueId": "8d2f6a1c-5b3e-4c7a-9f0d-1e2b3c4d5e6f-0004c488",
+          "category": "Suelos",
+          "name": "Losa H30 20 cm",
+          "level": "Nivel 3"
+        }
+      ]
+    },
+    {
+      "subjectId": "ventanas-norte",
+      "attribute": "ancho_cm",
+      "before": 120,
+      "after": 150,
+      "unit": "cm",
+      "elements": [
+        {
+          "id": 401101,
+          "uniqueId": "3c9a7e2b-1f4d-4b6a-8e5c-7d2f1a0b9c8e-00061ecd",
+          "category": "Ventanas",
+          "name": "Ventana PVC termopanel 150 x 150",
+          "level": "Nivel 2"
+        },
+        {
+          "id": 401102,
+          "uniqueId": "3c9a7e2b-1f4d-4b6a-8e5c-7d2f1a0b9c8e-00061ece",
+          "category": "Ventanas",
+          "name": "Ventana PVC termopanel 150 x 150",
+          "level": "Nivel 2"
+        }
+      ]
+    }
+  ],
+  "operations": ["Modificar tipo de suelo", "Modificar tipo de ventana"]
+}

@@ -7,6 +7,7 @@ import { readState } from './state.ts';
 
 export const EVENT_KINDS = [
   'document.dropped',
+  'minute.received',
   'proposal.opened',
   'proposal.disputed',
   'proposal.reopened',

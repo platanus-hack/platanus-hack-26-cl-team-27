@@ -7,6 +7,7 @@ import { RoomStoreModule } from '../room/store.module.ts';
 import { NotificationModule } from '../notification/notification.module.ts';
 import { CoordinationController } from './coordination.controller.ts';
 import { CoordinationService } from './coordination.service.ts';
+import { IntegrationsController } from './integrations.controller.ts';
 import { QueryService } from './query.service.ts';
 
 @Module({
@@ -19,6 +20,6 @@ import { QueryService } from './query.service.ts';
   ],
   exports: [CoordinationService, QueryService],
   providers: [CoordinationService, QueryService],
-  controllers: [CoordinationController],
+  controllers: [CoordinationController, IntegrationsController],
 })
 export class CoordinationModule {}

@@ -1,0 +1,88 @@
+{
+  "minuteId": "6f1c2b9e-3d4a-4f8b-9c1e-2a7d5b8e0f31",
+  "revisionId": "44b90451-45b9-4abe-adc1-6c44e64c11e5",
+  "documentId": "modelo-revit",
+  "label": "guardado 42",
+  "title": "Modelo Revit de arquitectura guardado 42",
+  "claims": [
+    {
+      "subjectId": "losa-n3",
+      "attribute": "espesor_cm",
+      "value": 20,
+      "outcome": "change"
+    },
+    {
+      "subjectId": "ventanas-norte",
+      "attribute": "ancho_cm",
+      "value": 150,
+      "outcome": "change"
+    }
+  ],
+  "proposals": [
+    {
+      "id": "df68a039-7af2-4d3a-8a46-6030372eb80a",
+      "changeId": "11d5f96c-f8b1-4e25-8fcd-9a239a6de5ed",
+      "title": "Losa nivel 3 · Espesor: 15 cm → 20 cm",
+      "costDelta": 3636500,
+      "delayDays": 1,
+      "reviewers": [
+        {
+          "id": "paula-rojas",
+          "name": "Paula Rojas"
+        },
+        {
+          "id": "javier-munoz",
+          "name": "Javier Muñoz"
+        },
+        {
+          "id": "daniela-soto",
+          "name": "Daniela Soto"
+        },
+        {
+          "id": "marcos-fuentes",
+          "name": "Marcos Fuentes"
+        }
+      ],
+      "filtered": [],
+      "link": "/cambios/11d5f96c-f8b1-4e25-8fcd-9a239a6de5ed"
+    },
+    {
+      "id": "98c16bd1-66fb-4328-8169-bc28b170ca99",
+      "changeId": "e3cb24fb-db87-471a-9f9b-d0c4e889e359",
+      "title": "Ventanas fachada norte · Ancho: 120 cm → 150 cm",
+      "costDelta": 1998000,
+      "delayDays": 0,
+      "reviewers": [
+        {
+          "id": "ventanas-quillay",
+          "name": "Ventanas Quillay"
+        },
+        {
+          "id": "paula-rojas",
+          "name": "Paula Rojas"
+        },
+        {
+          "id": "tomas-reyes",
+          "name": "Tomás Reyes"
+        },
+        {
+          "id": "daniela-soto",
+          "name": "Daniela Soto"
+        }
+      ],
+      "filtered": [
+        {
+          "stakeholderId": "marcos-fuentes",
+          "name": "Marcos Fuentes",
+          "reason": "Instalación de ventanas fachada norte: 4 días → 5 días, con 38 días de holgura: la holgura lo absorbe y la entrega no se mueve."
+        }
+      ],
+      "link": "/cambios/e3cb24fb-db87-471a-9f9b-d0c4e889e359"
+    }
+  ],
+  "discrepancies": [],
+  "backed": [],
+  "stale": [],
+  "ignored": [],
+  "summary": "La minuta del guardado 42 trae 2 cambios: abrimos 2 propuestas y avisamos a 6 de 7."
+}
