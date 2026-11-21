@@ -16,7 +16,7 @@ import {
   WithdrawProposal,
 } from '@team27/context-lake';
 import {
-  FixtureFactExtractor,
+  InlineFactExtractor,
   PrismaAcknowledgementRepository,
   PrismaBaselineRepository,
   PrismaClaimRepository,
@@ -27,7 +27,6 @@ import {
 import type { PrismaClient } from '@team27/data-main';
 
 import { provideUseCase } from '../../common/provide-use-case.ts';
-import { fixtureCatalog } from '../../scenario/documents.ts';
 import { PRISMA_CLIENT } from '../database/database.module.ts';
 
 export const REVISION_REPOSITORY = 'REVISION_REPOSITORY';
@@ -36,11 +35,10 @@ export const BASELINE_REPOSITORY = 'BASELINE_REPOSITORY';
 export const PROPOSAL_REPOSITORY = 'PROPOSAL_REPOSITORY';
 export const DISCREPANCY_REPOSITORY = 'DISCREPANCY_REPOSITORY';
 export const ACKNOWLEDGEMENT_REPOSITORY = 'ACKNOWLEDGEMENT_REPOSITORY';
-export const FACT_EXTRACTOR = 'FACT_EXTRACTOR';
 
 export const buildLake = (
   db: PrismaClient,
-  extractor: FactExtractor = new FixtureFactExtractor(fixtureCatalog()),
+  extractor: FactExtractor = new InlineFactExtractor([]),
 ) => {
   const revisions = new PrismaRevisionRepository(db);
   const claims = new PrismaClaimRepository(db);
@@ -126,18 +124,6 @@ export const buildLake = (
       useFactory: (prisma: PrismaClient) =>
         new PrismaAcknowledgementRepository(prisma),
     },
-    {
-      provide: FACT_EXTRACTOR,
-      useFactory: () => new FixtureFactExtractor(fixtureCatalog()),
-    },
-    provideUseCase(IngestRevision, [
-      REVISION_REPOSITORY,
-      CLAIM_REPOSITORY,
-      BASELINE_REPOSITORY,
-      PROPOSAL_REPOSITORY,
-      DISCREPANCY_REPOSITORY,
-      FACT_EXTRACTOR,
-    ]),
     provideUseCase(OpenProposal, [PROPOSAL_REPOSITORY, BASELINE_REPOSITORY]),
     provideUseCase(RecordReview, [PROPOSAL_REPOSITORY, BASELINE_REPOSITORY]),
     provideUseCase(ReopenProposal, [PROPOSAL_REPOSITORY]),
@@ -172,14 +158,6 @@ export const buildLake = (
     ]),
     provideUseCase(ListProposals, [PROPOSAL_REPOSITORY]),
     provideUseCase(GetConsensus, [
-      REVISION_REPOSITORY,
-      CLAIM_REPOSITORY,
-      BASELINE_REPOSITORY,
-      PROPOSAL_REPOSITORY,
-      DISCREPANCY_REPOSITORY,
-      ACKNOWLEDGEMENT_REPOSITORY,
-    ]),
-    provideUseCase(SeedLake, [
       REVISION_REPOSITORY,
       CLAIM_REPOSITORY,
       BASELINE_REPOSITORY,

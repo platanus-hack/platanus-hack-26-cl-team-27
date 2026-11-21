@@ -209,27 +209,9 @@ model RoomEvent {
   @@map("room_events")
 }
 
-model BotTask {
-  id      String    @id @default(uuid()) @db.Uuid
-  key     String    @unique
-  castId  String    @map("cast_id")
-  kind    String
-  payload Json
-  dueAt   DateTime  @map("due_at")
-  doneAt  DateTime? @map("done_at")
-  result  String?
-
-  @@index([doneAt, dueAt])
-  @@map("bot_tasks")
-}
-
 model RoomState {
-  id          Int       @id
-  epoch       Int       @default(1)
-  autoplay    Boolean   @default(false)
-  speed       Int       @default(1)
-  activeScene String?   @map("active_scene")
-  pauseUntil  DateTime? @map("pause_until")
+  id    Int @id
+  epoch Int @default(1)
 
   @@map("room_state")
 }

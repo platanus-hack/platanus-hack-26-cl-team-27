@@ -5,18 +5,15 @@ import { useState } from 'react';
 
 import { formatValue } from '@/lib/format';
 import { describeError } from '@/lib/http';
-import { dropDocument, describeDrop, type TrayItem } from '@/lib/drops-api';
 import type { InboxStale } from '@/lib/inbox-api';
 import { acknowledgeStale } from '@/lib/votes-api';
 
 export function StaleCard({
   item,
-  tray,
   seatToken,
   onDone,
 }: {
   readonly item: InboxStale;
-  readonly tray: readonly TrayItem[];
   readonly seatToken: string | null;
   readonly onDone: () => void;
 }) {
@@ -24,12 +21,6 @@ export function StaleCard({
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
-
-  const fix = tray.find(
-    (entry) =>
-      entry.documentId === item.documentId && entry.available && !entry.dropped,
-  );
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -53,33 +44,17 @@ export function StaleCard({
       <p className="text-sm text-ink-2">
         {item.documentTitle} · {item.revisionLabel} · {item.label}
       </p>
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          className="h-12 text-base"
-          disabled={busy || !fix || !seatToken}
-          onClick={() =>
-            fix &&
-            void run(async () => {
-              setResult(describeDrop(await dropDocument(fix, { seatToken })));
-            })
-          }
-        >
-          Subí la revisión
-        </Button>
-        <Button
-          variant="secondary"
-          className="h-12 text-base"
-          disabled={busy}
-          onClick={() => setAsking((value) => !value)}
-        >
-          Confirmo sin cambio
-        </Button>
-      </div>
-      {!fix && (
-        <p className="text-sm text-ink-2">
-          No hay una revisión nueva de este documento en tu carpeta.
-        </p>
-      )}
+      <p className="text-sm text-ink-2">
+        Cuando subas la revisión a tu carpeta, la leemos solos.
+      </p>
+      <Button
+        variant="secondary"
+        className="h-12 text-base"
+        disabled={busy}
+        onClick={() => setAsking((value) => !value)}
+      >
+        Confirmo sin cambio
+      </Button>
       {asking && (
         <div className="flex flex-col gap-2">
           <label className="flex flex-col gap-1.5">
@@ -109,7 +84,6 @@ export function StaleCard({
           </Button>
         </div>
       )}
-      {result && <Notice tone="success">{result}</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
     </div>
   );

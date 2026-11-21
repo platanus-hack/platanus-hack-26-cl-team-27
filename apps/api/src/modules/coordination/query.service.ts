@@ -33,7 +33,6 @@ import {
   type RoomExtras,
   roomResponse,
   spacesResponse,
-  trayResponse,
 } from './views.ts';
 
 export type ProposalFilter = ProposalStatus | 'active' | 'replaced';
@@ -79,10 +78,6 @@ export class QueryService {
     this.listNotifications = listNotifications;
     this.listChanges = listChanges;
     this.getChange = getChange;
-  }
-
-  async isEmpty(): Promise<boolean> {
-    return (await this.baseline.list()).length === 0;
   }
 
   async snapshot(): Promise<LakeSnapshot> {
@@ -142,10 +137,6 @@ export class QueryService {
 
   async spaces() {
     return spacesResponse(await this.snapshot());
-  }
-
-  async tray(castId: string) {
-    return trayResponse(await this.snapshot(), castId);
   }
 
   async proposalList(filter: ProposalFilter | undefined) {

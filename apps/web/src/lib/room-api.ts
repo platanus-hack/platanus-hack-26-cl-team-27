@@ -35,11 +35,10 @@ export interface Seal {
   readonly lines: readonly string[];
 }
 
-export type AutoplaySpeed = 1 | 2 | 4;
-
 export interface RoomSnapshot {
   readonly epoch: number;
   readonly cursor: number;
+  readonly lake: { readonly empty: boolean };
   readonly projectVersion: number;
   readonly project: {
     readonly name: string;
@@ -56,10 +55,6 @@ export interface RoomSnapshot {
     readonly stale: number;
   };
   readonly seal: Seal | null;
-  readonly autoplay: {
-    readonly enabled: boolean;
-    readonly speed: AutoplaySpeed;
-  };
 }
 
 export interface ClaimResponse {
@@ -70,6 +65,9 @@ export interface ClaimResponse {
 
 export const getRoom = (signal?: AbortSignal): Promise<RoomSnapshot> =>
   request<RoomSnapshot>('/api/room', { signal });
+
+export const resetRoom = (auth: Auth): Promise<void> =>
+  request<void>('/api/room/reset', { method: 'POST', body: {}, ...auth });
 
 export const claimSeat = (
   castId: string,

@@ -6,7 +6,7 @@ import { castName } from '../coordination/lookup.ts';
 import { readState } from './state.ts';
 
 export const EVENT_KINDS = [
-  'document.dropped',
+  'revision.received',
   'minute.received',
   'proposal.opened',
   'proposal.disputed',
@@ -23,8 +23,7 @@ export const EVENT_KINDS = [
   'consensus.sealed',
   'seat.claimed',
   'seat.released',
-  'scene.started',
-  'autoplay.changed',
+  'lake.seeded',
   'room.reset',
 ] as const;
 
@@ -130,7 +129,7 @@ export const diffEvents = (before: Observed, after: Observed): EventDraft[] => {
     if (before.stale.has(revisionId)) continue;
     events.push({
       kind: 'stale.detected',
-      message: `${stale.title} quedó desfasado. Le toca a ${castName(stale.ownerId)}.`,
+      message: `Quedó desfasado: ${stale.title}. Le toca a ${castName(stale.ownerId)}.`,
       refs: { revisionId, castId: stale.ownerId },
     });
   }

@@ -5,12 +5,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, type ReactNode } from 'react';
 
-import { Empty, Loading, LoadError } from '@/components/common/LoadState';
+import {
+  Empty,
+  Loading,
+  LoadError,
+  WaitingForLake,
+} from '@/components/common/LoadState';
 import { Icon } from '@/components/common/Icon';
 import { initials } from '@/components/common/initials';
 import { useSeatToken } from '@/hooks/use-held-seats';
 import { useLive } from '@/hooks/use-live';
-import { getTray, type TrayResponse } from '@/lib/drops-api';
 import { ApiError } from '@/lib/http';
 import {
   getInbox,
@@ -26,7 +30,6 @@ import { clearAllSeatTokens, clearSeatToken } from '@/lib/seat-storage';
 import { AuthorActions } from './AuthorActions';
 import { ChannelShell, type ChannelItem } from './ChannelShell';
 import { DiscrepancyCard } from './DiscrepancyCard';
-import { DropTray } from './DropTray';
 import { FilteredCard } from './FilteredCard';
 import { PresenceBadge } from './PresenceBadge';
 import { StaleCard } from './StaleCard';
@@ -35,8 +38,8 @@ import { VoteCard } from './VoteCard';
 interface SeatData {
   readonly cast: CastMember | null;
   readonly inbox: InboxResponse | null;
-  readonly tray: TrayResponse | null;
   readonly revoked: boolean;
+  readonly lakeEmpty: boolean;
 }
 
 const SUBJECT: Record<InboxItem['type'], string> = {
@@ -53,18 +56,16 @@ export function SeatScreen({ castId }: { readonly castId: string }) {
   const load = useCallback(
     async (signal: AbortSignal): Promise<SeatData> => {
       const room = await getRoom(signal);
+      const lakeEmpty = room.lake.empty;
       const cast = room.cast.find((member) => member.id === castId) ?? null;
-      if (!token) return { cast, inbox: null, tray: null, revoked: false };
+      if (!token) return { cast, inbox: null, revoked: false, lakeEmpty };
       try {
-        const [inbox, tray] = await Promise.all([
-          getInbox(castId, { seatToken: token }, signal),
-          getTray(castId, { seatToken: token }, signal),
-        ]);
-        return { cast, inbox, tray, revoked: false };
+        const inbox = await getInbox(castId, { seatToken: token }, signal);
+        return { cast, inbox, revoked: false, lakeEmpty };
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
           clearSeatToken(castId);
-          return { cast, inbox: null, tray: null, revoked: true };
+          return { cast, inbox: null, revoked: true, lakeEmpty };
         }
         throw error;
       }
@@ -93,7 +94,7 @@ export function SeatScreen({ castId }: { readonly castId: string }) {
       </div>
     );
 
-  const { cast, inbox, tray } = data;
+  const { cast, inbox } = data;
   if (!cast)
     return (
       <div className="flex flex-col gap-3 p-4">
@@ -124,12 +125,7 @@ export function SeatScreen({ castId }: { readonly castId: string }) {
       ) : item.type === 'discrepancy' ? (
         <DiscrepancyCard item={item} seatToken={token} onDone={reload} />
       ) : item.type === 'stale' ? (
-        <StaleCard
-          item={item}
-          tray={tray?.items ?? []}
-          seatToken={token}
-          onDone={reload}
-        />
+        <StaleCard item={item} seatToken={token} onDone={reload} />
       ) : (
         <FilteredCard item={item} castId={castId} />
       );
@@ -143,7 +139,7 @@ export function SeatScreen({ castId }: { readonly castId: string }) {
     };
   });
 
-  const upToDate = !readOnly && pending.length === 0;
+  const upToDate = !readOnly && !data.lakeEmpty && pending.length === 0;
   const channel = cast.channel ?? 'email';
   const auth = { seatToken: token };
   const authoring = inbox?.authoring ?? [];
@@ -202,6 +198,13 @@ export function SeatScreen({ castId }: { readonly castId: string }) {
           Estás al día
         </p>
       )}
+      {data.lakeEmpty && (
+        <div className="px-4">
+          <WaitingForLake>
+            Cuando llegue la carga inicial, aquí aparecen tus avisos.
+          </WaitingForLake>
+        </div>
+      )}
       {error && (
         <div className="px-4">
           <Notice tone="error">{error}</Notice>
@@ -231,12 +234,6 @@ export function SeatScreen({ castId }: { readonly castId: string }) {
           </h2>
           <AuthorActions proposals={authoring} auth={auth} onDone={reload} />
         </section>
-      )}
-
-      {tray && tray.items.length > 0 && (
-        <div className="px-4">
-          <DropTray items={tray.items} auth={auth} onDone={reload} />
-        </div>
       )}
     </div>
   );

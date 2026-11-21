@@ -19,8 +19,7 @@ Prisma 7 sobre PostgreSQL 18. Contiene el schema (`prisma/schema.prisma`), las m
 | `Acknowledgement` (`acknowledgements`) | `lake` | La confirmación sin cambio de un documento desfasado, con su nota y la firma del desfase |
 | `Seat` (`seats`) | API (sala) | Un asiento tomado: el hash SHA-256 del token y el último latido |
 | `RoomEvent` (`room_events`) | API (sala) | Los eventos del ticker: `seq` autoincremental, época, tipo, mensaje en español y referencias |
-| `BotTask` (`bot_tasks`) | API (sala) | Tareas de los bots (soltar, votar, reabrir) con clave única, vencimiento y resultado |
-| `RoomState` (`room_state`) | API (sala) | Una sola fila: época, autoplay, velocidad, escena en curso y pausa |
+| `RoomState` (`room_state`) | API (sala) | Una sola fila: la época |
 
 - Cada tabla es de un solo contexto, salvo las de la sala, que son de la API. No hay llaves foráneas entre tablas de contextos distintos: los ids viajan como valores.
 - Las tablas y columnas van en `snake_case` con `@@map` y `@map`; los modelos y campos, en `camelCase`.

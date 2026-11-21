@@ -1,22 +1,12 @@
-import {
-  HttpException,
-  HttpStatus,
-  Inject,
-  Injectable,
-  Logger,
-  type OnApplicationBootstrap,
-} from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { formatValue } from '@team27/context-capture';
 import { InlineFactExtractor } from '@team27/context-lake/adapters';
 import type { PrismaClient } from '@team27/data-main';
 
 import {
   documentOf,
-  findFixture,
-  fixtureRevision,
-  type Fixture,
   REVIT_MODEL_ID,
-  seededRevisions,
+  toRevisionDraft,
 } from '../../scenario/documents.ts';
 import { LOS_AROMOS } from '../../scenario/los-aromos.ts';
 import { UnitOfWork } from '../database/unit-of-work.ts';
@@ -32,13 +22,22 @@ import { buildImpact } from '../impact/impact.module.ts';
 import { buildLake } from '../lake/lake.module.ts';
 import { buildNotification } from '../notification/notification.module.ts';
 import type {
+  ClaimDraft,
   Decision,
   IngestedRevision,
   ProposalDraft,
+  RevisionDraft,
 } from '@team27/context-lake';
 import { ActionLog } from './action-log.ts';
 import { elementsFromBaseline } from './elements-from-baseline.ts';
 import { fail } from './http-errors.ts';
+import {
+  checkAuthor,
+  checkRevision,
+  knownDocument,
+  type RevisionInput,
+  type SeedInput,
+} from './revision-body.ts';
 import {
   castName,
   documentDef,
@@ -68,7 +67,7 @@ export interface VoteInput {
   readonly note?: string | null | undefined;
 }
 
-export interface OpenedForDrop {
+export interface OpenedProposal {
   readonly id: string;
   readonly changeId: string | null;
   readonly title: string;
@@ -114,7 +113,7 @@ const plural = (count: number, one: string, many: string): string =>
 
 const minuteSummary = (
   ingested: IngestedRevision,
-  proposals: readonly OpenedForDrop[],
+  proposals: readonly OpenedProposal[],
   mapped: MappedMinute,
 ): string => {
   const label = ingested.revision.label;
@@ -148,8 +147,7 @@ const lockProposal = async (db: Db, id: string): Promise<void> => {
 };
 
 @Injectable()
-export class CoordinationService implements OnApplicationBootstrap {
-  private readonly logger = new Logger(CoordinationService.name);
+export class CoordinationService {
   private readonly uow: UnitOfWork;
   private readonly queries: QueryService;
   private readonly actions = new ActionLog();
@@ -162,44 +160,76 @@ export class CoordinationService implements OnApplicationBootstrap {
     this.queries = queries;
   }
 
-  async onApplicationBootstrap(): Promise<void> {
-    try {
-      if (await this.queries.isEmpty()) await this.reset();
-    } catch (error) {
-      this.logger.error(
-        'No se pudo sembrar el lago de la muestra',
-        error instanceof Error ? error.stack : String(error),
-      );
-    }
+  async reset(): Promise<void> {
+    await this.uow.run(async (db) => {
+      const state = await readState(db);
+      await db.roomEvent.deleteMany();
+      await db.seat.deleteMany();
+      await db.notification.deleteMany();
+      await db.impact.deleteMany();
+      await db.change.deleteMany();
+      await buildLake(db).seedLake.execute({ revisions: [] });
+      await db.roomState.update({
+        where: { id: ROOM_STATE_ID },
+        data: { epoch: state.epoch + 1 },
+      });
+      await emitEvents(db, [
+        { kind: 'room.reset', message: 'La sala volvió al comienzo.' },
+      ]);
+    });
+    this.actions.clear();
   }
 
-  async reset(): Promise<void> {
-    await this.uow.run(
-      async (db) => {
-        const state = await readState(db);
-        await db.botTask.deleteMany();
-        await db.roomEvent.deleteMany();
-        await db.seat.deleteMany();
-        await db.notification.deleteMany();
-        await db.impact.deleteMany();
-        await db.change.deleteMany();
-        await buildLake(db).seedLake.execute({ revisions: seededRevisions() });
-        await db.roomState.update({
-          where: { id: ROOM_STATE_ID },
-          data: {
-            epoch: state.epoch + 1,
-            autoplay: false,
-            activeScene: null,
-            pauseUntil: null,
-          },
-        });
-        await emitEvents(db, [
-          { kind: 'room.reset', message: 'La sala volvió al comienzo.' },
-        ]);
-      },
-      { exclusive: true },
-    );
-    this.actions.clear();
+  async seed(input: SeedInput) {
+    const seeded = await this.uow.run(async (db) => {
+      const lake = buildLake(db);
+      if ((await lake.ports.revisions.list()).length > 0) {
+        throw fail(
+          HttpStatus.CONFLICT,
+          'lake_not_empty',
+          'La carga inicial solo vale con el lago vacío: reinicia la sala antes',
+        );
+      }
+      const keys = new Set<string>();
+      const revisions = input.revisions.map((item) => {
+        const document = knownDocument(item.documentId);
+        checkAuthor(item.authorId);
+        const claims = checkRevision(item, document);
+        const key = `${item.documentId}\u0000${item.label}`;
+        if (keys.has(key)) {
+          throw fail(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            'duplicate_revision',
+            `La carga repite ${document.name} ${item.label}`,
+          );
+        }
+        keys.add(key);
+        return {
+          revision: toRevisionDraft(
+            item.documentId,
+            item.label,
+            item.authorId,
+            item.spaceId,
+            item.pointer,
+            item.contentHash,
+          ),
+          claims,
+        };
+      });
+      const result = await lake.seedLake.execute({ revisions });
+      await emitEvents(db, [
+        {
+          kind: 'lake.seeded',
+          message: `Se cargó lo vigente de la obra: ${plural(result.revisions, 'documento', 'documentos')}.`,
+          refs: { revisions: result.revisions },
+        },
+      ]);
+      return result;
+    });
+    return {
+      revisions: seeded.revisions,
+      baseline: seeded.baseline.length,
+    };
   }
 
   private async track<T>(
@@ -213,83 +243,85 @@ export class CoordinationService implements OnApplicationBootstrap {
     return value;
   }
 
-  drop(input: {
+  ingest(input: {
     seat: string;
-    spaceId: string;
-    fixtureId: string;
+    revision: RevisionInput;
     actionId: string | undefined;
   }) {
-    const seat = input.seat;
-    const fixture = findFixture(input.fixtureId);
-    if (!fixture || fixture.spaceId !== input.spaceId) {
-      throw fail(
-        HttpStatus.NOT_FOUND,
-        'fixture_not_found',
-        'Ese documento no está en ese espacio',
-      );
-    }
-    if (fixture.seat !== seat) {
+    const { seat, revision } = input;
+    const document = knownDocument(revision.documentId);
+    if (document.ownerId !== seat) {
       throw fail(
         HttpStatus.FORBIDDEN,
-        'not_your_fixture',
-        'Ese documento no es de tu asiento',
+        'not_your_document',
+        `${document.name} es de ${castName(document.ownerId)}`,
       );
     }
-    return this.actions.once(input.actionId, `drop:${seat}:${fixture.id}`, () =>
-      this.performDrop(fixture, seat),
+    const claims = checkRevision(revision, document);
+    return this.actions.once(
+      input.actionId,
+      `revision:${seat}:${revision.documentId}`,
+      () => this.performIngest(seat, revision, claims),
     );
   }
 
-  private async performDrop(fixture: Fixture, seat: string) {
+  private async performIngest(
+    seat: string,
+    revision: RevisionInput,
+    claims: ClaimDraft[],
+  ) {
+    const draft = toRevisionDraft(
+      revision.documentId,
+      revision.label,
+      seat,
+      revision.spaceId,
+      revision.pointer,
+      revision.contentHash,
+    );
     const { ingested, proposals } = await this.uow.run((db) =>
-      this.track(db, () => this.ingest(db, fixture, seat)),
+      this.track(db, () =>
+        this.ingestRevision(
+          db,
+          draft,
+          claims,
+          'Ese documento ya está en el repositorio',
+          (result) => ({
+            kind: 'revision.received',
+            message: `${castName(seat)} subió ${revisionTitle(result.revision)} en ${spaceName(revision.spaceId)}.`,
+            refs: {
+              castId: seat,
+              revisionId: result.revision.id,
+              spaceId: revision.spaceId,
+              documentId: revision.documentId,
+            },
+          }),
+        ),
+      ),
     );
-    return this.dropResponse(ingested, proposals);
+    return this.ingestResponse(ingested, proposals);
   }
 
-  private async ingest(db: Db, fixture: Fixture, seat: string) {
-    const lake = buildLake(db);
+  private async ingestRevision(
+    db: Db,
+    draft: RevisionDraft,
+    claims: ClaimDraft[],
+    conflict: string,
+    lead: (result: IngestedRevision) => EventDraft,
+  ) {
+    const lake = buildLake(db, new InlineFactExtractor(claims));
     const existing = await lake.ports.revisions.findByKey(
-      fixture.documentId,
-      fixture.label,
+      draft.documentId,
+      draft.label,
     );
     if (existing) {
-      throw fail(
-        HttpStatus.CONFLICT,
-        'already_ingested',
-        'Ese documento ya está en el repositorio',
-      );
+      throw fail(HttpStatus.CONFLICT, 'already_ingested', conflict);
     }
-    for (const requirement of fixture.requires) {
-      const required = await lake.ports.revisions.findByKey(
-        requirement.documentId,
-        requirement.label,
-      );
-      if (!required) {
-        throw fail(
-          HttpStatus.CONFLICT,
-          'blocked',
-          `Antes hay que soltar ${documentDef(requirement.documentId)?.name ?? requirement.documentId} ${requirement.label}`,
-        );
-      }
-    }
-    const result = await lake.ingestRevision.execute(fixtureRevision(fixture));
-    return this.announce(db, result, [
-      {
-        kind: 'document.dropped',
-        message: `${castName(seat)} soltó ${revisionTitle(result.revision)} en ${spaceName(fixture.spaceId)}.`,
-        refs: {
-          castId: seat,
-          revisionId: result.revision.id,
-          spaceId: fixture.spaceId,
-          fixtureId: fixture.id,
-        },
-      },
-    ]);
+    const result = await lake.ingestRevision.execute(draft);
+    return this.announce(db, result, [lead(result)]);
   }
 
   private async announce(db: Db, result: IngestedRevision, lead: EventDraft[]) {
-    const opened: OpenedForDrop[] = [];
+    const opened: OpenedProposal[] = [];
     for (const draft of result.drafts) {
       opened.push(await this.openProposal(db, draft));
     }
@@ -324,7 +356,7 @@ export class CoordinationService implements OnApplicationBootstrap {
   private async openProposal(
     db: Db,
     draft: ProposalDraft,
-  ): Promise<OpenedForDrop> {
+  ): Promise<OpenedProposal> {
     const lake = buildLake(db);
     const capture = buildCapture(db);
     const impact = buildImpact(db);
@@ -394,9 +426,9 @@ export class CoordinationService implements OnApplicationBootstrap {
     };
   }
 
-  private async dropResponse(
+  private async ingestResponse(
     ingested: IngestedRevision,
-    proposals: readonly OpenedForDrop[],
+    proposals: readonly OpenedProposal[],
   ) {
     const snapshot = await this.queries.snapshot();
     return {
@@ -452,7 +484,7 @@ export class CoordinationService implements OnApplicationBootstrap {
     const { ingested, proposals } = await this.uow.run((db) =>
       this.track(db, () => this.ingestMinute(db, seat, minuteId, mapped)),
     );
-    const response = await this.dropResponse(ingested, proposals);
+    const response = await this.ingestResponse(ingested, proposals);
     return {
       minuteId,
       revisionId: response.revisionId,
@@ -485,25 +517,19 @@ export class CoordinationService implements OnApplicationBootstrap {
     };
   }
 
-  private async ingestMinute(
+  private ingestMinute(
     db: Db,
     seat: string,
     minuteId: string,
     mapped: MappedMinute,
   ) {
-    const lake = buildLake(db, new InlineFactExtractor(mapped.claims));
-    const { documentId, label, spaceId } = mapped.revision;
-    const existing = await lake.ports.revisions.findByKey(documentId, label);
-    if (existing) {
-      throw fail(
-        HttpStatus.CONFLICT,
-        'already_ingested',
-        `Ya hay una revisión «${label}» del modelo en el repositorio`,
-      );
-    }
-    const result = await lake.ingestRevision.execute(mapped.revision);
-    return this.announce(db, result, [
-      {
+    const { label, spaceId } = mapped.revision;
+    return this.ingestRevision(
+      db,
+      mapped.revision,
+      mapped.claims,
+      `Ya hay una revisión «${label}» del modelo en el repositorio`,
+      (result) => ({
         kind: 'minute.received',
         message: `${castName(seat)} guardó el modelo en Revit (${label}): la minuta trae ${plural(mapped.claims.length, 'cambio', 'cambios')}.`,
         refs: {
@@ -512,8 +538,8 @@ export class CoordinationService implements OnApplicationBootstrap {
           spaceId,
           minuteId,
         },
-      },
-    ]);
+      }),
+    );
   }
 
   vote(input: {

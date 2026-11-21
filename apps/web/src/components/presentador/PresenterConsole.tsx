@@ -1,26 +1,25 @@
 'use client';
 
-import { Card, PageHeader } from '@team27/ui';
+import { Card, Notice, PageHeader } from '@team27/ui';
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
 import { AuthorActions } from '@/components/asiento/AuthorActions';
-import { DropTray } from '@/components/asiento/DropTray';
-import { Loading, LoadError } from '@/components/common/LoadState';
+import {
+  Loading,
+  LoadError,
+  WaitingForLake,
+} from '@/components/common/LoadState';
 import { LiveBadge } from '@/components/common/LiveBadge';
 import { usePresenterKey } from '@/hooks/use-presenter-key';
 import { useLive } from '@/hooks/use-live';
-import { getTray } from '@/lib/drops-api';
 import { ApiError } from '@/lib/http';
 import { getProposals, isActive } from '@/lib/proposals-api';
 import { DEFAULT_INTERVAL_MS } from '@/lib/pulse';
 import { getRoom } from '@/lib/room-api';
-import { getScenes } from '@/lib/scenes-api';
 
-import { AutoplayToggle } from './AutoplayToggle';
 import { KeyGate } from './KeyGate';
 import { ResetButton } from './ResetButton';
-import { SceneList } from './SceneList';
 import { SeatOccupancy } from './SeatOccupancy';
 
 const REJECTED = 'La clave no es correcta.';
@@ -32,16 +31,10 @@ export function PresenterConsole() {
 
   const load = useCallback(
     async (signal: AbortSignal) => {
-      const auth = { presenterKey: key };
       try {
         const room = await getRoom(signal);
-        const author = room.cast.find((member) => member.presenter);
-        const [scenes, proposals, tray] = await Promise.all([
-          getScenes(auth, signal),
-          getProposals('active', signal),
-          author ? getTray(author.id, auth, signal) : Promise.resolve(null),
-        ]);
-        return { room, scenes, proposals, tray };
+        const proposals = await getProposals('active', signal);
+        return { room, proposals };
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
           forget();
@@ -78,7 +71,7 @@ export function PresenterConsole() {
     <>
       <PageHeader
         title="Presentador"
-        description="Escenas, autoplay y reinicio de la sala."
+        description="Asientos, propuestas y reinicio de la sala."
         actions={
           <div className="flex items-center gap-4">
             <LiveBadge status={status} />
@@ -96,17 +89,13 @@ export function PresenterConsole() {
       {data && (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="flex flex-col gap-4">
-            <SceneList
-              scenes={data.scenes.scenes}
-              auth={auth}
-              onDone={reload}
-            />
-            <AutoplayToggle
-              enabled={data.scenes.autoplay.enabled}
-              speed={data.scenes.autoplay.speed}
-              auth={auth}
-              onDone={reload}
-            />
+            {data.room.lake.empty ? (
+              <WaitingForLake />
+            ) : (
+              <Notice>
+                Los documentos llegan por el ETL: <code>pnpm etl</code>.
+              </Notice>
+            )}
             <ResetButton auth={auth} onDone={reload} />
           </div>
           <div className="flex flex-col gap-4">
@@ -119,9 +108,6 @@ export function PresenterConsole() {
                 onDone={reload}
               />
             </Card>
-            {data.tray && (
-              <DropTray items={data.tray.items} auth={auth} onDone={reload} />
-            )}
             <SeatOccupancy cast={data.room.cast} auth={auth} onDone={reload} />
           </div>
         </div>

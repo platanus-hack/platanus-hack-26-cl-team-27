@@ -1,10 +1,7 @@
-import { Body, Controller, Headers, Inject, Post } from '@nestjs/common';
+import { Body, Controller, Inject, Post } from '@nestjs/common';
 
-import {
-  PRESENTER_KEY_HEADER,
-  SEAT_TOKEN_HEADER,
-  SeatsService,
-} from '../room/seats.service.ts';
+import { SeatCredentials } from '../room/credentials.ts';
+import { type Credentials, SeatsService } from '../room/seats.service.ts';
 import { CoordinationService } from './coordination.service.ts';
 import { revitMinuteBody, type RevitMinute } from './revit-minute.ts';
 
@@ -24,11 +21,10 @@ export class IntegrationsController {
   @Post('revit/minutes')
   async revitMinute(
     @Body({ schema: revitMinuteBody }) minute: RevitMinute,
-    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
-    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
+    @SeatCredentials() credentials: Credentials,
   ) {
     return this.coordination.receiveMinute({
-      seat: await this.seats.actor({ token, key }),
+      seat: await this.seats.actor(credentials),
       minute,
     });
   }

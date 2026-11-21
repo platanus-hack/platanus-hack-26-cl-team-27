@@ -19,8 +19,6 @@ import type { Notification } from '@team27/context-notification';
 import {
   attributeLabel,
   DOCUMENTS,
-  type Fixture,
-  FIXTURES,
   type SectionId,
   SPACES,
   SUBJECTS,
@@ -30,7 +28,6 @@ import { LOS_AROMOS } from '../../scenario/los-aromos.ts';
 import {
   castMember,
   castName,
-  documentDef,
   factLabel,
   revisionTitle,
   spaceName,
@@ -548,55 +545,6 @@ export const spacesResponse = (snapshot: LakeSnapshot) => {
   };
 };
 
-export const fixtureState = (
-  snapshot: LakeSnapshot,
-  fixture: Fixture,
-): { dropped: boolean; blockedReason: string | null } => {
-  const has = (documentId: string, label: string): boolean =>
-    snapshot.revisions.some(
-      (revision) =>
-        revision.documentId === documentId && revision.label === label,
-    );
-  const dropped = has(fixture.documentId, fixture.label);
-  const missing = fixture.requires.find(
-    (requirement) => !has(requirement.documentId, requirement.label),
-  );
-  return {
-    dropped,
-    blockedReason: missing
-      ? `Antes hay que soltar ${documentDef(missing.documentId)?.name ?? missing.documentId} ${missing.label}.`
-      : null,
-  };
-};
-
-export const trayResponse = (snapshot: LakeSnapshot, castId: string) => ({
-  castId,
-  items: FIXTURES.filter((fixture) => fixture.seat === castId).map(
-    (fixture) => {
-      const state = fixtureState(snapshot, fixture);
-      return {
-        fixtureId: fixture.id,
-        documentId: fixture.documentId,
-        documentTitle:
-          documentDef(fixture.documentId)?.name ?? fixture.documentId,
-        revisionLabel: fixture.label,
-        spaceId: fixture.spaceId,
-        spaceName: spaceName(fixture.spaceId),
-        pointer: fixture.pointer,
-        claims: fixture.claims.map((claim) => ({
-          label: factLabel(claim.subject, claim.attribute),
-          value: claim.value,
-          unit: claim.unit,
-          role: claim.role,
-        })),
-        available: !state.dropped && state.blockedReason === null,
-        blockedReason: state.dropped ? null : state.blockedReason,
-        dropped: state.dropped,
-      };
-    },
-  ),
-});
-
 export const sealOf = (snapshot: LakeSnapshot) => {
   if (!snapshot.consensus.index.sealed) return null;
   const merged = mergedProposals(snapshot);
@@ -620,7 +568,6 @@ export interface RoomExtras {
   readonly epoch: number;
   readonly cursor: number;
   readonly present: ReadonlySet<string>;
-  readonly autoplay: { readonly enabled: boolean; readonly speed: number };
 }
 
 const CHANNEL_PREVIEW = {
@@ -669,6 +616,7 @@ export const roomResponse = (snapshot: LakeSnapshot, extras: RoomExtras) => {
   return {
     epoch: extras.epoch,
     cursor: extras.cursor,
+    lake: { empty: snapshot.revisions.length === 0 },
     projectVersion: projectVersion(snapshot),
     project: LOS_AROMOS.project,
     totals: totalsOf(snapshot),
@@ -695,7 +643,6 @@ export const roomResponse = (snapshot: LakeSnapshot, extras: RoomExtras) => {
       stale: index.staleDocuments,
     },
     seal: sealOf(snapshot),
-    autoplay: extras.autoplay,
   };
 };
 

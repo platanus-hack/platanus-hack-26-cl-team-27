@@ -14,12 +14,14 @@ import { PRESENCE_MS } from './state.ts';
 
 export const SEAT_TOKEN_HEADER = 'x-seat-token';
 export const PRESENTER_KEY_HEADER = 'x-presenter-key';
+export const ACT_AS_HEADER = 'x-act-as';
 
 export const PRESENTER_ID = LOS_AROMOS.author.id;
 
 export interface Credentials {
   readonly token: string | undefined;
   readonly key: string | undefined;
+  readonly actAs?: string | undefined;
 }
 
 const isUniqueViolation = (error: unknown): boolean =>
@@ -79,12 +81,38 @@ export class SeatsService {
         return seat.castId;
       }
     }
-    if (this.isPresenter(credentials.key)) return PRESENTER_ID;
+    if (this.isPresenter(credentials.key)) {
+      return credentials.actAs ? this.actAs(credentials.actAs) : PRESENTER_ID;
+    }
     throw fail(
       HttpStatus.UNAUTHORIZED,
       'seat_required',
       'Tu asiento falta o ya no es válido',
     );
+  }
+
+  private async actAs(castId: string): Promise<string> {
+    if (!castMember(castId)) {
+      throw fail(
+        HttpStatus.NOT_FOUND,
+        'not_found',
+        `No existe el asiento ${castId}`,
+      );
+    }
+    const held = await this.prisma.seat.findFirst({
+      where: {
+        castId,
+        lastBeatAt: { gte: new Date(Date.now() - PRESENCE_MS) },
+      },
+    });
+    if (held) {
+      throw fail(
+        HttpStatus.CONFLICT,
+        'seat_held',
+        `${castName(castId)} la tiene una persona`,
+      );
+    }
+    return castId;
   }
 
   async actorFor(castId: string, credentials: Credentials): Promise<void> {

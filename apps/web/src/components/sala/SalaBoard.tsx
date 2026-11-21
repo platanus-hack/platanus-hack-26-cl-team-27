@@ -3,7 +3,11 @@
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
-import { Loading, LoadError } from '@/components/common/LoadState';
+import {
+  Loading,
+  LoadError,
+  WaitingForLake,
+} from '@/components/common/LoadState';
 import { LiveBadge } from '@/components/common/LiveBadge';
 import { useLive } from '@/hooks/use-live';
 import { getBaseline } from '@/lib/baseline-api';
@@ -68,7 +72,9 @@ export function SalaBoard() {
       {loading && <Loading label="Abriendo la sala…" />}
       {error && !data && <LoadError message={error} />}
 
-      {data && (
+      {data?.room.lake.empty && <WaitingForLake />}
+
+      {data && !data.room.lake.empty && (
         <>
           {data.room.seal?.sealedAt && <SealBanner seal={data.room.seal} />}
 

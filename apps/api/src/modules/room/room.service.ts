@@ -1,23 +1,13 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { PrismaClient } from '@team27/data-main';
 
-import {
-  findScene,
-  type HasRevision,
-  SCENES,
-  sceneProgress,
-  unmetRequirement,
-} from '../../scenario/scenes.ts';
 import { CoordinationService } from '../coordination/coordination.service.ts';
-import { fail } from '../coordination/http-errors.ts';
-import { castMember, documentDef } from '../coordination/lookup.ts';
+import { castMember } from '../coordination/lookup.ts';
 import { QueryService } from '../coordination/query.service.ts';
 import { castView } from '../coordination/views.ts';
 import { PRISMA_CLIENT } from '../database/prisma-token.ts';
-import { emitEvents } from './events.ts';
-import { hasRevisionIn, TickService } from './tick.service.ts';
 import { SeatsService } from './seats.service.ts';
-import { readState, ROOM_STATE_ID, type Speed } from './state.ts';
+import { readState } from './state.ts';
 
 export interface EventsRequest {
   readonly after: number | undefined;
@@ -32,20 +22,17 @@ export class RoomService {
   private readonly coordination: CoordinationService;
   private readonly queries: QueryService;
   private readonly seats: SeatsService;
-  private readonly ticks: TickService;
 
   constructor(
     @Inject(PRISMA_CLIENT) prisma: PrismaClient,
     @Inject(CoordinationService) coordination: CoordinationService,
     @Inject(QueryService) queries: QueryService,
     @Inject(SeatsService) seats: SeatsService,
-    @Inject(TickService) ticks: TickService,
   ) {
     this.prisma = prisma;
     this.coordination = coordination;
     this.queries = queries;
     this.seats = seats;
-    this.ticks = ticks;
   }
 
   private async cursor(): Promise<number> {
@@ -65,7 +52,6 @@ export class RoomService {
       epoch: state.epoch,
       cursor,
       present,
-      autoplay: { enabled: state.autoplay, speed: state.speed },
     });
   }
 
@@ -81,7 +67,6 @@ export class RoomService {
 
   async events(request: EventsRequest) {
     const seat = await this.seats.heartbeat(request.token);
-    await this.ticks.tick();
     const [state, cursor] = await Promise.all([
       readState(this.prisma),
       this.cursor(),
@@ -113,110 +98,6 @@ export class RoomService {
         at: row.at,
       })),
     };
-  }
-
-  async scenes() {
-    const [state, snapshot] = await Promise.all([
-      readState(this.prisma),
-      this.queries.snapshot(),
-    ]);
-    const has = hasRevisionIn(snapshot);
-    return {
-      scenes: SCENES.map((scene) => {
-        const progress = sceneProgress(scene, has);
-        const reason = this.disabledReason(scene.id, state.activeScene, has);
-        return {
-          id: scene.id,
-          label: scene.label,
-          hint: scene.hint,
-          extra: scene.extra,
-          status: progress.complete
-            ? ('played' as const)
-            : state.activeScene === scene.id
-              ? ('running' as const)
-              : ('pending' as const),
-          playable: reason === null,
-          disabledReason: reason,
-        };
-      }),
-      autoplay: { enabled: state.autoplay, speed: state.speed },
-    };
-  }
-
-  private disabledReason(
-    sceneId: string,
-    activeScene: string | null,
-    has: HasRevision,
-  ): string | null {
-    const scene = findScene(sceneId);
-    if (!scene) return 'La escena no existe';
-    const progress = sceneProgress(scene, has);
-    if (progress.complete) return 'La escena ya se jugó';
-    if (activeScene && activeScene !== sceneId) {
-      return 'Hay otra escena en curso';
-    }
-    for (const fixture of progress.remaining) {
-      const missing = unmetRequirement(fixture, has);
-      if (missing) {
-        return `Antes hay que soltar ${documentDef(missing.documentId)?.name ?? missing.documentId} ${missing.label}`;
-      }
-    }
-    return null;
-  }
-
-  async play(sceneId: string): Promise<void> {
-    const scene = findScene(sceneId);
-    if (!scene) {
-      throw fail(
-        HttpStatus.NOT_FOUND,
-        'not_found',
-        `No existe la escena ${sceneId}`,
-      );
-    }
-    await this.ticks.tick({ force: true });
-    const [state, snapshot] = await Promise.all([
-      readState(this.prisma),
-      this.queries.snapshot(),
-    ]);
-    const has = hasRevisionIn(snapshot);
-    const reason = this.disabledReason(scene.id, state.activeScene, has);
-    if (reason) {
-      throw fail(HttpStatus.CONFLICT, 'scene_unavailable', reason);
-    }
-    await this.prisma.roomState.update({
-      where: { id: ROOM_STATE_ID },
-      data: { activeScene: scene.id, pauseUntil: null },
-    });
-    await emitEvents(this.prisma, [
-      {
-        kind: 'scene.started',
-        message: `Escena: ${scene.label}.`,
-        refs: { sceneId: scene.id },
-      },
-    ]);
-    await this.ticks.tick({ force: true });
-  }
-
-  async setAutoplay(enabled: boolean, speed: Speed): Promise<void> {
-    await readState(this.prisma);
-    await this.prisma.roomState.update({
-      where: { id: ROOM_STATE_ID },
-      data: {
-        autoplay: enabled,
-        speed,
-        ...(enabled ? { pauseUntil: null } : {}),
-      },
-    });
-    await emitEvents(this.prisma, [
-      {
-        kind: 'autoplay.changed',
-        message: enabled
-          ? `Autoplay encendido a velocidad ${speed}x.`
-          : 'Autoplay apagado.',
-        refs: { speed },
-      },
-    ]);
-    await this.ticks.tick({ force: true });
   }
 
   async reset(): Promise<{ epoch: number }> {

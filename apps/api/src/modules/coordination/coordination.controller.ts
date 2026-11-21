@@ -14,19 +14,24 @@ import { MAX_CHANGES } from '@team27/context-capture';
 import { MAX_NOTE_LENGTH, RESPONSE_KINDS } from '@team27/context-notification';
 import { z } from 'zod';
 
+import { SeatCredentials } from '../room/credentials.ts';
 import {
+  type Credentials,
   PRESENTER_KEY_HEADER,
-  SEAT_TOKEN_HEADER,
   SeatsService,
 } from '../room/seats.service.ts';
 import { CoordinationService } from './coordination.service.ts';
 import { type ProposalFilter, QueryService } from './query.service.ts';
+import {
+  type RevisionInput,
+  revisionBody,
+  type SeedInput,
+  seedBody,
+} from './revision-body.ts';
 
 const uuid = z.uuid();
 
 const castId = z.string().min(1).max(64);
-
-const spaceId = z.string().min(1).max(64);
 
 const subjectPart = z.string().min(1).max(64);
 
@@ -49,8 +54,6 @@ const proposalsQuery = z.object({
 const changesQuery = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_CHANGES).default(20),
 });
-
-const dropBody = z.object({ fixtureId: z.string().min(1).max(64) });
 
 const responseBody = z.object({
   kind: z.enum(RESPONSE_KINDS),
@@ -102,40 +105,36 @@ export class CoordinationController {
     return this.queries.provenance(subjectId, attribute);
   }
 
-  @Get('seats/:castId/tray')
-  async tray(
-    @Param('castId', { schema: castId }) id: string,
-    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
-    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
-  ) {
-    await this.seats.actorFor(id, { token, key });
-    return this.queries.tray(id);
-  }
-
   @Get('seats/:castId/inbox')
   async inbox(
     @Param('castId', { schema: castId }) id: string,
-    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
-    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
+    @SeatCredentials() credentials: Credentials,
   ) {
-    await this.seats.actorFor(id, { token, key });
+    await this.seats.actorFor(id, credentials);
     return this.queries.inbox(id);
   }
 
-  @Post('spaces/:spaceId/drops')
-  async drop(
-    @Param('spaceId', { schema: spaceId }) space: string,
-    @Body({ schema: dropBody }) body: z.output<typeof dropBody>,
-    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
-    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
+  @Post('revisions')
+  async ingest(
+    @Body({ schema: revisionBody }) body: RevisionInput,
+    @SeatCredentials() credentials: Credentials,
     @Headers('x-action-id') actionId: string | undefined,
   ) {
-    return this.coordination.drop({
-      seat: await this.seats.actor({ token, key }),
-      spaceId: space,
-      fixtureId: body.fixtureId,
+    return this.coordination.ingest({
+      seat: await this.seats.actor(credentials),
+      revision: body,
       actionId,
     });
+  }
+
+  @Post('lake/seed')
+  @HttpCode(HttpStatus.CREATED)
+  seed(
+    @Body({ schema: seedBody }) body: SeedInput,
+    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
+  ) {
+    this.seats.requirePresenter(key);
+    return this.coordination.seed(body);
   }
 
   @Get('proposals')
@@ -150,12 +149,11 @@ export class CoordinationController {
   async respond(
     @Param('id', { schema: uuid }) id: string,
     @Body({ schema: responseBody }) body: z.output<typeof responseBody>,
-    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
-    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
+    @SeatCredentials() credentials: Credentials,
     @Headers('x-action-id') actionId: string | undefined,
   ) {
     return this.coordination.vote({
-      seat: await this.seats.actor({ token, key }),
+      seat: await this.seats.actor(credentials),
       notificationId: id,
       vote: body,
       actionId,
@@ -165,11 +163,10 @@ export class CoordinationController {
   @Post('proposals/:id/reopen')
   async reopen(
     @Param('id', { schema: uuid }) id: string,
-    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
-    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
+    @SeatCredentials() credentials: Credentials,
   ) {
     return this.coordination.reopen({
-      seat: await this.seats.actor({ token, key }),
+      seat: await this.seats.actor(credentials),
       proposalId: id,
     });
   }
@@ -177,11 +174,10 @@ export class CoordinationController {
   @Post('proposals/:id/withdraw')
   async withdraw(
     @Param('id', { schema: uuid }) id: string,
-    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
-    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
+    @SeatCredentials() credentials: Credentials,
   ) {
     return this.coordination.withdraw({
-      seat: await this.seats.actor({ token, key }),
+      seat: await this.seats.actor(credentials),
       proposalId: id,
     });
   }
@@ -191,11 +187,10 @@ export class CoordinationController {
   async dismiss(
     @Param('id', { schema: uuid }) id: string,
     @Body({ schema: dismissBody }) body: z.output<typeof dismissBody>,
-    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
-    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
+    @SeatCredentials() credentials: Credentials,
   ): Promise<void> {
     await this.coordination.dismiss({
-      seat: await this.seats.actor({ token, key }),
+      seat: await this.seats.actor(credentials),
       discrepancyId: id,
       note: body.note,
     });
@@ -205,11 +200,10 @@ export class CoordinationController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async acknowledge(
     @Body({ schema: acknowledgeBody }) body: z.output<typeof acknowledgeBody>,
-    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
-    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
+    @SeatCredentials() credentials: Credentials,
   ): Promise<void> {
     await this.coordination.acknowledge({
-      seat: await this.seats.actor({ token, key }),
+      seat: await this.seats.actor(credentials),
       revisionId: body.revisionId,
       note: body.note,
     });

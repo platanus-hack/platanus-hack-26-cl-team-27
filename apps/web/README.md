@@ -19,7 +19,7 @@ pnpm nx run @team27/web:test          # Vitest: los *.spec.ts de src/
 | `/`                              | Elegir asiento: tarjetas del elenco, «Ver la sala», «Volver a mi asiento». Fernanda entra a `/presentador` |
 | `/sala`                          | El telón del proyector, solo lectura, a pantalla completa                                               |
 | `/asiento/[castId]`              | El celular del jugador (mobile-first, 390 px), con el look de su canal                                  |
-| `/presentador`                   | Escenas, autoplay, reinicio, asientos, carpeta de Fernanda y acciones de autora                         |
+| `/presentador`                   | Reinicio, ocupación de asientos y propuestas con reabrir y retirar; los documentos llegan por el ETL (`pnpm etl`) |
 | `/espacios`                      | Explorador de espacios, documentos y revisiones (solo lectura, muestra el puntero)                      |
 | `/cambios/[id]`                  | Detalle de una propuesta; acepta `?para=<stakeholderId>`                                                |
 | `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                                                        |
@@ -37,9 +37,9 @@ src/
 │   ├── sala/              SalaBoard, TotalsBar, ConsensusRing, BaselineBoard, ProposalStrip, StalePanel,
 │   │                      SpaceMap, EventTicker, SealBanner, JoinQr, ProvenanceDrawer
 │   ├── asiento/           SeatScreen, ChannelShell (EmailInbox, WhatsAppChat, SlackFeed), VoteCard,
-│   │                      VoteButtons, DiscrepancyCard, StaleCard, FilteredCard, DropTray, AuthorActions,
+│   │                      VoteButtons, DiscrepancyCard, StaleCard, FilteredCard, AuthorActions,
 │   │                      PresenceBadge
-│   ├── presentador/       PresenterConsole, KeyGate, SceneList, AutoplayToggle, ResetButton, SeatOccupancy
+│   ├── presentador/       PresenterConsole, KeyGate, ResetButton, SeatOccupancy
 │   ├── espacios/          SpaceExplorer, SpaceTabs, DocumentList, RevisionRow
 │   ├── cambios/           ChangeDetailView, FactDiff, ImpactSummary, ReviewerList, FilteredList
 │   └── valor/             ValuePage, ProvenanceChain
@@ -57,17 +57,17 @@ Cada módulo declara los tipos de las respuestas y las funciones que las piden. 
 
 | Módulo               | Endpoints                                                                                                 |
 | -------------------- | --------------------------------------------------------------------------------------------------------- |
-| `room-api.ts`        | `GET /api/room`, `POST /api/seats/:castId/claim`, `DELETE /api/seats/:castId`                              |
+| `room-api.ts`        | `GET /api/room` (con `lake.empty`), `POST /api/seats/:castId/claim`, `DELETE /api/seats/:castId`, `POST /api/room/reset` |
 | `events-api.ts`      | `GET /api/events?after&epoch&seat`                                                                         |
 | `baseline-api.ts`    | `GET /api/baseline?section`                                                                                |
 | `provenance-api.ts`  | `GET /api/baseline/:subjectId/:attribute/provenance`                                                       |
 | `spaces-api.ts`      | `GET /api/spaces`                                                                                          |
-| `drops-api.ts`       | `GET /api/seats/:castId/tray`, `POST /api/spaces/:spaceId/drops` con `{ fixtureId }`                        |
 | `inbox-api.ts`       | `GET /api/seats/:castId/inbox`                                                                             |
 | `proposals-api.ts`   | `GET /api/proposals?status`, `POST /api/proposals/:id/reopen`, `POST /api/proposals/:id/withdraw`           |
 | `votes-api.ts`       | `POST /api/notifications/:id/response` con `{ kind, note? }`, `POST /api/discrepancies/:id/dismiss`, `POST /api/stale/acknowledge` con `{ revisionId, note }` |
 | `changes-api.ts`     | `GET /api/changes/:id`                                                                                     |
-| `scenes-api.ts`      | `GET /api/room/scenes`, `POST /api/room/scenes/:id/play`, `POST /api/room/autoplay`, `POST /api/room/reset` |
+
+Con el lago vacío (`lake.empty`), `/sala`, `/presentador` y el celular muestran «Esperando la carga inicial» hasta que el ETL carga lo vigente. La web no sube documentos: la tarjeta de desfase dice «Cuando subas la revisión a tu carpeta, la leemos solos» y ofrece «Confirmo sin cambio».
 
 Los formatos (`format.ts`) son es-CL: pesos sin decimales (`$3.636.500`), `1 día` y `4 días`, coma decimal (`8,5 m`).
 

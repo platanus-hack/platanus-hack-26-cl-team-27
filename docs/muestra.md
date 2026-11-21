@@ -17,10 +17,11 @@ Lo que mostramos en la hackatón: un proyecto ficticio, con un elenco fijo, en e
 - **Todo es ficticio.** El proyecto, el elenco y sus contactos son inventados: los correos usan el dominio `.example` y los teléfonos, `0000`.
 - **Nada sale de la app.** El software de origen y los canales están simulados dentro de la web. No se manda ni un correo, mensaje o post real.
 - **El software de origen es un editor del modelo.** Publica versiones a la API igual que lo haría un conector con un BIM real.
-- **Revit es el conector real.** El add-in de [`tool-use-case/revit`](../tool-use-case/revit/README.md) arma la minuta de cambios cada vez que se guarda el modelo y la manda a `POST /api/integrations/revit/minutes`, que la ingiere como una revisión del «Modelo Revit de arquitectura» y corre la misma cadena que un documento soltado.
+- **Revit es el conector real.** El add-in de [`tool-use-case/revit`](../tool-use-case/revit/README.md) arma la minuta de cambios cada vez que se guarda el modelo y la manda a `POST /api/integrations/revit/minutes`, que la ingiere como una revisión del «Modelo Revit de arquitectura» y corre la misma cadena que cualquier revisión que llega por `POST /api/revisions`.
 - **Los números salen de reglas.** Cantidades, precios unitarios y ruta crítica; ningún modelo de lenguaje los inventa. El mismo guion da siempre el mismo resultado.
 - **Sin gestión de equipos ni organizaciones.** El elenco, el grafo del proyecto y los atajos del guion vienen en [`apps/api/src/scenario/los-aromos.ts`](../apps/api/src/scenario/los-aromos.ts). No hay usuarios ni permisos.
-- **Se reinicia en un paso.** `POST /api/demo/reset` borra lo publicado y vuelve al modelo base.
+- **La API no conoce la demo.** Los documentos de la muestra son archivos del lago ficticio que el ETL (`pnpm etl`, ver [`apps/etl/README.md`](../apps/etl/README.md)) lee y entrega a la API paso a paso, y el ETL juega a los asientos que nadie tomó.
+- **Se reinicia en un paso.** `POST /api/room/reset` vacía la sala y el ETL hace la carga inicial.
 
 ## El proyecto: Edificio Los Aromos
 
