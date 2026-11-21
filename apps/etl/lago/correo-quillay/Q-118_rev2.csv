@@ -1,0 +1,17 @@
+Cotización;Q-118
+Revisión;rev 2
+Proveedor;Ventanas Quillay
+Contacto;Ventas Quillay, ventas@ventanasquillay.cl
+Fecha;2026-11-17
+Mandante;Inmobiliaria Los Aromos SpA
+Obra;Edificio Los Aromos, Ñuñoa
+Validez;30 días
+Condiciones;50% anticipo, saldo contra entrega en obra
+
+Tabla de precios
+Código partida;Descripción;Unidad;Precio unitario
+07.01;Ventana de PVC termopanel;m²;185.000
+
+Ítems
+Ítem;Descripción;Cantidad;Ancho según plano (cm);Ancho de fabricación (cm)
+1;Ventana corredera fachada norte;24;150;150

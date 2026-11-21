@@ -1,0 +1,15 @@
+{
+  "name": "@team27/etl",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "nx": {
+    "tags": [
+      "type:app",
+      "scope:etl"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2"
+  }
+}

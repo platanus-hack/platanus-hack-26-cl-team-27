@@ -1,0 +1,68 @@
+{
+  "rotulo": {
+    "proyecto": "Edificio Los Aromos",
+    "ubicacion": "Av. Los Aromos 1840, Ñuñoa, Región Metropolitana",
+    "documento": "E-102",
+    "titulo": "Planta estructural nivel 3",
+    "revision": "rev B",
+    "autor": "Fernanda Lagos",
+    "fecha": "2026-10-14",
+    "escala": "1:50",
+    "formato": "A1",
+    "calculista": "Paula Rojas",
+    "historial": [
+      {
+        "rev": "A",
+        "fecha": "2026-09-08",
+        "descripcion": "Emisión para coordinación de especialidades"
+      },
+      {
+        "rev": "B",
+        "fecha": "2026-10-14",
+        "descripcion": "Ajuste de ejes y cuadro de losas según memoria de cálculo"
+      }
+    ]
+  },
+  "cuadros": [
+    {
+      "titulo": "cuadro de losas",
+      "elementos": [
+        {
+          "elemento": "Losa nivel 2",
+          "espesor_cm": 15,
+          "hormigon": "H30",
+          "area_m2": 280
+        },
+        {
+          "elemento": "Losa nivel 3",
+          "espesor_cm": 15,
+          "hormigon": "H30",
+          "area_m2": 280
+        },
+        {
+          "elemento": "Losa nivel 4",
+          "espesor_cm": 15,
+          "hormigon": "H30",
+          "area_m2": 280
+        },
+        {
+          "elemento": "Losa nivel 5",
+          "espesor_cm": 15,
+          "hormigon": "H30",
+          "area_m2": 280
+        },
+        {
+          "elemento": "Losa de cubierta",
+          "espesor_cm": 15,
+          "hormigon": "H30",
+          "area_m2": 280
+        }
+      ]
+    }
+  ],
+  "notas": [
+    "Hormigón H30, acero A630-420H.",
+    "Verificar cotas de nivel con topografía antes de hormigonar.",
+    "Ver EETT-03 para curado y tolerancias."
+  ]
+}

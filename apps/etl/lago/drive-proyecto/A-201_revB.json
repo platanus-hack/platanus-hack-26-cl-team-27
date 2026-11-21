@@ -1,0 +1,47 @@
+{
+  "rotulo": {
+    "proyecto": "Edificio Los Aromos",
+    "ubicacion": "Av. Los Aromos 1840, Ñuñoa, Región Metropolitana",
+    "documento": "A-201",
+    "titulo": "Fachada norte y shaft",
+    "revision": "rev B",
+    "autor": "Fernanda Lagos",
+    "fecha": "2026-10-02",
+    "escala": "1:50",
+    "formato": "A1",
+    "historial": [
+      {
+        "rev": "B",
+        "fecha": "2026-10-02",
+        "descripcion": "Cuadro de vanos y detalle del shaft S1 para coordinación"
+      }
+    ]
+  },
+  "cuadros": [
+    {
+      "titulo": "cuadro de vanos",
+      "elementos": [
+        {
+          "elemento": "Ventanas fachada norte",
+          "ancho_cm": 120,
+          "alto_cm": 150,
+          "cantidad": 24,
+          "material": "PVC termopanel",
+          "color": "blanco"
+        }
+      ]
+    },
+    {
+      "titulo": "detalle shaft S1",
+      "elementos": [
+        {
+          "elemento": "Shaft de instalaciones S1",
+          "posicion_m": 6,
+          "ancho_cm": 80,
+          "largo_cm": 120
+        }
+      ]
+    }
+  ],
+  "notas": ["Vanos con antepecho a 90 cm.", "Shaft S1 del nivel 1 a cubierta."]
+}

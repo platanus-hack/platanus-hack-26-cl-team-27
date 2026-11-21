@@ -6,18 +6,20 @@ La vista completa, con DevOps y el flujo de datos de un cambio, está en los [di
 
 ## Estructura
 
-| Carpeta                                                   | Proyecto                | Tags                           | Qué es                                                                                                                                      |
-| --------------------------------------------------------- | ----------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`apps/web`](../apps/web/README.md)                       | `@team27/web`           | `type:app`                     | Next.js 16 (App Router, Turbopack): el panel, en `:3000`                                                                                    |
-| [`apps/api`](../apps/api/README.md)                       | `@team27/api`           | `type:app`                     | NestJS 12: la API HTTP, en `:3001/api`                                                                                                      |
-| [`context/<ctx>`](../context/README.md)                   | `@team27/context-<ctx>` | `type:context`, `scope:<ctx>`  | Un bounded context hexagonal: `lake`, `capture`, `impact` y `notification`                                                                  |
-| [`data/main`](../data/main/README.md)                     | `@team27/data-main`     | `type:data`                    | Prisma 7 sobre PostgreSQL: schema, migraciones y cliente                                                                                    |
-| [`packages/ui`](../packages/ui/README.md)                 | `@team27/ui`            | `type:package`, `scope:shared` | Tema (tokens claro y oscuro) y componentes de React                                                                                         |
-| [`tool-use-case/revit`](../tool-use-case/revit/README.md) | fuera de Nx             | —                              | Add-in de Revit en C# (.NET 8 y 10): manda la minuta de cambios de cada guardado a la API. Se compila con `dotnet`; `pnpm check` no lo toca |
+| Carpeta                                                   | Proyecto                | Tags                           | Qué es                                                                                                                                                                                                                                   |
+| --------------------------------------------------------- | ----------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`apps/web`](../apps/web/README.md)                       | `@team27/web`           | `type:app`                     | Next.js 16 (App Router, Turbopack): el panel, en `:3000`                                                                                                                                                                                 |
+| [`apps/api`](../apps/api/README.md)                       | `@team27/api`           | `type:app`                     | NestJS 12: la API HTTP, en `:3001/api`                                                                                                                                                                                                   |
+| [`apps/etl`](../apps/etl/README.md)                       | `@team27/etl`           | `type:app`, `scope:etl`        | El ETL de la muestra: lee el lago ficticio de archivos, extrae hechos con parsers deterministas, los carga a la API por HTTP y juega a las personas que no tomaron su asiento. Corre con `pnpm etl`, sin servidor ni dependencias nuevas |
+| [`context/<ctx>`](../context/README.md)                   | `@team27/context-<ctx>` | `type:context`, `scope:<ctx>`  | Un bounded context hexagonal: `lake`, `capture`, `impact` y `notification`                                                                                                                                                               |
+| [`data/main`](../data/main/README.md)                     | `@team27/data-main`     | `type:data`                    | Prisma 7 sobre PostgreSQL: schema, migraciones y cliente                                                                                                                                                                                 |
+| [`packages/ui`](../packages/ui/README.md)                 | `@team27/ui`            | `type:package`, `scope:shared` | Tema (tokens claro y oscuro) y componentes de React                                                                                                                                                                                      |
+| [`tool-use-case/revit`](../tool-use-case/revit/README.md) | fuera de Nx             | —                              | Add-in de Revit en C# (.NET 8 y 10): manda la minuta de cambios de cada guardado a la API. Se compila con `dotnet`; `pnpm check` no lo toca                                                                                              |
 
 ```mermaid
 flowchart LR
   web["apps/web<br/>Next.js"] -->|HTTP /api| api["apps/api<br/>NestJS"]
+  etl["apps/etl<br/>ETL y jugadores"] -->|HTTP /api| api
   web --> ui["packages/ui"]
   api --> ctx["context/&lt;ctx&gt;<br/>domain · application · infra"]
   api --> data["data/main<br/>Prisma 7"]
@@ -27,7 +29,7 @@ flowchart LR
   classDef app fill:#E7F5FF,stroke:#1C7ED6,color:#0B3D6B
   classDef domain fill:#E6FCF5,stroke:#12B886,color:#0B3D2E
   classDef shared fill:#F3F0FF,stroke:#7048E8,color:#2E1A6B
-  class web,api app
+  class web,api,etl app
   class ctx domain
   class ui,data,pg shared
 ```
@@ -99,7 +101,7 @@ sequenceDiagram
   participant C as capture
   participant I as impact
   participant N as notification
-  S->>A: POST /api/spaces/:id/drops
+  S->>A: POST /api/revisions
   A->>L: IngestRevision
   L-->>A: resultados por hecho y borradores de propuesta
   loop por cada borrador
@@ -117,14 +119,13 @@ sequenceDiagram
   A->>L: GetConsensus (desfases y sello)
 ```
 
-- **La cadena es sincrónica y transaccional.** Cuando el drop responde, la revisión, el cambio, el impacto, los avisos y la propuesta ya están guardados; si algo falla, nada queda a medias. Cada acción de escritura toma un advisory lock de Postgres y el voto bloquea además la fila de la propuesta.
+- **La cadena es sincrónica y transaccional.** Cuando la ingesta responde, la revisión, el cambio, el impacto, los avisos y la propuesta ya están guardados; si algo falla, nada queda a medias. Cada acción de escritura toma un advisory lock de Postgres y el voto bloquea además la fila de la propuesta.
 - **El lago se enchufa por el API.** `modules/lake` registra los adapters por token y los casos de uso con `provideUseCase`. `lake` no importa `capture`, `impact` ni `notification`: los revisores de una propuesta son los afectados que `impact` devuelve y `notification` avisa, y es `coordination` quien se los pasa a `OpenProposal`. Los ids de revisor son los de los afectados, valores opacos para el lago.
-- **El proyecto, el elenco, el grafo y el catálogo de documentos son el guion de la muestra** ([`los-aromos.ts`](../apps/api/src/scenario/los-aromos.ts) y [`documents.ts`](../apps/api/src/scenario/documents.ts)). La API los pasa a los adapters en memoria `InMemoryProjectGraph`, `InMemoryStakeholderDirectory` y `FixtureFactExtractor`. Lo que cambia durante la muestra (revisiones, hechos, lo vigente, propuestas, votos, cambios, impactos y avisos) se guarda en Postgres.
-- **Al arrancar, si lo vigente está vacío, la API siembra el catálogo.** `POST /api/room/reset` (con `x-presenter-key`) borra todas las tablas en una transacción, suma uno a la época, libera los asientos y lo siembra de nuevo.
-- **La sala es un módulo de la API, no un contexto.** `modules/room` lleva asientos, eventos, bots y escenas, y llama al orquestador `coordination`, nunca a los contextos. Es infraestructura de la muestra.
+- **El proyecto, el elenco, el grafo y el catálogo de documentos son el guion de la muestra** ([`los-aromos.ts`](../apps/api/src/scenario/los-aromos.ts) y [`documents.ts`](../apps/api/src/scenario/documents.ts)). La API los pasa a los adapters en memoria `InMemoryProjectGraph`, `InMemoryStakeholderDirectory` y `InlineFactExtractor` (los hechos vienen en la revisión). Lo que cambia durante la muestra (revisiones, hechos, lo vigente, propuestas, votos, cambios, impactos y avisos) se guarda en Postgres.
+- **La API no siembra ni sabe que existe una demo.** Recibe revisiones por `POST /api/revisions` y la carga inicial por `POST /api/lake/seed` (solo con el lago vacío). `POST /api/room/reset` (con `x-presenter-key`) borra todas las tablas en una transacción, suma uno a la época y libera los asientos; el lago queda vacío. Quien carga y juega la muestra es el ETL (`apps/etl`, ver su [README](../apps/etl/README.md)): lee archivos del lago ficticio, extrae hechos con parsers deterministas y los entrega a la API como un cliente más, con la clave del presentador y `x-act-as` para actuar por los asientos que nadie tomó (la API responde 409 `seat_held` si una persona lo tiene).
+- **La sala es un módulo de la API, no un contexto.** `modules/room` lleva asientos y eventos, y llama al orquestador `coordination`, nunca a los contextos. Es infraestructura de la muestra.
   - **Asientos.** Un celular toma un asiento con `POST /api/seats/:castId/claim` y recibe un token que se guarda hasheado (SHA-256) y viaja en `x-seat-token`. La presentadora actúa como Fernanda con `x-presenter-key`.
-  - **Tiempo real.** Sondeo corto con cursor en `GET /api/events`: cada transición del orquestador inserta filas de `room_events` en su misma transacción. La petición con `x-seat-token` es el latido; un asiento sin latido por 20 s lo juega un bot.
-  - **Bots perezosos.** Cada `GET /api/events` dispara un tick, como máximo cada 500 ms por proceso, bajo un `pg_try_advisory_xact_lock`: crea las tareas de bot que faltan (`bot_tasks`, con clave única) y ejecuta hasta cinco vencidas. No hay timers ni colas externas, y un bot nunca actúa por un asiento con humano presente.
+  - **Tiempo real.** Sondeo corto con cursor en `GET /api/events`: cada transición del orquestador inserta filas de `room_events` en su misma transacción. La petición con `x-seat-token` es el latido; un asiento sin latido por 20 s queda libre.
 - **Los canales son simulados.** Un aviso guardado es un aviso entregado: la web lo muestra en la maqueta de su canal. Un canal real sería un puerto nuevo en `notification`, con un adapter por proveedor. Por qué es así: [espacio controlado](muestra.md#espacio-controlado).
 
 ## Web y API
@@ -135,14 +136,14 @@ sequenceDiagram
 - Todo `/api/*` llega a la API. La web no define rutas bajo `app/api/`: las rutas de Next se resuelven antes que el `rewrite` y le quitarían esa ruta a la API.
 - La API corre con el prefijo global `/api`. Valida la entrada con el schema que declara cada `@Body`, `@Query` o `@Param` (`StandardSchemaValidationPipe`, con zod).
 
-| Variable             | Defecto                                                            | Quién la usa   | Qué es                                                                                                                                                               |
-| -------------------- | ------------------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`       | `postgresql://postgres:postgres@localhost:5427/team27`             | API, Prisma    | La base (el Postgres de compose en dev)                                                                                                                              |
-| `API_PORT`           | `3001`                                                             | API            | Puerto de la API                                                                                                                                                     |
-| `CORS_ALLOW_ORIGINS` | `http://localhost:3000`                                            | API            | Orígenes permitidos, separados por coma. `*` no se acepta con `NODE_ENV=production`                                                                                  |
-| `PRESENTER_KEY`      | `sala-los-aromos` fuera de producción; obligatoria en `production` | API            | Clave del presentador (`x-presenter-key`): escenas, autoplay, reinicio, soltar asientos y actuar como Fernanda. Mínimo 8 caracteres                                  |
-| `API_URL`            | `http://localhost:3001`                                            | Web            | Dónde está la API. El `rewrite` la fija al compilar la web (queda en `routes-manifest.json`); `fetch` la lee en cada request. En un deploy, defínela antes del build |
-| `POSTGRES_*`         | ver `.env.example`                                                 | docker compose | Usuario, clave, base y puerto del Postgres local                                                                                                                     |
+| Variable             | Defecto                                                            | Quién la usa   | Qué es                                                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`       | `postgresql://postgres:postgres@localhost:5427/team27`             | API, Prisma    | La base (el Postgres de compose en dev)                                                                                                                                                      |
+| `API_PORT`           | `3001`                                                             | API            | Puerto de la API                                                                                                                                                                             |
+| `CORS_ALLOW_ORIGINS` | `http://localhost:3000`                                            | API            | Orígenes permitidos, separados por coma. `*` no se acepta con `NODE_ENV=production`                                                                                                          |
+| `PRESENTER_KEY`      | `sala-los-aromos` fuera de producción; obligatoria en `production` | API            | Clave del presentador (`x-presenter-key`): reinicio, carga inicial, soltar asientos, y actuar como Fernanda o, con `x-act-as`, como otro asiento. También la usa el ETL. Mínimo 8 caracteres |
+| `API_URL`            | `http://localhost:3001`                                            | Web            | Dónde está la API. El `rewrite` la fija al compilar la web (queda en `routes-manifest.json`); `fetch` la lee en cada request. En un deploy, defínela antes del build                         |
+| `POSTGRES_*`         | ver `.env.example`                                                 | docker compose | Usuario, clave, base y puerto del Postgres local                                                                                                                                             |
 
 Nx carga el `.env` de la raíz en cada tarea (plantilla: `.env.example`). La API no lee archivos: toma el entorno, y si una variable no cumple su schema (`apps/api/src/config/env.ts`), no arranca.
 
@@ -165,15 +166,15 @@ Nx carga el `.env` de la raíz en cada tarea (plantilla: `.env.example`). La API
 
 ## Tareas de Nx
 
-| Tarea       | Proyecto             | Qué hace                                                                                            |
-| ----------- | -------------------- | --------------------------------------------------------------------------------------------------- |
-| `dev`       | web, api             | `next dev` en `:3000`; `nest start --watch` en `:3001` (primero genera el cliente de Prisma)        |
-| `build`     | web, api             | `next build`; `nest build` a `apps/api/dist`                                                        |
-| `start`     | web, api             | Sirve el build: `next start`; `node dist/main.js`                                                   |
-| `generate`  | data-main            | `prisma generate`, con caché; lo corren antes `dev`, `build`, `test` y `typecheck` de quien depende |
-| `lint`      | todos                | `eslint .`                                                                                          |
-| `test`      | api, web y contextos | Vitest                                                                                              |
-| `typecheck` | paquetes y api       | `tsc --build`                                                                                       |
+| Tarea       | Proyecto                  | Qué hace                                                                                            |
+| ----------- | ------------------------- | --------------------------------------------------------------------------------------------------- |
+| `dev`       | web, api                  | `next dev` en `:3000`; `nest start --watch` en `:3001` (primero genera el cliente de Prisma)        |
+| `build`     | web, api                  | `next build`; `nest build` a `apps/api/dist`                                                        |
+| `start`     | web, api                  | Sirve el build: `next start`; `node dist/main.js`                                                   |
+| `generate`  | data-main                 | `prisma generate`, con caché; lo corren antes `dev`, `build`, `test` y `typecheck` de quien depende |
+| `lint`      | todos                     | `eslint .`                                                                                          |
+| `test`      | api, etl, web y contextos | Vitest                                                                                              |
+| `typecheck` | paquetes, api y etl       | `tsc --build`                                                                                       |
 
 - `pnpm check` corre `lint`, `test`, `typecheck` y `build` en todo; es lo mismo que corre la [CI](#ci). `pnpm affected` corre lo mismo, solo en lo que cambió respecto de `main`.
 - `pnpm nx graph` dibuja el grafo de proyectos.

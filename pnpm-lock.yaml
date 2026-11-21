@@ -133,6 +133,12 @@ importers:
         specifier: ^24.19.2
         version: 24.19.2
 
+  apps/etl:
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+
   apps/web:
     dependencies:
       '@team27/ui':

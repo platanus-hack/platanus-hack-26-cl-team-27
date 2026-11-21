@@ -1,0 +1,24 @@
+Presupuesto itemizado;;;;;
+Proyecto;Edificio Los Aromos
+Versión;v2
+Elaboró;Daniela Soto
+Fecha;2026-10-20
+Hoja;Partidas
+Moneda;CLP
+IVA;No incluido
+Mandante;Inmobiliaria Los Aromos SpA
+Obra;Edificio Los Aromos, Ñuñoa
+Modalidad;Suma alzada con partidas itemizadas
+
+Código;Descripción;Precio unitario;Unidad;Cantidad;Dimensión de diseño usada
+03.02;Hormigón H30 en losas;145.000;m³;210;Losa nivel 3 · espesor 15 cm
+03.03;Acero de refuerzo en losas;1.350;kg;17.850;
+05.04;Perforaciones y sellos del shaft;95.000;m²;5,76;
+07.01;Ventanas de PVC termopanel;185.000;m²;43,2;Ventanas del norte · ancho 120 cm
+01.01;Instalación de faenas;2.800.000;gl;1;
+02.01;Excavación masiva;6.500;m³;1.850;
+03.01;Hormigón H25 en fundaciones;132.000;m³;96;
+04.01;Moldaje de muros y pilares;17.800;m²;2.340;
+06.01;Albañilería de tabiquería;24.500;m²;3.120;
+08.01;Cerámica en baños;21.900;m²;640;
+09.01;Pintura interior látex;4.200;m²;9.800;

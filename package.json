@@ -17,6 +17,7 @@
     "typecheck": "nx run-many -t typecheck",
     "check": "nx run-many -t lint test typecheck build",
     "affected": "nx affected -t lint test typecheck build",
+    "etl": "node --env-file-if-exists=.env apps/etl/src/main.ts",
     "db:up": "docker compose up -d --wait postgres",
     "db:migrate": "pnpm --filter @team27/data-main migrate:deploy",
     "db:studio": "pnpm --filter @team27/data-main studio",

@@ -1,0 +1,34 @@
+{
+  "E-102_revB.json": {
+    "pointer": "Drive/Los Aromos/Estructura/E-102_revB.pdf",
+    "tipo": "plano"
+  },
+  "E-102_revC.json": {
+    "pointer": "Drive/Los Aromos/Estructura/E-102_revC.pdf",
+    "tipo": "plano"
+  },
+  "A-201_revB.json": {
+    "pointer": "Drive/Los Aromos/Arquitectura/A-201_revB.pdf",
+    "tipo": "plano"
+  },
+  "A-201_revC.json": {
+    "pointer": "Drive/Los Aromos/Arquitectura/A-201_revC.pdf",
+    "tipo": "plano"
+  },
+  "A-201_revD.json": {
+    "pointer": "Drive/Los Aromos/Arquitectura/A-201_revD.pdf",
+    "tipo": "plano"
+  },
+  "EETT-03_revA.md": {
+    "pointer": "Drive/Los Aromos/Especificaciones/EETT-03_revA.pdf",
+    "tipo": "eett"
+  },
+  "EETT-03_revB.md": {
+    "pointer": "Drive/Los Aromos/Especificaciones/EETT-03_revB.pdf",
+    "tipo": "eett"
+  },
+  "Acta_12.txt": {
+    "pointer": "Drive/Los Aromos/Actas/Acta_12.pdf",
+    "tipo": "acta"
+  }
+}
