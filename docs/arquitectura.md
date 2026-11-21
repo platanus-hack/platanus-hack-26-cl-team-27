@@ -2,6 +2,8 @@
 
 Monorepo con Nx 24 y workspaces de pnpm 10. Cada proyecto es un paquete (`package.json` con nombre `@team27/*`) y Nx infiere sus tareas con plugins. El dominio vive en contextos hexagonales; la API los compone y la web habla con la API.
 
+La vista completa, con DevOps y el flujo de datos de un cambio, está en los [diagramas](diagramas/README.md).
+
 ## Estructura
 
 | Carpeta                                   | Proyecto                | Tags                           | Qué es                                                                     |

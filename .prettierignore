@@ -4,3 +4,5 @@ pnpm-lock.yaml
 README.md
 platanus-hack-project.jsonc
 project-description.md
+docs/diagramas/**/*.html
+docs/diagramas/**/*.archify.json

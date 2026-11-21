@@ -1,0 +1,409 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Team 27: arquitectura y DevOps",
+    "output": "docs/diagramas/sistema/sistema.html",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1260,
+      880
+    ],
+    "repository": {
+      "url": "https://github.com/platanus-hack/platanus-hack-26-cl-team-27",
+      "provider": "github",
+      "link_mode": "local-only",
+      "revision": "7b2549d2eeada4329982c3612cb240aaa62f0a99"
+    },
+    "views": [
+      {
+        "id": "runtime",
+        "label": "Runtime de la muestra",
+        "focus": [
+          "devices",
+          "web",
+          "room",
+          "coordination",
+          "contexts",
+          "scenario",
+          "postgres"
+        ],
+        "note": "La web reenvía /api/* a la API, que compone los contextos y guarda en Postgres."
+      },
+      {
+        "id": "devops",
+        "label": "DevOps",
+        "focus": [
+          "dev",
+          "github",
+          "ci",
+          "deploy",
+          "compose"
+        ],
+        "note": "CI con pnpm check en cada push y PR; el deploy sigue pendiente."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "devices",
+      "type": "external",
+      "label": "Celulares y proyector",
+      "sublabel": "/asiento · /sala · /presentador",
+      "pos": [
+        40,
+        230
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "apps/web",
+      "sublabel": "Next.js 16 · :3000",
+      "pos": [
+        270,
+        230
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "apps/web/next.config.ts",
+          "label": "rewrite /api/*"
+        }
+      ]
+    },
+    {
+      "id": "room",
+      "type": "backend",
+      "label": "modules/room",
+      "sublabel": "asientos · eventos · bots",
+      "pos": [
+        510,
+        120
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "coordination",
+      "type": "backend",
+      "label": "modules/coordination",
+      "sublabel": "orquesta la cadena",
+      "pos": [
+        510,
+        340
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "apps/api/src/modules/coordination/coordination.service.ts"
+        }
+      ]
+    },
+    {
+      "id": "contexts",
+      "type": "backend",
+      "label": "context/*",
+      "sublabel": "lake · capture · impact · notification",
+      "pos": [
+        770,
+        340
+      ],
+      "size": [
+        200,
+        64
+      ],
+      "sources": [
+        {
+          "path": "context/README.md"
+        }
+      ]
+    },
+    {
+      "id": "scenario",
+      "type": "backend",
+      "label": "Guion Los Aromos",
+      "sublabel": "elenco · grafo · catálogo",
+      "pos": [
+        770,
+        500
+      ],
+      "size": [
+        200,
+        64
+      ],
+      "sources": [
+        {
+          "path": "apps/api/src/scenario/los-aromos.ts"
+        },
+        {
+          "path": "apps/api/src/scenario/documents.ts"
+        }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL 18",
+      "sublabel": "data/main · Prisma 7",
+      "pos": [
+        1050,
+        230
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "data/main/prisma/schema.prisma"
+        }
+      ]
+    },
+    {
+      "id": "dev",
+      "type": "external",
+      "label": "Equipo en local",
+      "sublabel": "pnpm dev · Nx 24 · pnpm 10",
+      "pos": [
+        40,
+        720
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "package.json",
+          "label": "scripts"
+        }
+      ]
+    },
+    {
+      "id": "github",
+      "type": "external",
+      "label": "GitHub",
+      "sublabel": "platanus-hack · main",
+      "pos": [
+        300,
+        720
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "ci",
+      "type": "cloud",
+      "label": "GitHub Actions",
+      "sublabel": "check.yml · pnpm check",
+      "pos": [
+        590,
+        660
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "tag": "Nx",
+      "sources": [
+        {
+          "path": ".github/workflows/check.yml"
+        }
+      ]
+    },
+    {
+      "id": "deploy",
+      "type": "cloud",
+      "label": "Deploy",
+      "sublabel": "espejo → Vercel / Render",
+      "pos": [
+        590,
+        780
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "tag": "pendiente",
+      "sources": [
+        {
+          "path": "docs/despliegue.md"
+        }
+      ]
+    },
+    {
+      "id": "compose",
+      "type": "database",
+      "label": "docker compose",
+      "sublabel": "postgres:18-alpine · :5427",
+      "pos": [
+        1050,
+        500
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "docker-compose.yml"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Runtime de la muestra (hoy, local)",
+      "wraps": [
+        "web",
+        "room",
+        "coordination",
+        "contexts",
+        "scenario",
+        "postgres",
+        "compose"
+      ],
+      "pad": 34
+    },
+    {
+      "kind": "security-group",
+      "label": "Proceso apps/api · NestJS 12 · :3001/api",
+      "wraps": [
+        "room",
+        "coordination",
+        "contexts",
+        "scenario"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "DevOps",
+      "wraps": [
+        "dev",
+        "github",
+        "ci",
+        "deploy"
+      ],
+      "pad": 22
+    }
+  ],
+  "connections": [
+    {
+      "from": "devices",
+      "to": "web",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "from": "web",
+      "to": "room",
+      "label": "GET /api/events"
+    },
+    {
+      "from": "web",
+      "to": "coordination",
+      "label": "POST drops · votos",
+      "variant": "emphasis"
+    },
+    {
+      "from": "room",
+      "to": "coordination",
+      "label": "bots y escenas",
+      "labelAt": [
+        600,
+        262
+      ]
+    },
+    {
+      "from": "coordination",
+      "to": "contexts",
+      "label": "casos de uso",
+      "variant": "emphasis"
+    },
+    {
+      "from": "scenario",
+      "to": "contexts",
+      "label": "adapters en memoria",
+      "variant": "dashed"
+    },
+    {
+      "from": "contexts",
+      "to": "postgres",
+      "label": "tx + advisory lock",
+      "variant": "emphasis"
+    },
+    {
+      "from": "room",
+      "to": "postgres",
+      "label": "asientos · eventos"
+    },
+    {
+      "from": "compose",
+      "to": "postgres",
+      "label": "levanta",
+      "variant": "dashed"
+    },
+    {
+      "from": "dev",
+      "to": "github",
+      "label": "git push"
+    },
+    {
+      "from": "github",
+      "to": "ci",
+      "label": "push · PR"
+    },
+    {
+      "from": "github",
+      "to": "deploy",
+      "label": "espejo",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Runtime",
+      "items": [
+        "El navegador habla solo con la web; next.config.ts reenvía /api/* a API_URL, sin CORS",
+        "La API compone cuatro contextos hexagonales que nunca se importan entre sí",
+        "Lo que cambia en la muestra vive en Postgres; el guion vive en memoria"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "DevOps hoy",
+      "items": [
+        "CI en cada push a main y PR: install --frozen-lockfile y pnpm check",
+        "pnpm check = Nx lint, test, typecheck y build; la CI no necesita base",
+        "Postgres local con pnpm db:up y migraciones con pnpm db:migrate"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Pendiente (S6)",
+      "items": [
+        "deploy-url todavía apunta al repo de GitHub",
+        "Plan: espejo a un repo personal y deploy en Vercel o Render",
+        "En el deploy, API_URL va antes del build y la base es un Postgres gestionado"
+      ]
+    }
+  ]
+}

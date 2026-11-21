@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Flujo de datos de un cambio",
+    "output": "docs/diagramas/flujo-de-datos/flujo-de-datos.html",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1080,
+      760
+    ],
+    "views": [
+      {
+        "id": "con-autoridad",
+        "label": "Un plano nuevo",
+        "focus": [
+          "auth_docs",
+          "ingest",
+          "proposal",
+          "notify",
+          "tray",
+          "baseline"
+        ],
+        "note": "Un hecho con autoridad abre una propuesta que avisa solo a los afectados."
+      },
+      {
+        "id": "sin-autoridad",
+        "label": "Un WhatsApp no manda",
+        "focus": [
+          "weak_docs",
+          "ingest",
+          "discrepancy",
+          "tray"
+        ],
+        "note": "Sin autoridad, el hecho abre una discrepancia y lo vigente no cambia."
+      },
+      {
+        "id": "despues",
+        "label": "Lo que queda atrás",
+        "focus": [
+          "baseline",
+          "stale",
+          "tray",
+          "room"
+        ],
+        "note": "Al fusionar, los documentos que usaban el valor viejo quedan desfasados."
+      }
+    ]
+  },
+  "stages": [
+    {
+      "label": "Espacios de origen"
+    },
+    {
+      "label": "Lago de hechos"
+    },
+    {
+      "label": "Propuesta e impacto"
+    },
+    {
+      "label": "Consenso"
+    },
+    {
+      "label": "Lo vigente y la sala"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "auth_docs",
+      "type": "external",
+      "label": "Docs con autoridad",
+      "sublabel": "plano · Gantt · cotización",
+      "stage": 0,
+      "row": 0,
+      "tag": "Drive · Costos · Correo",
+      "width": 148
+    },
+    {
+      "id": "weak_docs",
+      "type": "external",
+      "label": "WhatsApp y libro",
+      "sublabel": "proponen, no deciden",
+      "stage": 0,
+      "row": 2,
+      "width": 148
+    },
+    {
+      "id": "ingest",
+      "type": "backend",
+      "label": "IngestRevision",
+      "sublabel": "revisión → hechos",
+      "stage": 1,
+      "row": 1,
+      "tag": "lake",
+      "width": 148
+    },
+    {
+      "id": "proposal",
+      "type": "backend",
+      "label": "Propuesta de cambio",
+      "sublabel": "costo y plazo por reglas",
+      "stage": 2,
+      "row": 0,
+      "tag": "capture · impact",
+      "width": 148
+    },
+    {
+      "id": "discrepancy",
+      "type": "backend",
+      "label": "Discrepancia",
+      "sublabel": "lo vigente no cambia",
+      "stage": 2,
+      "row": 2,
+      "tag": "lake",
+      "width": 148
+    },
+    {
+      "id": "notify",
+      "type": "messagebus",
+      "label": "Avisos por canal",
+      "sublabel": "correo · WhatsApp · Slack",
+      "stage": 3,
+      "row": 0,
+      "tag": "notification",
+      "width": 148
+    },
+    {
+      "id": "tray",
+      "type": "frontend",
+      "label": "Bandeja del asiento",
+      "sublabel": "humano o bot",
+      "stage": 3,
+      "row": 2,
+      "width": 148
+    },
+    {
+      "id": "baseline",
+      "type": "database",
+      "label": "Lo vigente",
+      "sublabel": "valor y procedencia",
+      "stage": 4,
+      "row": 1,
+      "tag": "Postgres",
+      "width": 148
+    },
+    {
+      "id": "stale",
+      "type": "backend",
+      "label": "Desfase",
+      "sublabel": "documento con el valor viejo",
+      "stage": 4,
+      "row": 3,
+      "tag": "derivado",
+      "width": 148
+    },
+    {
+      "id": "room",
+      "type": "frontend",
+      "label": "/sala y asientos",
+      "sublabel": "refrescan su snapshot",
+      "stage": 4,
+      "row": 0,
+      "width": 148
+    }
+  ],
+  "flows": [
+    {
+      "from": "auth_docs",
+      "to": "ingest",
+      "label": "POST drops",
+      "classification": "con autoridad",
+      "variant": "emphasis"
+    },
+    {
+      "from": "weak_docs",
+      "to": "ingest",
+      "label": "POST drops",
+      "classification": "sin autoridad"
+    },
+    {
+      "from": "ingest",
+      "to": "proposal",
+      "label": "valor distinto",
+      "classification": "con autoridad",
+      "variant": "emphasis"
+    },
+    {
+      "from": "ingest",
+      "to": "discrepancy",
+      "label": "valor distinto",
+      "classification": "sin autoridad"
+    },
+    {
+      "from": "proposal",
+      "to": "notify",
+      "label": "un aviso por afectado",
+      "classification": "filtrados con razón",
+      "variant": "emphasis",
+      "labelAt": [
+        638,
+        108
+      ]
+    },
+    {
+      "from": "notify",
+      "to": "tray",
+      "label": "voto pendiente",
+      "variant": "emphasis",
+      "labelAt": [
+        745,
+        271
+      ]
+    },
+    {
+      "from": "discrepancy",
+      "to": "tray",
+      "label": "al dueño del valor",
+      "labelAt": [
+        638,
+        428
+      ]
+    },
+    {
+      "from": "tray",
+      "to": "baseline",
+      "label": "todos aprueban",
+      "classification": "fusiona · versión +1",
+      "variant": "emphasis"
+    },
+    {
+      "from": "baseline",
+      "to": "stale",
+      "label": "usa el valor viejo",
+      "labelAt": [
+        960,
+        385
+      ]
+    },
+    {
+      "from": "baseline",
+      "to": "room",
+      "label": "RoomEvent",
+      "classification": "sondeo cada 1 s",
+      "variant": "dashed",
+      "labelAt": [
+        960,
+        214
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Ingesta",
+      "items": [
+        "Soltar un documento ejecuta POST /api/spaces/:id/drops",
+        "Cada revisión se guarda inmutable y se parte en hechos con localizador",
+        "Igual a lo vigente corrobora; distinto abre propuesta o discrepancia"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Consenso",
+      "items": [
+        "Los revisores son los afectados que impact devuelve",
+        "Revisado aprueba; Tengo un problema disputa y lo vigente no cambia",
+        "Con todos de acuerdo, la propuesta se fusiona y sube la versión"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Persistencia y tiempo real",
+      "items": [
+        "Toda la cadena corre en una transacción de Postgres con advisory lock",
+        "Cada mutación escribe sus RoomEvent en la misma transacción",
+        "Las pantallas sondean GET /api/events y vuelven a pedir su snapshot"
+      ]
+    }
+  ]
+}
