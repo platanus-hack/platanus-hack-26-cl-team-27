@@ -20,12 +20,14 @@ pnpm nx run @team27/web:test          # Vitest: los *.spec.ts de src/
 | `/sala`                          | El telón del proyector, solo lectura; propuestas, valores y documentos se abren en un panel                  |
 | `/asiento/[castId]`              | La bandeja del jugador (mobile-first, 430 px), con pestañas Pendientes y Respondidos y el look de su canal    |
 | `/presentador`                   | La consola de Fernanda: requieren atención, propuestas (activas e historial), asientos y reinicio            |
+| `/caso/[castId]`                 | La pantalla de una persona del caso P-12: `paula-rojas` (plano, «Mover P-12 40 cm al norte» y línea de tiempo) o `camila-vera` (plano y tarjeta de la propuesta, con «Aceptar propuesta» y «Tengo un problema»). Toma el asiento sola si no lo tiene |
+| `/caso`                          | Vista del presentador del caso: las dos pantallas lado a lado, el hilo de eventos `flow.*` y «Reiniciar caso» (pide la clave del presentador; actúa como cada persona con `x-act-as`) |
 | `/espacios`                      | Espacios y documentos; el documento se abre en un panel. Acepta `?espacio=`, `?documento=` y `?revision=`    |
 | `/cambios/[id]`                  | Detalle de una propuesta; acepta `?para=<stakeholderId>`                                                     |
 | `/modelos`                       | El visor de APS con todas las disciplinas del catálogo de la API (`GET /api/aps/models`) en una escena: abre con Arquitectura y carga las demás al encenderlas, con un interruptor por disciplina y las propiedades del elemento seleccionado |
 | `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                                                             |
 
-Los route groups `(site)`, `(sala)` y `(asiento)` dan a cada pantalla su propio layout: el sitio con encabezado y navegación (marca la sección actual), el telón sin márgenes y el celular en una columna de 430 px. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
+Los route groups `(site)`, `(sala)`, `(asiento)` y `(caso)` dan a cada pantalla su propio layout: el sitio con encabezado y navegación (marca la sección actual), el telón sin márgenes y el celular en una columna de 430 px y el caso a todo el ancho. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
 
 Qué muestra cada pantalla y por qué está ordenada así: [multijugador, «La web»](../../docs/multijugador.md#la-web).
 
@@ -87,6 +89,17 @@ La lógica de las pantallas vive en `lib`, pura y con tests:
 - La bandeja de Fernanda (`GET /api/seats/fernanda-lagos/inbox`) se pide con la clave del presentador, que la API trata como Fernanda.
 
 Los formatos (`format.ts`) son es-CL: pesos sin decimales (`$3.636.500`), `1 día` y `4 días`, coma decimal (`8,5 m`), el antes y el después con flecha (`15 cm → 20 cm`) y el tiempo relativo («Hace 2 min»), que `useNow` refresca cada 15 s.
+
+## El flujo del caso
+
+Todo el acceso a `/api/flow` vive en `lib/flow-api.ts` (tipos y llamadas: `getFlow`, `postMinute`, `acceptProposal`, `rejectProposal`, `postPresence`, `resetFlow`). `useFlow` lo mantiene vivo con `useLive`: cada evento de la sala vuelve a pedir `GET /api/flow`.
+
+- `lib/case-plan.ts`: geometría pura del plano (metros a coordenadas SVG, con el norte arriba, 100 unidades por metro), choque entre cajas y desplazamiento de la bandeja.
+- `lib/case-view.ts`: textos y formatos del caso (`describeMove`, `formatCostLine`, la línea de tiempo de Paula).
+- `components/caso/CasePlan.tsx`: el plano en SVG con `viewBox`. Dibuja los ejes 5, 6 y B, P-12 (con su posición anterior punteada), la bandeja E-B-03, el colector B2, el choque achurado en rojo y el arreglo propuesto como fantasma verde. Al aceptarse la propuesta, el tramo de la bandeja se desliza a su nueva posición.
+- `CamilaView` avisa su presencia (`viewing: 'propuesta'` mientras la tarjeta está a la vista, `'plano'` si no) cada 8 s y al volver a la pestaña. Solo con asiento propio; la vista del presentador no la envía y muestra la presencia de Camila a partir de `flow.presence`. El paso 3 de la línea de tiempo de Paula requiere el asiento real de Camila abierto en su dispositivo.
+- Si el token de un asiento deja de valer (401 al actuar o al avisar presencia), `CaseScreen` lo borra y vuelve a tomar el asiento solo. «Reiniciar caso» deja el hilo del presentador en el último `flow.reset`.
+- El caso no muestra bots.
 
 ## Tiempo real
 
