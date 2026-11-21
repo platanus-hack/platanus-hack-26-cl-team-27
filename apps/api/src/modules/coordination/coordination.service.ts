@@ -15,6 +15,13 @@ import {
 } from '../../scenario/documents.ts';
 import { LOS_AROMOS } from '../../scenario/los-aromos.ts';
 import { UnitOfWork } from '../database/unit-of-work.ts';
+import {
+  diffEvents,
+  type EventDraft,
+  emitEvents,
+  observe,
+} from '../room/events.ts';
+import { readState, ROOM_STATE_ID } from '../room/state.ts';
 import { buildCapture } from '../capture/capture.module.ts';
 import { buildImpact } from '../impact/impact.module.ts';
 import { buildLake } from '../lake/lake.module.ts';
@@ -27,10 +34,16 @@ import type {
 import { ActionLog } from './action-log.ts';
 import { elementsFromBaseline } from './elements-from-baseline.ts';
 import { fail } from './http-errors.ts';
-import { castName, documentDef } from './lookup.ts';
-import { QueryService } from './query.service.ts';
-import { requireSeat } from './seat.ts';
 import {
+  castName,
+  documentDef,
+  factLabel,
+  revisionTitle,
+  spaceName,
+} from './lookup.ts';
+import { QueryService } from './query.service.ts';
+import {
+  progressOf,
   proposalTitle,
   staleRefs,
   voteProposal,
@@ -65,6 +78,26 @@ const OUTCOME = {
   stale: 'stale',
 } as const;
 
+const money = new Intl.NumberFormat('es-CL');
+
+const costSuffix = (proposal: {
+  costDelta: number;
+  delayDays: number;
+}): string => {
+  const parts: string[] = [];
+  if (proposal.costDelta !== 0) {
+    parts.push(
+      `${proposal.costDelta > 0 ? '+' : '-'}$${money.format(Math.abs(proposal.costDelta))}`,
+    );
+  }
+  if (proposal.delayDays !== 0) {
+    parts.push(
+      `${proposal.delayDays > 0 ? '+' : '-'}${Math.abs(proposal.delayDays)} ${Math.abs(proposal.delayDays) === 1 ? 'día' : 'días'}`,
+    );
+  }
+  return parts.length > 0 ? ` (${parts.join(' · ')})` : '';
+};
+
 const lockProposal = async (db: Db, id: string): Promise<void> => {
   await db.$queryRaw`SELECT id FROM proposals WHERE id = ${id}::uuid FOR UPDATE`;
 };
@@ -97,21 +130,48 @@ export class CoordinationService implements OnApplicationBootstrap {
 
   async reset(): Promise<void> {
     await this.uow.run(async (db) => {
+      const state = await readState(db);
+      await db.botTask.deleteMany();
+      await db.roomEvent.deleteMany();
+      await db.seat.deleteMany();
       await db.notification.deleteMany();
       await db.impact.deleteMany();
       await db.change.deleteMany();
       await buildLake(db).seedLake.execute({ revisions: seededRevisions() });
+      await db.roomState.update({
+        where: { id: ROOM_STATE_ID },
+        data: {
+          epoch: state.epoch + 1,
+          autoplay: false,
+          activeScene: null,
+          pauseUntil: null,
+        },
+      });
+      await emitEvents(db, [
+        { kind: 'room.reset', message: 'La sala volvió al comienzo.' },
+      ]);
     });
     this.actions.clear();
   }
 
+  private async track<T>(
+    db: Db,
+    work: () => Promise<{ value: T; events: EventDraft[] }>,
+  ): Promise<T> {
+    const before = await observe(db, proposalTitle);
+    const { value, events } = await work();
+    const after = await observe(db, proposalTitle);
+    await emitEvents(db, [...events, ...diffEvents(before, after)]);
+    return value;
+  }
+
   drop(input: {
-    seat: string | undefined;
+    seat: string;
     spaceId: string;
     fixtureId: string;
     actionId: string | undefined;
   }) {
-    const seat = requireSeat(input.seat);
+    const seat = input.seat;
     const fixture = findFixture(input.fixtureId);
     if (!fixture || fixture.spaceId !== input.spaceId) {
       throw fail(
@@ -128,47 +188,83 @@ export class CoordinationService implements OnApplicationBootstrap {
       );
     }
     return this.actions.once(input.actionId, `drop:${seat}:${fixture.id}`, () =>
-      this.performDrop(fixture),
+      this.performDrop(fixture, seat),
     );
   }
 
-  private async performDrop(fixture: Fixture) {
-    const { ingested, proposals } = await this.uow.run(async (db) => {
-      const lake = buildLake(db);
-      const existing = await lake.ports.revisions.findByKey(
-        fixture.documentId,
-        fixture.label,
+  private async performDrop(fixture: Fixture, seat: string) {
+    const { ingested, proposals } = await this.uow.run((db) =>
+      this.track(db, () => this.ingest(db, fixture, seat)),
+    );
+    return this.dropResponse(ingested, proposals);
+  }
+
+  private async ingest(db: Db, fixture: Fixture, seat: string) {
+    const lake = buildLake(db);
+    const existing = await lake.ports.revisions.findByKey(
+      fixture.documentId,
+      fixture.label,
+    );
+    if (existing) {
+      throw fail(
+        HttpStatus.CONFLICT,
+        'already_ingested',
+        'Ese documento ya está en el repositorio',
       );
-      if (existing) {
+    }
+    for (const requirement of fixture.requires) {
+      const required = await lake.ports.revisions.findByKey(
+        requirement.documentId,
+        requirement.label,
+      );
+      if (!required) {
         throw fail(
           HttpStatus.CONFLICT,
-          'already_ingested',
-          'Ese documento ya está en el repositorio',
+          'blocked',
+          `Antes hay que soltar ${documentDef(requirement.documentId)?.name ?? requirement.documentId} ${requirement.label}`,
         );
       }
-      for (const requirement of fixture.requires) {
-        const required = await lake.ports.revisions.findByKey(
-          requirement.documentId,
-          requirement.label,
-        );
-        if (!required) {
-          throw fail(
-            HttpStatus.CONFLICT,
-            'blocked',
-            `Antes hay que soltar ${documentDef(requirement.documentId)?.name ?? requirement.documentId} ${requirement.label}`,
-          );
-        }
-      }
-      const result = await lake.ingestRevision.execute(
-        fixtureRevision(fixture),
-      );
-      const opened: OpenedForDrop[] = [];
-      for (const draft of result.drafts) {
-        opened.push(await this.openProposal(db, draft));
-      }
-      return { ingested: result, proposals: opened };
-    });
-    return this.dropResponse(ingested, proposals);
+    }
+    const result = await lake.ingestRevision.execute(fixtureRevision(fixture));
+    const opened: OpenedForDrop[] = [];
+    for (const draft of result.drafts) {
+      opened.push(await this.openProposal(db, draft));
+    }
+    const title = revisionTitle(result.revision);
+    const events: EventDraft[] = [
+      {
+        kind: 'document.dropped',
+        message: `${castName(seat)} soltó ${title} en ${spaceName(fixture.spaceId)}.`,
+        refs: {
+          castId: seat,
+          revisionId: result.revision.id,
+          spaceId: fixture.spaceId,
+          fixtureId: fixture.id,
+        },
+      },
+      ...result.openedDiscrepancies.map((discrepancy): EventDraft => ({
+        kind: 'discrepancy.opened',
+        message: `${title} dice ${String(discrepancy.value)} en ${factLabel(discrepancy.subject, discrepancy.attribute)} y lo vigente es ${String(discrepancy.baselineValue)}. Le avisamos a ${castName(discrepancy.ownerId)}.`,
+        refs: {
+          discrepancyId: discrepancy.id,
+          castId: discrepancy.ownerId,
+        },
+      })),
+      ...result.backedDiscrepancies.map((discrepancy): EventDraft => ({
+        kind: 'discrepancy.backed',
+        message: `${title} respaldó lo que decía ${documentDef(discrepancy.documentId)?.name ?? 'otro documento'} sobre ${factLabel(discrepancy.subject, discrepancy.attribute)}.`,
+        refs: { discrepancyId: discrepancy.id },
+      })),
+      ...opened.map((proposal): EventDraft => ({
+        kind: 'proposal.opened',
+        message: `Nueva propuesta: ${proposal.title}${costSuffix(proposal)}. Avisamos a ${proposal.reviewers.length} de ${LOS_AROMOS.stakeholders.length}.`,
+        refs: {
+          proposalId: proposal.id,
+          castIds: [...proposal.reviewers],
+        },
+      })),
+    ];
+    return { value: { ingested: result, proposals: opened }, events };
   }
 
   private async openProposal(
@@ -268,12 +364,12 @@ export class CoordinationService implements OnApplicationBootstrap {
   }
 
   vote(input: {
-    seat: string | undefined;
+    seat: string;
     notificationId: string;
     vote: VoteInput;
     actionId: string | undefined;
   }) {
-    const seat = requireSeat(input.seat);
+    const seat = input.seat;
     return this.actions.once(
       input.actionId,
       `vote:${seat}:${input.notificationId}`,
@@ -286,52 +382,9 @@ export class CoordinationService implements OnApplicationBootstrap {
     notificationId: string,
     vote: VoteInput,
   ) {
-    const { proposalId, notification } = await this.uow.run(async (db) => {
-      const lake = buildLake(db);
-      const notifications = buildNotification(db);
-      const found = await notifications.getNotification.execute(notificationId);
-      if (!found) {
-        throw fail(
-          HttpStatus.NOT_FOUND,
-          'not_found',
-          `No existe el aviso ${notificationId}`,
-        );
-      }
-      if (found.stakeholderId !== seat) {
-        throw fail(
-          HttpStatus.FORBIDDEN,
-          'not_your_notification',
-          'Ese aviso no es de tu asiento',
-        );
-      }
-      const candidates = (await lake.ports.proposals.list()).filter(
-        (proposal) => proposal.changeId === found.changeId,
-      );
-      const target = candidates[candidates.length - 1];
-      if (!target) {
-        throw fail(
-          HttpStatus.CONFLICT,
-          'invalid_state',
-          'El aviso no tiene una propuesta asociada',
-        );
-      }
-      await lockProposal(db, target.id);
-      const decision: Decision =
-        vote.kind === 'reviewed' ? 'approve' : 'dispute';
-      const recorded = await lake.recordReview.execute({
-        proposalId: target.id,
-        reviewerId: seat,
-        decision,
-        note: vote.note ?? null,
-      });
-      const updated = recorded.changed
-        ? await notifications.respondToNotification.execute(notificationId, {
-            kind: vote.kind,
-            note: vote.note ?? null,
-          })
-        : found;
-      return { proposalId: target.id, notification: updated ?? found };
-    });
+    const { proposalId, notification } = await this.uow.run((db) =>
+      this.track(db, () => this.castVote(db, seat, notificationId, vote)),
+    );
     const snapshot = await this.queries.snapshot();
     const proposal = snapshot.proposals.find((item) => item.id === proposalId);
     if (!proposal) {
@@ -350,42 +403,136 @@ export class CoordinationService implements OnApplicationBootstrap {
     };
   }
 
-  async reopen(input: { seat: string | undefined; proposalId: string }) {
-    const seat = requireSeat(input.seat);
-    await this.uow.run(async (db) => {
-      const lake = buildLake(db);
-      const notifications = buildNotification(db);
-      await this.authorOf(db, input.proposalId, seat);
-      await lockProposal(db, input.proposalId);
-      const { proposal, reopenedReviewerIds } =
-        await lake.reopenProposal.execute({
-          proposalId: input.proposalId,
-          actorId: seat,
-        });
-      if (proposal.changeId === null) return;
-      for (const reviewerId of reopenedReviewerIds) {
-        const [notification] = await notifications.listNotifications.execute({
-          changeIds: [proposal.changeId],
-          stakeholderId: reviewerId,
-        });
-        if (notification) {
-          await notifications.reopenResponse.execute(notification.id);
-        }
-      }
+  private async castVote(
+    db: Db,
+    seat: string,
+    notificationId: string,
+    vote: VoteInput,
+  ) {
+    const lake = buildLake(db);
+    const notifications = buildNotification(db);
+    const found = await notifications.getNotification.execute(notificationId);
+    if (!found) {
+      throw fail(
+        HttpStatus.NOT_FOUND,
+        'not_found',
+        `No existe el aviso ${notificationId}`,
+      );
+    }
+    if (found.stakeholderId !== seat) {
+      throw fail(
+        HttpStatus.FORBIDDEN,
+        'not_your_notification',
+        'Ese aviso no es de tu asiento',
+      );
+    }
+    const candidates = (await lake.ports.proposals.list()).filter(
+      (proposal) => proposal.changeId === found.changeId,
+    );
+    const target = candidates[candidates.length - 1];
+    if (!target) {
+      throw fail(
+        HttpStatus.CONFLICT,
+        'invalid_state',
+        'El aviso no tiene una propuesta asociada',
+      );
+    }
+    await lockProposal(db, target.id);
+    const decision: Decision = vote.kind === 'reviewed' ? 'approve' : 'dispute';
+    const recorded = await lake.recordReview.execute({
+      proposalId: target.id,
+      reviewerId: seat,
+      decision,
+      note: vote.note ?? null,
     });
+    const updated = recorded.changed
+      ? await notifications.respondToNotification.execute(notificationId, {
+          kind: vote.kind,
+          note: vote.note ?? null,
+        })
+      : found;
+    const events: EventDraft[] = [];
+    if (recorded.changed) {
+      const progress = progressOf(recorded.proposal);
+      const title = proposalTitle(recorded.proposal);
+      if (decision === 'approve') {
+        events.push({
+          kind: 'review.approved',
+          message: `${castName(seat)} aprobó ${title} (${progress.approved} de ${progress.required}).`,
+          refs: { proposalId: target.id, castId: seat },
+        });
+      } else {
+        const note = vote.note?.trim();
+        events.push({
+          kind: 'proposal.disputed',
+          message: `${castName(seat)} tiene un problema con ${title}${note ? `: «${note}»` : ''}. Lo vigente no cambia.`,
+          refs: { proposalId: target.id, castId: seat },
+        });
+      }
+    }
+    return {
+      value: { proposalId: target.id, notification: updated ?? found },
+      events,
+    };
+  }
+
+  async reopen(input: { seat: string; proposalId: string }) {
+    const seat = input.seat;
+    await this.uow.run((db) =>
+      this.track(db, async () => {
+        const lake = buildLake(db);
+        const notifications = buildNotification(db);
+        await this.authorOf(db, input.proposalId, seat);
+        await lockProposal(db, input.proposalId);
+        const { proposal, reopenedReviewerIds } =
+          await lake.reopenProposal.execute({
+            proposalId: input.proposalId,
+            actorId: seat,
+          });
+        if (proposal.changeId !== null) {
+          for (const reviewerId of reopenedReviewerIds) {
+            const [notification] =
+              await notifications.listNotifications.execute({
+                changeIds: [proposal.changeId],
+                stakeholderId: reviewerId,
+              });
+            if (notification) {
+              await notifications.reopenResponse.execute(notification.id);
+            }
+          }
+        }
+        const pending = reopenedReviewerIds.map(castName).join(', ');
+        return {
+          value: undefined,
+          events: [
+            {
+              kind: 'proposal.reopened',
+              message: `${castName(seat)} reabrió ${proposalTitle(proposal)} con la observación. Vuelve a responder ${pending || 'nadie'}.`,
+              refs: {
+                proposalId: proposal.id,
+                castIds: [...reopenedReviewerIds],
+              },
+            },
+          ],
+        };
+      }),
+    );
     return this.queries.proposal(input.proposalId);
   }
 
-  async withdraw(input: { seat: string | undefined; proposalId: string }) {
-    const seat = requireSeat(input.seat);
-    await this.uow.run(async (db) => {
-      await this.authorOf(db, input.proposalId, seat);
-      await lockProposal(db, input.proposalId);
-      await buildLake(db).withdrawProposal.execute({
-        proposalId: input.proposalId,
-        actorId: seat,
-      });
-    });
+  async withdraw(input: { seat: string; proposalId: string }) {
+    const seat = input.seat;
+    await this.uow.run((db) =>
+      this.track(db, async () => {
+        await this.authorOf(db, input.proposalId, seat);
+        await lockProposal(db, input.proposalId);
+        await buildLake(db).withdrawProposal.execute({
+          proposalId: input.proposalId,
+          actorId: seat,
+        });
+        return { value: undefined, events: [] };
+      }),
+    );
     return this.queries.proposal(input.proposalId);
   }
 
@@ -412,66 +559,90 @@ export class CoordinationService implements OnApplicationBootstrap {
   }
 
   async dismiss(input: {
-    seat: string | undefined;
+    seat: string;
     discrepancyId: string;
     note?: string | null | undefined;
   }): Promise<void> {
-    const seat = requireSeat(input.seat);
-    await this.uow.run(async (db) => {
-      const lake = buildLake(db);
-      const discrepancy = await lake.ports.discrepancies.findById(
-        input.discrepancyId,
-      );
-      if (!discrepancy) {
-        throw fail(
-          HttpStatus.NOT_FOUND,
-          'not_found',
-          `No existe la discrepancia ${input.discrepancyId}`,
+    const seat = input.seat;
+    await this.uow.run((db) =>
+      this.track(db, async () => {
+        const lake = buildLake(db);
+        const discrepancy = await lake.ports.discrepancies.findById(
+          input.discrepancyId,
         );
-      }
-      if (discrepancy.ownerId !== seat) {
-        throw fail(
-          HttpStatus.FORBIDDEN,
-          'not_owner',
-          'Solo el dueño del valor descarta la discrepancia',
-        );
-      }
-      await lake.dismissDiscrepancy.execute({
-        discrepancyId: input.discrepancyId,
-        actorId: seat,
-        note: input.note ?? null,
-      });
-    });
+        if (!discrepancy) {
+          throw fail(
+            HttpStatus.NOT_FOUND,
+            'not_found',
+            `No existe la discrepancia ${input.discrepancyId}`,
+          );
+        }
+        if (discrepancy.ownerId !== seat) {
+          throw fail(
+            HttpStatus.FORBIDDEN,
+            'not_owner',
+            'Solo el dueño del valor descarta la discrepancia',
+          );
+        }
+        await lake.dismissDiscrepancy.execute({
+          discrepancyId: input.discrepancyId,
+          actorId: seat,
+          note: input.note ?? null,
+        });
+        return {
+          value: undefined,
+          events: [
+            {
+              kind: 'discrepancy.dismissed',
+              message: `${castName(seat)} descartó la discrepancia sobre ${factLabel(discrepancy.subject, discrepancy.attribute)}.`,
+              refs: { discrepancyId: discrepancy.id, castId: seat },
+            },
+          ],
+        };
+      }),
+    );
   }
 
   async acknowledge(input: {
-    seat: string | undefined;
+    seat: string;
     revisionId: string;
     note: string;
   }): Promise<void> {
-    const seat = requireSeat(input.seat);
-    await this.uow.run(async (db) => {
-      const lake = buildLake(db);
-      const revision = await lake.ports.revisions.findById(input.revisionId);
-      if (!revision) {
-        throw fail(
-          HttpStatus.NOT_FOUND,
-          'not_found',
-          `No existe la revisión ${input.revisionId}`,
-        );
-      }
-      if (revision.authorId !== seat) {
-        throw fail(
-          HttpStatus.FORBIDDEN,
-          'not_owner',
-          'Solo el dueño del documento confirma sin cambio',
-        );
-      }
-      await lake.acknowledgeStale.execute({
-        documentId: revision.documentId,
-        ownerId: seat,
-        note: input.note,
-      });
-    });
+    const seat = input.seat;
+    await this.uow.run((db) =>
+      this.track(db, async () => {
+        const lake = buildLake(db);
+        const revision = await lake.ports.revisions.findById(input.revisionId);
+        if (!revision) {
+          throw fail(
+            HttpStatus.NOT_FOUND,
+            'not_found',
+            `No existe la revisión ${input.revisionId}`,
+          );
+        }
+        if (revision.authorId !== seat) {
+          throw fail(
+            HttpStatus.FORBIDDEN,
+            'not_owner',
+            'Solo el dueño del documento confirma sin cambio',
+          );
+        }
+        await lake.acknowledgeStale.execute({
+          documentId: revision.documentId,
+          ownerId: seat,
+          note: input.note,
+        });
+        return {
+          value: undefined,
+          events: [
+            {
+              kind: 'stale.acknowledged',
+              message: `${castName(seat)} confirmó sin cambio ${revisionTitle(revision)}.`,
+              refs: { revisionId: revision.id, castId: seat },
+            },
+          ],
+        };
+      }),
+    );
   }
 }

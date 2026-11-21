@@ -67,6 +67,14 @@ export const buildLake = (db: PrismaClient) => {
       proposals,
       acknowledgements,
     ),
+    consensus: new GetConsensus(
+      revisions,
+      claims,
+      baseline,
+      proposals,
+      discrepancies,
+      acknowledgements,
+    ),
     seedLake: new SeedLake(
       revisions,
       claims,

@@ -25,6 +25,11 @@ import {
 } from '../../src/scenario/documents.ts';
 import { LOS_AROMOS } from '../../src/scenario/los-aromos.ts';
 import {
+  AUTOPLAY_CHAIN,
+  findScene,
+  fixturesOf,
+} from '../../src/scenario/scenes.ts';
+import {
   InMemoryAcknowledgements,
   InMemoryBaseline,
   InMemoryClaims,
@@ -360,5 +365,29 @@ describe('catálogo del escenario', () => {
       'gantt',
       'q118',
     ]);
+  });
+
+  it('el autoplay suelta los nueve fixtures y sella una sola vez, al final', async () => {
+    const lake = lakeUnderTest();
+    await lake.seed();
+    const dropped: string[] = [];
+    const sealedAfter: boolean[] = [];
+
+    for (const sceneId of AUTOPLAY_CHAIN) {
+      const scene = findScene(sceneId);
+      for (const fixture of scene ? fixturesOf(scene) : []) {
+        await lake.drop(fixture.id);
+        dropped.push(fixture.id);
+        await lake.settle();
+      }
+      sealedAfter.push((await lake.consensus()).index.sealed);
+    }
+
+    expect([...dropped].sort()).toEqual(FIXTURES.map((item) => item.id).sort());
+    expect(sealedAfter.slice(0, -1).some(Boolean)).toBe(false);
+    expect(sealedAfter[sealedAfter.length - 1]).toBe(true);
+    expect(
+      (await lake.proposals.list()).filter((item) => item.status === 'merged'),
+    ).toHaveLength(3);
   });
 });

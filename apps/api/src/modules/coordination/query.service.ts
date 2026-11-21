@@ -26,9 +26,11 @@ import { fail } from './http-errors.ts';
 import {
   baselineResponse,
   changeView,
+  inboxResponse,
   type LakeSnapshot,
   proposalView,
   provenanceResponse,
+  type RoomExtras,
   roomResponse,
   spacesResponse,
   trayResponse,
@@ -114,8 +116,12 @@ export class QueryService {
     };
   }
 
-  async room() {
-    return roomResponse(await this.snapshot());
+  async room(extras: RoomExtras) {
+    return roomResponse(await this.snapshot(), extras);
+  }
+
+  async inbox(castId: string) {
+    return inboxResponse(await this.snapshot(), castId);
   }
 
   async baselineView(section: SectionId | undefined) {

@@ -116,7 +116,7 @@ El **índice de consenso** son los documentos al día sobre los documentos total
 ## Los jugadores
 
 - **Asientos fijos.** Fernanda Lagos (presentadora y autora de los cambios) y los siete del elenco: Paula Rojas (correo), Marcos Fuentes (WhatsApp), Daniela Soto (Slack), Javier Muñoz (WhatsApp), Camila Vera (Slack), Tomás Reyes (correo) y Ventanas Quillay (correo). Un dispositivo toma un asiento sin cuenta: guarda un token en `localStorage`.
-- **Presencia.** El token en la consulta de eventos es el latido. Un asiento sin latido por 20 segundos lo juega un bot.
+- **Presencia.** El token en la consulta de eventos es el latido. Un asiento sin latido por 20 segundos lo juega un bot, y tomarlo de nuevo es posible. El asiento de Fernanda no se toma desde un celular: la presentadora actúa con su clave y, en el autoplay, un bot juega por ella.
 - **Bots.** Responden con un guion fijo y retardos fijos. Nunca actúan por un asiento con humano presente.
 - **Telón.** `/sala`, solo lectura, para el proyector.
 
@@ -156,14 +156,14 @@ Prisma, una migración nueva:
 
 - `Change` gana `source_id` y pierde `integration_id` y `version`; `Snapshot` no existe. `Impact` y `Notification` no cambian.
 - `Revision`, `Claim`, `BaselineEntry`, `BaselineHistory`, `Proposal`, `Review`, `Discrepancy`, `Acknowledgement`.
-- `Seat`, `RoomEvent` (`seq` autoincremental), `BotTask` y `RoomState` (época, autoplay, velocidad, versión del proyecto).
+- `Seat` (token hasheado y último latido), `RoomEvent` (`seq` autoincremental), `BotTask` (clave única) y `RoomState` (época, autoplay, velocidad, escena en curso y pausa). La versión del proyecto se deriva de las propuestas fusionadas.
 - Sin tabla: estado de un valor, fuentes, desfase y totales.
 
 El reinicio borra todo en una transacción, siembra el catálogo, suma uno a la época y libera los asientos.
 
 ## API
 
-Todas las rutas cuelgan de `/api`. Las acciones de asiento llevan `x-seat-token`; las del presentador, `x-presenter-key`; las que escriben, `x-action-id`.
+Todas las rutas cuelgan de `/api`. Las acciones de asiento llevan `x-seat-token`; las del presentador, `x-presenter-key` (que también hace actuar como Fernanda); las que escriben, `x-action-id`. El voto es `{ kind: 'reviewed' | 'issue', note? }`. Los eventos llevan `kind` (y `type`, igual), `message`, `refs` y `at`. Los tipos y los detalles de cada ruta están en el [README de la API](../apps/api/README.md).
 
 | Método y ruta                                        | Qué hace                                                                       |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -183,7 +183,7 @@ Todas las rutas cuelgan de `/api`. Las acciones de asiento llevan `x-seat-token`
 | `POST /stale/acknowledge`                            | Confirmar sin cambio con nota                                                  |
 | `GET /changes`, `GET /changes/:id`                   | Feed y detalle de cambios, con su propuesta                                    |
 | `GET /room/scenes`, `POST /room/scenes/:id/play`     | Escenas del guion                                                              |
-| `POST /room/autoplay`, `POST /room/reset`            | Autoplay y reinicio                                                            |
+| `POST /room/autoplay`, `POST /room/reset`            | Autoplay y reinicio (con `x-presenter-key`); el reinicio responde `{ epoch }`  |
 
 Formas principales:
 
@@ -326,7 +326,7 @@ En el autoplay, un bot de la presentadora reabre a los 4 s, y los dueños suelta
 
 ### Escenas
 
-`s1` Llega el plano E-102 rev C. `s2` Daniela corrige el presupuesto. `s3` Marcos avisa por WhatsApp. `s4` Llega el plano A-201 rev C. `s5` Quillay vuelve a cotizar. `s6` Cierre: los demás se ponen al día. Extras: `x1` Decisión en el libro de obra y `x2` Llega el plano A-201 rev D. El autoplay encadena `s1` a `s6`; cada escena espera a que no haya propuestas abiertas y una pausa de 3 s.
+`s1` Llega el plano E-102 rev C. `s2` Daniela corrige el presupuesto. `s3` Marcos avisa por WhatsApp. `s4` Llega el plano A-201 rev C. `s5` Quillay vuelve a cotizar. `s6` Cierre: los demás se ponen al día. Extras: `x1` Decisión en el libro de obra y `x2` Llega el plano A-201 rev D. El autoplay encadena `s1`, `s2`, `s3`, `s4`, `x1`, `x2`, `s5` y `s6`, de modo que el shaft se resuelve antes del cierre y la obra se sella una sola vez, en la versión 4; cada escena espera a que no haya propuestas abiertas y una pausa de 3 s (dividida por la velocidad).
 
 ## Guion de 3 minutos
 

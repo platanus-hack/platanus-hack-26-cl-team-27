@@ -187,3 +187,49 @@ model Acknowledgement {
   @@index([documentId])
   @@map("acknowledgements")
 }
+
+model Seat {
+  castId     String   @id @map("cast_id")
+  tokenHash  String   @map("token_hash")
+  claimedAt  DateTime @default(now()) @map("claimed_at")
+  lastBeatAt DateTime @default(now()) @map("last_beat_at")
+
+  @@map("seats")
+}
+
+model RoomEvent {
+  seq     Int      @id @default(autoincrement())
+  epoch   Int
+  kind    String
+  message String
+  refs    Json
+  at      DateTime @default(now())
+
+  @@index([epoch])
+  @@map("room_events")
+}
+
+model BotTask {
+  id      String    @id @default(uuid()) @db.Uuid
+  key     String    @unique
+  castId  String    @map("cast_id")
+  kind    String
+  payload Json
+  dueAt   DateTime  @map("due_at")
+  doneAt  DateTime? @map("done_at")
+  result  String?
+
+  @@index([doneAt, dueAt])
+  @@map("bot_tasks")
+}
+
+model RoomState {
+  id          Int       @id
+  epoch       Int       @default(1)
+  autoplay    Boolean   @default(false)
+  speed       Int       @default(1)
+  activeScene String?   @map("active_scene")
+  pauseUntil  DateTime? @map("pause_until")
+
+  @@map("room_state")
+}

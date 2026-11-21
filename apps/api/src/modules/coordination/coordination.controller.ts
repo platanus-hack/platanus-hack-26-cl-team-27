@@ -14,9 +14,12 @@ import { MAX_CHANGES } from '@team27/context-capture';
 import { MAX_NOTE_LENGTH, RESPONSE_KINDS } from '@team27/context-notification';
 import { z } from 'zod';
 
+import {
+  PRESENTER_KEY_HEADER,
+  SEAT_TOKEN_HEADER,
+  SeatsService,
+} from '../room/seats.service.ts';
 import { CoordinationService } from './coordination.service.ts';
-import { fail } from './http-errors.ts';
-import { castMember } from './lookup.ts';
 import { type ProposalFilter, QueryService } from './query.service.ts';
 
 const uuid = z.uuid();
@@ -67,24 +70,16 @@ const acknowledgeBody = z.object({
 export class CoordinationController {
   private readonly coordination: CoordinationService;
   private readonly queries: QueryService;
+  private readonly seats: SeatsService;
 
   constructor(
     @Inject(CoordinationService) coordination: CoordinationService,
     @Inject(QueryService) queries: QueryService,
+    @Inject(SeatsService) seats: SeatsService,
   ) {
     this.coordination = coordination;
     this.queries = queries;
-  }
-
-  @Post('room/reset')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async reset(): Promise<void> {
-    await this.coordination.reset();
-  }
-
-  @Get('room')
-  room() {
-    return this.queries.room();
+    this.seats = seats;
   }
 
   @Get('spaces')
@@ -108,26 +103,35 @@ export class CoordinationController {
   }
 
   @Get('seats/:castId/tray')
-  tray(@Param('castId', { schema: castId }) id: string) {
-    if (!castMember(id)) {
-      throw fail(
-        HttpStatus.NOT_FOUND,
-        'not_found',
-        `No existe el asiento ${id}`,
-      );
-    }
+  async tray(
+    @Param('castId', { schema: castId }) id: string,
+    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
+    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
+  ) {
+    await this.seats.actorFor(id, { token, key });
     return this.queries.tray(id);
   }
 
+  @Get('seats/:castId/inbox')
+  async inbox(
+    @Param('castId', { schema: castId }) id: string,
+    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
+    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
+  ) {
+    await this.seats.actorFor(id, { token, key });
+    return this.queries.inbox(id);
+  }
+
   @Post('spaces/:spaceId/drops')
-  drop(
+  async drop(
     @Param('spaceId', { schema: spaceId }) space: string,
     @Body({ schema: dropBody }) body: z.output<typeof dropBody>,
-    @Headers('x-seat') seat: string | undefined,
+    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
+    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
     @Headers('x-action-id') actionId: string | undefined,
   ) {
     return this.coordination.drop({
-      seat,
+      seat: await this.seats.actor({ token, key }),
       spaceId: space,
       fixtureId: body.fixtureId,
       actionId,
@@ -143,14 +147,15 @@ export class CoordinationController {
   }
 
   @Post('notifications/:id/response')
-  respond(
+  async respond(
     @Param('id', { schema: uuid }) id: string,
     @Body({ schema: responseBody }) body: z.output<typeof responseBody>,
-    @Headers('x-seat') seat: string | undefined,
+    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
+    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
     @Headers('x-action-id') actionId: string | undefined,
   ) {
     return this.coordination.vote({
-      seat,
+      seat: await this.seats.actor({ token, key }),
       notificationId: id,
       vote: body,
       actionId,
@@ -158,19 +163,27 @@ export class CoordinationController {
   }
 
   @Post('proposals/:id/reopen')
-  reopen(
+  async reopen(
     @Param('id', { schema: uuid }) id: string,
-    @Headers('x-seat') seat: string | undefined,
+    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
+    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
   ) {
-    return this.coordination.reopen({ seat, proposalId: id });
+    return this.coordination.reopen({
+      seat: await this.seats.actor({ token, key }),
+      proposalId: id,
+    });
   }
 
   @Post('proposals/:id/withdraw')
-  withdraw(
+  async withdraw(
     @Param('id', { schema: uuid }) id: string,
-    @Headers('x-seat') seat: string | undefined,
+    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
+    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
   ) {
-    return this.coordination.withdraw({ seat, proposalId: id });
+    return this.coordination.withdraw({
+      seat: await this.seats.actor({ token, key }),
+      proposalId: id,
+    });
   }
 
   @Post('discrepancies/:id/dismiss')
@@ -178,10 +191,11 @@ export class CoordinationController {
   async dismiss(
     @Param('id', { schema: uuid }) id: string,
     @Body({ schema: dismissBody }) body: z.output<typeof dismissBody>,
-    @Headers('x-seat') seat: string | undefined,
+    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
+    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
   ): Promise<void> {
     await this.coordination.dismiss({
-      seat,
+      seat: await this.seats.actor({ token, key }),
       discrepancyId: id,
       note: body.note,
     });
@@ -191,10 +205,11 @@ export class CoordinationController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async acknowledge(
     @Body({ schema: acknowledgeBody }) body: z.output<typeof acknowledgeBody>,
-    @Headers('x-seat') seat: string | undefined,
+    @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
+    @Headers(PRESENTER_KEY_HEADER) key: string | undefined,
   ): Promise<void> {
     await this.coordination.acknowledge({
-      seat,
+      seat: await this.seats.actor({ token, key }),
       revisionId: body.revisionId,
       note: body.note,
     });

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const DEV_PRESENTER_KEY = 'sala-los-aromos';
+
 export const envSchema = z
   .object({
     NODE_ENV: z
@@ -21,6 +23,7 @@ export const envSchema = z
               .map((origin) => origin.trim())
               .filter(Boolean),
       ),
+    PRESENTER_KEY: z.string().min(8).optional(),
   })
   .refine(
     (env) => env.NODE_ENV !== 'production' || env.CORS_ALLOW_ORIGINS !== true,
@@ -28,6 +31,17 @@ export const envSchema = z
       path: ['CORS_ALLOW_ORIGINS'],
       message: 'en producción no se permite "*"',
     },
-  );
+  )
+  .refine(
+    (env) => env.NODE_ENV !== 'production' || env.PRESENTER_KEY !== undefined,
+    {
+      path: ['PRESENTER_KEY'],
+      message: 'en producción la clave del presentador es obligatoria',
+    },
+  )
+  .transform((env) => ({
+    ...env,
+    PRESENTER_KEY: env.PRESENTER_KEY ?? DEV_PRESENTER_KEY,
+  }));
 
 export type Env = z.output<typeof envSchema>;

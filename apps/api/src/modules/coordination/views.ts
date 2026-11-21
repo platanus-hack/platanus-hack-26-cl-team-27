@@ -616,27 +616,64 @@ export const sealOf = (snapshot: LakeSnapshot) => {
   };
 };
 
-export const roomResponse = (snapshot: LakeSnapshot) => {
+export interface RoomExtras {
+  readonly epoch: number;
+  readonly cursor: number;
+  readonly present: ReadonlySet<string>;
+  readonly autoplay: { readonly enabled: boolean; readonly speed: number };
+}
+
+const CHANNEL_PREVIEW = {
+  email: 'Recibes los avisos en tu correo.',
+  whatsapp: 'Recibes los avisos en tu chat.',
+  slack: 'Recibes los avisos en tu canal de equipo.',
+} as const;
+
+const previewOf = (member: (typeof LOS_AROMOS.cast)[number]): string =>
+  member.id === LOS_AROMOS.author.id
+    ? 'Presentas la muestra y firmas los cambios del proyecto.'
+    : `${member.role}. ${CHANNEL_PREVIEW[member.channel]}`;
+
+export const occupantOf = (
+  castId: string,
+  present: ReadonlySet<string>,
+): 'human' | 'bot' | 'presenter' =>
+  castId === LOS_AROMOS.author.id
+    ? 'presenter'
+    : present.has(castId)
+      ? 'human'
+      : 'bot';
+
+export const castView = (
+  member: (typeof LOS_AROMOS.cast)[number],
+  present: ReadonlySet<string>,
+) => {
+  const occupant = occupantOf(member.id, present);
+  return {
+    id: member.id,
+    name: member.name,
+    role: member.role,
+    channel: member.id === LOS_AROMOS.author.id ? null : member.channel,
+    handle: member.id === LOS_AROMOS.author.id ? null : member.handle,
+    presenter: member.id === LOS_AROMOS.author.id,
+    preview: previewOf(member),
+    occupant,
+    occupied: occupant === 'human',
+    present: occupant === 'human',
+    bot: occupant === 'bot',
+  };
+};
+
+export const roomResponse = (snapshot: LakeSnapshot, extras: RoomExtras) => {
   const { index } = snapshot.consensus;
   return {
-    epoch: 1,
-    cursor: 0,
+    epoch: extras.epoch,
+    cursor: extras.cursor,
     projectVersion: projectVersion(snapshot),
     project: LOS_AROMOS.project,
     totals: totalsOf(snapshot),
     consensus: index,
-    cast: LOS_AROMOS.cast.map((member) => ({
-      id: member.id,
-      name: member.name,
-      role: member.role,
-      channel: member.id === LOS_AROMOS.author.id ? null : member.channel,
-      handle: member.id === LOS_AROMOS.author.id ? null : member.handle,
-      presenter: member.id === LOS_AROMOS.author.id,
-      occupant: 'bot',
-      occupied: false,
-      present: false,
-      bot: true,
-    })),
+    cast: LOS_AROMOS.cast.map((member) => castView(member, extras.present)),
     spaces: SPACES.map((space) => ({
       id: space.id,
       name: space.name,
@@ -658,7 +695,112 @@ export const roomResponse = (snapshot: LakeSnapshot) => {
       stale: index.staleDocuments,
     },
     seal: sealOf(snapshot),
-    autoplay: { enabled: false, speed: 1 },
+    autoplay: extras.autoplay,
+  };
+};
+
+export const inboxResponse = (snapshot: LakeSnapshot, castId: string) => {
+  const revisionById = new Map(
+    snapshot.revisions.map((revision) => [revision.id, revision]),
+  );
+  const votes = snapshot.notifications
+    .filter((notification) => notification.stakeholderId === castId)
+    .flatMap((notification) => {
+      const proposal = [...snapshot.proposals]
+        .reverse()
+        .find((candidate) => candidate.changeId === notification.changeId);
+      if (!proposal) return [];
+      const impact = snapshot.impacts.get(notification.changeId);
+      const progress = progressOf(proposal);
+      return [
+        {
+          type: 'vote' as const,
+          id: notification.id,
+          notificationId: notification.id,
+          proposalId: proposal.id,
+          changeId: notification.changeId,
+          title: notification.title,
+          sentAt: notification.sentAt,
+          findings: notification.findings,
+          costDelta: impact?.costDelta ?? 0,
+          delayDays: impact?.delayDays ?? 0,
+          progress: {
+            approved: progress.approved,
+            required: progress.required,
+            missing: progress.missing,
+          },
+          status: progress.status,
+          response: notification.response,
+          link: notification.link,
+        },
+      ];
+    });
+  const discrepancies = snapshot.discrepancies
+    .filter(
+      (discrepancy) =>
+        discrepancy.status === 'open' && discrepancy.ownerId === castId,
+    )
+    .map((discrepancy) => {
+      const revision = revisionById.get(discrepancy.revisionId);
+      return {
+        type: 'discrepancy' as const,
+        id: discrepancy.id,
+        subjectName: subjectName(discrepancy.subject),
+        label: attributeLabel(discrepancy.attribute),
+        claimedValue: discrepancy.value,
+        currentValue: discrepancy.baselineValue,
+        unit: discrepancy.unit,
+        sourceTitle: revision
+          ? revisionTitle(revision)
+          : discrepancy.documentId,
+        spaceName: revision ? spaceName(revision.spaceId) : '',
+        authorName: revision ? castName(revision.authorId) : '',
+        at: discrepancy.createdAt,
+      };
+    });
+  const stale = snapshot.consensus.stale
+    .filter(
+      (document) =>
+        document.acknowledgement === null && document.ownerId === castId,
+    )
+    .flatMap((document) =>
+      document.items.map((item) => ({
+        type: 'stale' as const,
+        id: `${document.revisionId}:${item.subject}.${item.attribute}`,
+        documentId: document.documentId,
+        documentTitle: document.documentName,
+        revisionId: document.revisionId,
+        revisionLabel: document.label,
+        subjectId: item.subject,
+        attribute: item.attribute,
+        label: factLabel(item.subject, item.attribute),
+        usedValue: item.usedValue,
+        currentValue: item.currentValue,
+        unit: item.unit,
+        at: revisionById.get(document.revisionId)?.ingestedAt ?? null,
+      })),
+    );
+  const filtered = snapshot.proposals.flatMap((proposal) => {
+    const entry = proposal.filtered.find((item) => item.id === castId);
+    if (!entry || proposal.changeId === null) return [];
+    return [
+      {
+        type: 'filtered' as const,
+        id: `${proposal.id}:${castId}`,
+        proposalId: proposal.id,
+        changeId: proposal.changeId,
+        title: proposalTitle(proposal),
+        reason: entry.reason,
+        at: proposal.openedAt,
+      },
+    ];
+  });
+  return {
+    castId,
+    items: [...votes, ...discrepancies, ...stale, ...filtered],
+    authoring: snapshot.proposals
+      .filter((proposal) => proposal.authorId === castId && isActive(proposal))
+      .map((proposal) => proposalView(snapshot, proposal)),
   };
 };
 
