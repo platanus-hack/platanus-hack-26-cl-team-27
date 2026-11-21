@@ -55,7 +55,9 @@ pnpm format
 - Un paquete nuevo del workspace que use la web va también en `transpilePackages` (`apps/web/next.config.ts`). Turbopack no resuelve `./x.js` hacia `x.ts`.
 - `next build` necesita los `.d.ts` de sus dependencias (project references). Corre el build por Nx (`pnpm nx run @team27/web:build`), que primero hace el `typecheck` de las dependencias. Si aparece `TS6305`, es eso.
 - Si el build de la web falla en `.next/dev/types/validator.ts` (`TS2307` tras borrar o mover una ruta, o `TS6133`/`TS6196` por imports sin usar), son tipos viejos de un `next dev` anterior: borra `apps/web/.next`.
-- Si `pnpm dev:api` choca con `EADDRINUSE :3001`, quedó vivo un `node dist/main` de un watcher anterior: ciérralo (`ss -ltnp | grep 3001` te da el pid).
+- Si un puerto choca con `EADDRINUSE`, mira quién lo tiene antes de cerrar nada: `ss -ltnp | grep <puerto>` da el pid y `ps -o args -p <pid>` dice qué es. En `ss`, los procesos de Node aparecen como `MainThread`.
+  - Si es un `node dist/main` de un watcher anterior, ciérralo.
+  - **Nunca cierres un proceso de `.vscode-server`.** En WSL, VS Code se queda con puertos como el 3000 o el 3002 para reenviarlos, y cerrarlo bota las extensiones del editor. Usa otro puerto: `next start -p 3100` o `next dev -p 3100`.
 - Después de agregar o quitar una dependencia entre proyectos, corre `pnpm nx sync`.
 - Todo `/api/*` de la web se reenvía a la API (`rewrites` en `apps/web/next.config.ts`): no crees rutas en `apps/web/src/app/api/`, porque le ganan al reenvío. El `rewrite` fija `API_URL` al compilar la web.
 - La CI (`.github/workflows/check.yml`) corre `pnpm install --frozen-lockfile` y `pnpm check` en cada push a `main` y cada PR: si cambias dependencias, commitea el `pnpm-lock.yaml`.
