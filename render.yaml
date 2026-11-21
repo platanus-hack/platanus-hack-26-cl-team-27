@@ -35,7 +35,7 @@ services:
       - key: APS_CLIENT_SECRET
         sync: false
       - key: APS_BUCKET_KEY
-        sync: false
+        value: vigente-956d852fc0a3c635
 
 databases:
   - name: vigente-db
