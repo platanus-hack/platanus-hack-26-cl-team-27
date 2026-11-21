@@ -81,7 +81,7 @@ const BASE_COST = Math.round(
 const sectionOf = (subject: string): SectionId =>
   SUBJECTS.find((candidate) => candidate.id === subject)?.section ?? 'costos';
 
-const printable = (value: ClaimValue): number | string =>
+export const printable = (value: ClaimValue): number | string =>
   typeof value === 'boolean' ? String(value) : value;
 
 export const proposalTitle = (

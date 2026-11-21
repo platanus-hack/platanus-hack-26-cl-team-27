@@ -5,6 +5,7 @@ import {
   Logger,
   type OnApplicationBootstrap,
 } from '@nestjs/common';
+import { formatValue } from '@team27/context-capture';
 import type { PrismaClient } from '@team27/data-main';
 
 import {
@@ -44,6 +45,7 @@ import {
 import { QueryService } from './query.service.ts';
 import {
   progressOf,
+  printable,
   proposalTitle,
   staleRefs,
   voteProposal,
@@ -129,28 +131,31 @@ export class CoordinationService implements OnApplicationBootstrap {
   }
 
   async reset(): Promise<void> {
-    await this.uow.run(async (db) => {
-      const state = await readState(db);
-      await db.botTask.deleteMany();
-      await db.roomEvent.deleteMany();
-      await db.seat.deleteMany();
-      await db.notification.deleteMany();
-      await db.impact.deleteMany();
-      await db.change.deleteMany();
-      await buildLake(db).seedLake.execute({ revisions: seededRevisions() });
-      await db.roomState.update({
-        where: { id: ROOM_STATE_ID },
-        data: {
-          epoch: state.epoch + 1,
-          autoplay: false,
-          activeScene: null,
-          pauseUntil: null,
-        },
-      });
-      await emitEvents(db, [
-        { kind: 'room.reset', message: 'La sala volvió al comienzo.' },
-      ]);
-    });
+    await this.uow.run(
+      async (db) => {
+        const state = await readState(db);
+        await db.botTask.deleteMany();
+        await db.roomEvent.deleteMany();
+        await db.seat.deleteMany();
+        await db.notification.deleteMany();
+        await db.impact.deleteMany();
+        await db.change.deleteMany();
+        await buildLake(db).seedLake.execute({ revisions: seededRevisions() });
+        await db.roomState.update({
+          where: { id: ROOM_STATE_ID },
+          data: {
+            epoch: state.epoch + 1,
+            autoplay: false,
+            activeScene: null,
+            pauseUntil: null,
+          },
+        });
+        await emitEvents(db, [
+          { kind: 'room.reset', message: 'La sala volvió al comienzo.' },
+        ]);
+      },
+      { exclusive: true },
+    );
     this.actions.clear();
   }
 
@@ -244,7 +249,7 @@ export class CoordinationService implements OnApplicationBootstrap {
       },
       ...result.openedDiscrepancies.map((discrepancy): EventDraft => ({
         kind: 'discrepancy.opened',
-        message: `${title} dice ${String(discrepancy.value)} en ${factLabel(discrepancy.subject, discrepancy.attribute)} y lo vigente es ${String(discrepancy.baselineValue)}. Le avisamos a ${castName(discrepancy.ownerId)}.`,
+        message: `${title} dice ${formatValue(printable(discrepancy.value), discrepancy.unit)} en ${factLabel(discrepancy.subject, discrepancy.attribute)} y lo vigente es ${formatValue(printable(discrepancy.baselineValue), discrepancy.unit)}. Le avisamos a ${castName(discrepancy.ownerId)}.`,
         refs: {
           discrepancyId: discrepancy.id,
           castId: discrepancy.ownerId,
@@ -584,6 +589,7 @@ export class CoordinationService implements OnApplicationBootstrap {
             'Solo el dueño del valor descarta la discrepancia',
           );
         }
+        const already = discrepancy.status === 'dismissed';
         await lake.dismissDiscrepancy.execute({
           discrepancyId: input.discrepancyId,
           actorId: seat,
@@ -591,13 +597,15 @@ export class CoordinationService implements OnApplicationBootstrap {
         });
         return {
           value: undefined,
-          events: [
-            {
-              kind: 'discrepancy.dismissed',
-              message: `${castName(seat)} descartó la discrepancia sobre ${factLabel(discrepancy.subject, discrepancy.attribute)}.`,
-              refs: { discrepancyId: discrepancy.id, castId: seat },
-            },
-          ],
+          events: already
+            ? []
+            : [
+                {
+                  kind: 'discrepancy.dismissed',
+                  message: `${castName(seat)} descartó la discrepancia sobre ${factLabel(discrepancy.subject, discrepancy.attribute)}.`,
+                  refs: { discrepancyId: discrepancy.id, castId: seat },
+                },
+              ],
         };
       }),
     );
@@ -627,6 +635,12 @@ export class CoordinationService implements OnApplicationBootstrap {
             'Solo el dueño del documento confirma sin cambio',
           );
         }
+        const current = await lake.consensus.execute();
+        const already = current.stale.some(
+          (document) =>
+            document.documentId === revision.documentId &&
+            document.acknowledgement !== null,
+        );
         await lake.acknowledgeStale.execute({
           documentId: revision.documentId,
           ownerId: seat,
@@ -634,13 +648,15 @@ export class CoordinationService implements OnApplicationBootstrap {
         });
         return {
           value: undefined,
-          events: [
-            {
-              kind: 'stale.acknowledged',
-              message: `${castName(seat)} confirmó sin cambio ${revisionTitle(revision)}.`,
-              refs: { revisionId: revision.id, castId: seat },
-            },
-          ],
+          events: already
+            ? []
+            : [
+                {
+                  kind: 'stale.acknowledged',
+                  message: `${castName(seat)} confirmó sin cambio ${revisionTitle(revision)}.`,
+                  refs: { revisionId: revision.id, castId: seat },
+                },
+              ],
         };
       }),
     );

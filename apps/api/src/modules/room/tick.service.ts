@@ -24,11 +24,10 @@ import { castName } from '../coordination/lookup.ts';
 import { QueryService } from '../coordination/query.service.ts';
 import type { LakeSnapshot } from '../coordination/views.ts';
 import { PRISMA_CLIENT } from '../database/prisma-token.ts';
+import { TICK_LOCK } from '../database/unit-of-work.ts';
 import { emitEvents } from './events.ts';
 import { SeatsService } from './seats.service.ts';
 import { readState, ROOM_STATE_ID, type RoomStateView } from './state.ts';
-
-const TICK_LOCK = 2_700_002;
 
 const MIN_GAP_MS = 500;
 

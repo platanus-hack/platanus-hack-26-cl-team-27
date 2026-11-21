@@ -173,6 +173,7 @@ export class RoomService {
         `No existe la escena ${sceneId}`,
       );
     }
+    await this.ticks.tick({ force: true });
     const [state, snapshot] = await Promise.all([
       readState(this.prisma),
       this.queries.snapshot(),
