@@ -15,6 +15,7 @@ Antes de tocar un área, lee su doc. Si cambias un comportamiento, actualiza el 
 | La sala de la obra: el lago de hechos, el consenso multijugador, asientos, bots, API y web de la muestra             | [docs/multijugador.md](docs/multijugador.md)         |
 | Monorepo, fronteras, contextos hexagonales (y cómo crear uno), web ↔ API, variables, datos, TypeScript, tareas de Nx | [docs/arquitectura.md](docs/arquitectura.md)         |
 | Diagramas de arquitectura, DevOps y flujo de datos                                                                   | [docs/diagramas/README.md](docs/diagramas/README.md) |
+| Auditoría de la idea: debate adversarial, la idea purificada (Mano alzada), soporte del producto y plan              | [docs/auditoria.md](docs/auditoria.md)               |
 | Despliegue (espejo a un repo personal)                                                                               | [docs/despliegue.md](docs/despliegue.md)             |
 | La web                                                                                                               | [apps/web/README.md](apps/web/README.md)             |
 | La API                                                                                                               | [apps/api/README.md](apps/api/README.md)             |
