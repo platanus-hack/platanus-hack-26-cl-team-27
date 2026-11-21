@@ -13,13 +13,13 @@ flowchart LR
 
 ## El repo espejo
 
-Vercel y Render solo se conectan a repositorios propios: no pueden acceder al repo de la organización `platanus-hack`. El código se espeja en [`sebaav12/hack-team-27`](https://github.com/sebaav12/hack-team-27), y los dos servicios se conectan desde la cuenta dueña del espejo.
+Vercel y Render solo se conectan a repositorios propios: no pueden acceder al repo de la organización `platanus-hack`. El código se espeja en [`agustin-rios/hack-team-27`](https://github.com/agustin-rios/hack-team-27), y los dos servicios se conectan desde la cuenta dueña del espejo.
 
 Para que un solo `git push` actualice ambos repos:
 
 ```bash
 git remote set-url --add --push origin https://github.com/platanus-hack/platanus-hack-26-cl-team-27.git
-git remote set-url --add --push origin https://github.com/sebaav12/hack-team-27.git
+git remote set-url --add --push origin https://github.com/agustin-rios/hack-team-27.git
 git remote -v    # origin tiene un fetch y dos push
 ```
 
