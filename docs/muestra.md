@@ -32,7 +32,7 @@ No es un MVP: es una muestra en un espacio controlado. El problema y la propuest
 - **El único componente simulado es el ETL** ([`apps/etl`](../apps/etl/README.md)). Cumple dos papeles:
   - **Conectores:** lee los archivos del lago ficticio y los carga a la API, partidos en fragmentos. De los documentos estructurados (planos, EETT, planillas) extrae los hechos con parsers deterministas. El texto libre (WhatsApp, libro de obra, actas) lo manda tal cual.
   - **Personas ausentes:** juega los asientos que nadie tomó.
-- **El texto libre lo lee la API con `context/inference`.**
+- **El texto libre lo lee la API con `context/impact`.**
   - **Con `ANTHROPIC_API_KEY` en el `.env`:** lo lee Claude, y la primera lectura queda grabada para repetirse igual.
   - **Sin la clave** (en `.env.example` va vacía): la lectura es **determinista**, con respuestas fijas y grabadas, y nada sale a la red.
   - En los dos casos, cada hecho queda con su confianza, y lo que no alcanza 0,7 se ve pero no tiene efecto.
@@ -140,13 +140,13 @@ pnpm etl          # en otra terminal: carga inicial y luego Enter = paso siguien
 
 La muestra se construye por segmentos. Cada uno se cierra con sus tests, su doc y `pnpm check` en verde.
 
-| Segmento             | Qué cubre                                                                                                              | Dónde                             | Estado                                        |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------- | --------------------------------------------- |
-| 1. Dominio y datos   | Contextos `capture`, `impact` y `notification`, tablas y migraciones                                                   | `context/*`, `data/main`          | Listo                                         |
-| 2. Lago y consenso   | Contexto `lake`: hechos, lo vigente, propuestas, discrepancias, desfases y procedencia                                 | `context/lake`, `apps/api`        | Listo                                         |
-| 3. Sala              | Asientos con token, eventos en tiempo real, época y reinicio                                                           | `apps/api`                        | Listo                                         |
-| 4. Web               | Telón, celular con look de canal, presentador, espacios, detalle del cambio y procedencia                              | `apps/web`                        | Listo                                         |
-| 5. ETL de la muestra | Lago de archivos, parsers, guion y jugadores, fuera de la API                                                          | `apps/etl`                        | Listo                                         |
-| 6. Conector de Revit | Add-in que manda la minuta de cambios al guardar el modelo, y la ruta que la ingiere                                   | `tool-use-case/revit`, `apps/api` | Falta probarlo dentro de Revit                |
-| 7. Mano alzada       | Capa de probabilidad: quién más puede estar afectado y qué afirma un documento ([auditoría](auditoria.md#mano-alzada)) | `context/inference`               | El contexto existe; falta conectarlo a la API |
-| 8. Pulido del pitch  | Ensayo cronometrado, acceso desde los celulares (despliegue o red local) y animaciones                                 | `apps/web`, `docs/`               | Pendiente                                     |
+| Segmento             | Qué cubre                                                                                                              | Dónde                             | Estado                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 1. Dominio y datos   | Contextos `capture`, `impact` y `notification`, tablas y migraciones                                                   | `context/*`, `data/main`          | Listo                                                                                             |
+| 2. Lago y consenso   | Contexto `lake`: hechos, lo vigente, propuestas, discrepancias, desfases y procedencia                                 | `context/lake`, `apps/api`        | Listo                                                                                             |
+| 3. Sala              | Asientos con token, eventos en tiempo real, época y reinicio                                                           | `apps/api`                        | Listo                                                                                             |
+| 4. Web               | Telón, celular con look de canal, presentador, espacios, detalle del cambio y procedencia                              | `apps/web`                        | Listo                                                                                             |
+| 5. ETL de la muestra | Lago de archivos, parsers, guion y jugadores, fuera de la API                                                          | `apps/etl`                        | Listo                                                                                             |
+| 6. Conector de Revit | Add-in que manda la minuta de cambios al guardar el modelo, y la ruta que la ingiere                                   | `tool-use-case/revit`, `apps/api` | Falta probarlo dentro de Revit                                                                    |
+| 7. Mano alzada       | Capa de probabilidad: quién más puede estar afectado y qué afirma un documento ([auditoría](auditoria.md#mano-alzada)) | `context/impact`                  | La capa existe y `ExtractClaims` ya lee el texto libre; falta conectar `SuggestAffected` a la API |
+| 8. Pulido del pitch  | Ensayo cronometrado, acceso desde los celulares (despliegue o red local) y animaciones                                 | `apps/web`, `docs/`               | Pendiente                                                                                         |

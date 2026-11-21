@@ -2,14 +2,14 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { ClaimReader } from '@team27/context-inference';
+import type { ClaimReader } from '@team27/context-impact';
 import {
   anthropicClient,
   CachedClaimReader,
   ClaudeClaimReader,
   FileResponseCache,
   FixtureClaimReader,
-} from '@team27/context-inference/adapters';
+} from '@team27/context-impact/adapters';
 
 import { SAMPLE_CLAIM_FIXTURES } from './fixtures.ts';
 

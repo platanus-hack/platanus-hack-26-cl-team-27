@@ -3,10 +3,10 @@ import {
   ExtractClaims,
   InferenceUnavailableError,
   type TextSource,
-} from '@team27/context-inference';
+} from '@team27/context-impact';
 import type { ChunkDraft } from '@team27/context-lake';
 
-import { buildVocabulary } from '../inference/vocabulary.ts';
+import { buildVocabulary } from '../impact/vocabulary.ts';
 import type { DocumentDef } from '../../scenario/documents.ts';
 import { fail } from './http-errors.ts';
 import type { RawChunk } from './revision-body.ts';

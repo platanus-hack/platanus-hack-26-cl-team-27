@@ -98,9 +98,6 @@ importers:
       '@team27/context-impact':
         specifier: workspace:*
         version: link:../../context/impact
-      '@team27/context-inference':
-        specifier: workspace:*
-        version: link:../../context/inference
       '@team27/context-lake':
         specifier: workspace:*
         version: link:../../context/lake
@@ -184,15 +181,12 @@ importers:
 
   context/impact:
     dependencies:
-      '@team27/data-main':
-        specifier: workspace:*
-        version: link:../../data/main
-
-  context/inference:
-    dependencies:
       '@anthropic-ai/sdk':
         specifier: ^1.12.0
         version: 1.12.0(zod@4.6.7)
+      '@team27/data-main':
+        specifier: workspace:*
+        version: link:../../data/main
       '@typesafe-ai/sdk':
         specifier: ^0.7.0
         version: 0.7.0

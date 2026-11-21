@@ -1,4 +1,4 @@
-import type { ClaimFixture } from '@team27/context-inference/adapters';
+import type { ClaimFixture } from '@team27/context-impact/adapters';
 
 const SAMPLE_CONFIDENCE = 0.9;
 
@@ -33,13 +33,7 @@ export const SAMPLE_CLAIM_FIXTURES: readonly ClaimFixture[] = [
     title: 'Mensajes de WhatsApp mensaje 2',
     textIncludes: 'ventanas del norte quedaron en 150',
     claims: [
-      claim(
-        'ventanas-norte',
-        'ancho_cm',
-        150,
-        'cm',
-        'mensaje de las 14:32',
-      ),
+      claim('ventanas-norte', 'ancho_cm', 150, 'cm', 'mensaje de las 14:32'),
     ],
   },
   {

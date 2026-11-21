@@ -25,6 +25,9 @@
     ]
   },
   "dependencies": {
-    "@team27/data-main": "workspace:*"
+    "@anthropic-ai/sdk": "^1.12.0",
+    "@team27/data-main": "workspace:*",
+    "@typesafe-ai/sdk": "^0.7.0",
+    "zod": "^4.6.7"
   }
 }

@@ -29,9 +29,6 @@
     },
     {
       "path": "./apps/etl"
-    },
-    {
-      "path": "./context/inference"
     }
   ]
 }

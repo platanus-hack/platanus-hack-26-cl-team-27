@@ -42,7 +42,7 @@ Un **documento** es una identidad estable (A-201 Fachada norte y shaft, E-102 Pl
 
 ### Fragmentos y hechos
 
-Cada revisión llega partida en **fragmentos** (`Chunk`): `{ locator, kind, text?, claims? }`, con `kind` en `fila`, `anotacion`, `acuerdo`, `mensaje`, `parametro` o `texto`. El hecho hereda el localizador de su fragmento. Los fragmentos estructurados (una fila de un cuadro de plano o de una planilla, un parámetro de la minuta de Revit) traen sus hechos ya extraídos por el conector. Los de texto libre (un mensaje de WhatsApp, un folio, un acuerdo de un acta) llegan con `text` y sin `claims`, y los lee la API con `context/inference` ([cómo, en solapamientos](solapamientos.md#fragmentos)).
+Cada revisión llega partida en **fragmentos** (`Chunk`): `{ locator, kind, text?, claims? }`, con `kind` en `fila`, `anotacion`, `acuerdo`, `mensaje`, `parametro` o `texto`. El hecho hereda el localizador de su fragmento. Los fragmentos estructurados (una fila de un cuadro de plano o de una planilla, un parámetro de la minuta de Revit) traen sus hechos ya extraídos por el conector. Los de texto libre (un mensaje de WhatsApp, un folio, un acuerdo de un acta) llegan con `text` y sin `claims`, y los lee la API con `context/impact` ([cómo, en solapamientos](solapamientos.md#fragmentos)).
 
 Cada revisión produce afirmaciones sobre las propiedades de los elementos del proyecto: sujeto, atributo, valor, unidad, rol, localizador y, si las leyó un modelo, confianza. Los sujetos y atributos son los del grafo del proyecto (`losa-n3` `espesor_cm`, `shaft-s1` `posicion_m`, `ventanas-norte` `ancho_cm`, `partida-07.01` `precio_unitario`, `proyecto` `entrega_dias`).
 
@@ -131,9 +131,8 @@ El **índice de consenso** son los documentos al día sobre los documentos total
 | Contexto       | Estado       | Papel                                                                                                                     |
 | -------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------- |
 | `lake`         | nuevo        | Repositorio, fragmentos, lo vigente, autoridad, detección, solapamientos, propuestas, discrepancias, desfase, procedencia |
-| `inference`    | compuesto    | Lee los fragmentos de texto libre (`ExtractClaims`) con su confianza                                                      |
 | `capture`      | generalizado | Detecta el cambio entre una base y un siguiente (`DetectChanges` sobre `diffSnapshots`)                                   |
-| `impact`       | sin cambios  | Costo, plazo, afectados y filtrados                                                                                       |
+| `impact`       | extendido    | Costo, plazo, afectados y filtrados; lee los fragmentos de texto libre (`ExtractClaims`) con su confianza                 |
 | `notification` | extendido    | Un aviso por afectado en su canal; la respuesta es el voto; `ReopenResponse`                                              |
 
 Los contextos nunca se importan entre sí: la API los compone. La sala (asientos y eventos) es un módulo de la API, infraestructura de la muestra y no un contexto de dominio.
@@ -155,7 +154,7 @@ Los contextos nunca se importan entre sí: la API los compone. La sala (asientos
 
 ### La API compone
 
-`modules/lake`, `capture`, `impact`, `inference` y `notification` entran cada uno por su módulo de Nest. `modules/coordination` orquesta una acción completa: lectura de los fragmentos de texto, ingesta, `DetectChanges`, `analyzeChange` por elemento, `NotifyStakeholders`, `OpenProposal`, `OpenOverlaps`, el voto, la fusión, los totales y la bandeja. Después de cada ingreso, voto y retiro corre `SettleOverlaps`: vuelve a detectar, resuelve los solapamientos que ya no se tocan y fusiona las propuestas que quedaron listas. `modules/room` lleva asientos y eventos. El adaptador `elementsFromBaseline` arma la base y el siguiente como elementos del modelo del escenario con los valores vigentes y los de la propuesta.
+`modules/lake`, `capture`, `impact` y `notification` entran cada uno por su módulo de Nest. `modules/coordination` orquesta una acción completa: lectura de los fragmentos de texto, ingesta, `DetectChanges`, `analyzeChange` por elemento, `NotifyStakeholders`, `OpenProposal`, `OpenOverlaps`, el voto, la fusión, los totales y la bandeja. Después de cada ingreso, voto y retiro corre `SettleOverlaps`: vuelve a detectar, resuelve los solapamientos que ya no se tocan y fusiona las propuestas que quedaron listas. `modules/room` lleva asientos y eventos. El adaptador `elementsFromBaseline` arma la base y el siguiente como elementos del modelo del escenario con los valores vigentes y los de la propuesta.
 
 ## Datos
 
@@ -307,7 +306,7 @@ interface ProvenanceResponse {
 }
 ```
 
-**Ingesta.** `POST /revisions` recibe `{ documentId, label, spaceId, pointer, contentHash?, chunks: { locator, kind, text?, claims?: { subject, attribute, value, unit, role, confidence? }[] }[] }`. Un fragmento con `claims` es estructurado; uno con `text` y sin `claims` es de texto libre y lo lee la API con `context/inference`. El campo `claims` de primer nivel sigue valiendo: cada grupo de hechos con el mismo localizador es un fragmento implícito de tipo `fila`. El actor es el dueño del documento: token de asiento, o clave más `x-act-as`. Responde `IngestResponse`. `POST /integrations/revit/minutes` comparte el mismo camino interno, con un fragmento `parametro` por cambio. La API no exige un orden entre revisiones: ordenar es trabajo de quien ingiere.
+**Ingesta.** `POST /revisions` recibe `{ documentId, label, spaceId, pointer, contentHash?, chunks: { locator, kind, text?, claims?: { subject, attribute, value, unit, role, confidence? }[] }[] }`. Un fragmento con `claims` es estructurado; uno con `text` y sin `claims` es de texto libre y lo lee la API con `context/impact`. El campo `claims` de primer nivel sigue valiendo: cada grupo de hechos con el mismo localizador es un fragmento implícito de tipo `fila`. El actor es el dueño del documento: token de asiento, o clave más `x-act-as`. Responde `IngestResponse`. `POST /integrations/revit/minutes` comparte el mismo camino interno, con un fragmento `parametro` por cambio. La API no exige un orden entre revisiones: ordenar es trabajo de quien ingiere.
 
 **Solapamientos.** `POST /overlaps/:id/vote` recibe `{ kind: 'se_tocan' | 'no_se_tocan', note? }` de un validador del solapamiento (token de asiento, o clave más `x-act-as`; `x-action-id` para la idempotencia) y responde `OverlapVoteResponse`. El voto es idempotente; cambiarlo es `409 invalid_state`. Un asiento que no valida el solapamiento recibe `403 not_validator`. En la bandeja del asiento, cada solapamiento vivo que valida es un ítem `{ type: 'overlap', kind: 'overlap', id, overlapId, myVote, at, overlap }`. Los contadores de la sala suman `openOverlaps`, y `GET /areas` entrega la ocupación vigente (`levels`, `axes`, `spans`, `systems`, `occupants` con `areas` y la huella `proposed` del PR abierto, y los `overlaps` vivos).
 

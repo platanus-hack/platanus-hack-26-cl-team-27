@@ -7,19 +7,19 @@ import {
   InferenceUnavailableError,
   type ClaimCandidate,
   type ClaimReader,
-} from '@team27/context-inference';
+} from '@team27/context-impact';
 import {
   CachedClaimReader,
   FileResponseCache,
   FixtureClaimReader,
-} from '@team27/context-inference/adapters';
+} from '@team27/context-impact/adapters';
 import type { ChunkDraft } from '@team27/context-lake';
 
 import { ChunkReader } from '../../../src/modules/coordination/chunk-reader.ts';
 import { documentOf } from '../../../src/scenario/documents.ts';
-import { chooseClaimReader } from '../../../src/modules/inference/claim-reader.ts';
-import { SAMPLE_CLAIM_FIXTURES } from '../../../src/modules/inference/fixtures.ts';
-import { buildVocabulary } from '../../../src/modules/inference/vocabulary.ts';
+import { chooseClaimReader } from '../../../src/modules/impact/claim-reader.ts';
+import { SAMPLE_CLAIM_FIXTURES } from '../../../src/modules/impact/fixtures.ts';
+import { buildVocabulary } from '../../../src/modules/impact/vocabulary.ts';
 
 const directories: string[] = [];
 

@@ -41,7 +41,7 @@ Los soportes no generan solapamientos de área, porque lo que los atraviesa ya l
 Cada revisión llega partida en fragmentos, y cada hecho guarda el localizador de su fragmento:
 
 - **Estructurados:** una fila de un cuadro de un plano, una fila de una planilla o un parámetro de la minuta de Revit. Traen sus hechos ya extraídos por el conector.
-- **Texto libre:** un mensaje de WhatsApp, un folio del libro de obra o un acuerdo de un acta. Los lee la API con `context/inference`, y cada hecho queda con su confianza. Lo que no alcanza 0,7 se ve, pero no tiene efecto.
+- **Texto libre:** un mensaje de WhatsApp, un folio del libro de obra o un acuerdo de un acta. Los lee la API con `context/impact`, y cada hecho queda con su confianza. Lo que no alcanza 0,7 se ve, pero no tiene efecto.
   - Con `ANTHROPIC_API_KEY`, lee Claude y la primera respuesta queda grabada.
   - Sin la clave (la variable va vacía en `.env.example`), la lectura es **determinista**: se usan respuestas fijas y grabadas, y nada sale a la red.
 

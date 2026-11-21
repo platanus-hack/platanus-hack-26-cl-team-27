@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 
 import { CaptureModule } from '../capture/capture.module.ts';
 import { ImpactModule } from '../impact/impact.module.ts';
-import { InferenceModule } from '../inference/inference.module.ts';
 import { LakeModule } from '../lake/lake.module.ts';
 import { RoomStoreModule } from '../room/store.module.ts';
 import { NotificationModule } from '../notification/notification.module.ts';
@@ -16,7 +15,6 @@ import { QueryService } from './query.service.ts';
   imports: [
     CaptureModule,
     ImpactModule,
-    InferenceModule,
     LakeModule,
     NotificationModule,
     RoomStoreModule,

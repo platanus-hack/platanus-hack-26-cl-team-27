@@ -65,7 +65,7 @@ Subpath `@team27/context-lake/adapters`.
 - `PrismaRevisionRepository`, `PrismaChunkRepository`, `PrismaClaimRepository`, `PrismaBaselineRepository`, `PrismaProposalRepository`, `PrismaDiscrepancyRepository`, `PrismaOverlapRepository` y `PrismaAcknowledgementRepository`, sobre las tablas del lago de [`data/main`](../../data/main/README.md). Reciben un `PrismaClient`. Al reemplazar un valor vigente, `PrismaBaselineRepository` guarda el anterior en el historial en la misma transacción.
 - `InlineFactExtractor(chunks)`: los fragmentos que ya trae la revisión, con sus hechos; entrega una copia de ellos para cualquier revisión.
 
-Los fragmentos estructurados salen del conector (los parsers del ETL, [`apps/etl`](../../apps/etl/README.md), o el add-in de Revit). Los de texto libre los lee la API con `context/inference` antes de entrar al lago, y el lago recibe el resultado detrás del mismo puerto `FactExtractor`, con la confianza de cada hecho y lo rechazado.
+Los fragmentos estructurados salen del conector (los parsers del ETL, [`apps/etl`](../../apps/etl/README.md), o el add-in de Revit). Los de texto libre los lee la API con `context/impact` antes de entrar al lago, y el lago recibe el resultado detrás del mismo puerto `FactExtractor`, con la confianza de cada hecho y lo rechazado.
 
 ## Pruebas
 

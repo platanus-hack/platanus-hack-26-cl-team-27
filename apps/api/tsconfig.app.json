@@ -31,9 +31,6 @@
     },
     {
       "path": "../../context/capture/tsconfig.lib.json"
-    },
-    {
-      "path": "../../context/inference/tsconfig.lib.json"
     }
   ]
 }

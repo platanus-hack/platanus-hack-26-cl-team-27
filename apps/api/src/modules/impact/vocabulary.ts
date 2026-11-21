@@ -1,4 +1,4 @@
-import type { ProjectVocabulary } from '@team27/context-inference';
+import type { ProjectVocabulary } from '@team27/context-impact';
 
 import {
   attributeLabel,
