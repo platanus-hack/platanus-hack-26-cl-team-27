@@ -63,6 +63,7 @@
     "@team27/context-lake": "workspace:*",
     "@team27/context-notification": "workspace:*",
     "@team27/data-main": "workspace:*",
+    "jose": "^6.2.18",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "tslib": "^2.9.1",

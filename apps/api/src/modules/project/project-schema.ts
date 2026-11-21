@@ -110,6 +110,7 @@ const dependency = z.object({
 
 export const projectSchema = z.object({
   id,
+  organizationId: id,
   name: z.string().min(1),
   location: z.string(),
   description: z.string(),

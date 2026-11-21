@@ -9,6 +9,7 @@ const LINKS = [
   { href: '/espacios', label: 'Espacios' },
   { href: '/modelos', label: 'Modelos' },
   { href: '/presentador', label: 'Presentador' },
+  { href: '/cuenta', label: 'Cuenta' },
 ] as const;
 
 export function SiteNav() {

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { ConfigModule } from './config/index.ts';
+import { AccountsModule } from './modules/accounts/accounts.module.ts';
 import { ApsModule } from './modules/aps/aps.module.ts';
 import { CoordinationModule } from './modules/coordination/coordination.module.ts';
 import { DatabaseModule } from './modules/database/database.module.ts';
@@ -19,6 +20,7 @@ import { HealthModule } from './modules/health/health.module.ts';
     RoomModule,
     ApsModule,
     FlowModule,
+    AccountsModule,
   ],
 })
 export class AppModule {}

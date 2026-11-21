@@ -76,6 +76,8 @@ El proyecto de Vercel usa `apps/web` como Root Directory. [`apps/web/vercel.json
 
 La opción «Include files outside the Root Directory in the Build Step» tiene que quedar activada (viene así por defecto).
 
+Las cuentas son opcionales: sin las variables de Auth0, la web y la API funcionan igual y `/cuenta` avisa que no están activas. Para activarlas, agrega en Vercel `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_SECRET` y `APP_BASE_URL` (la URL de la web), y en Render `AUTH0_DOMAIN` y `AUTH0_AUDIENCE`. En Auth0, suma la URL de la web a Allowed Callback URLs (`<web>/auth/callback`), Allowed Logout URLs y Web Origins.
+
 ## La primera vez
 
 1. **Espejo**: guarda el secret `MIRROR_TOKEN` en el repo de la organización ([el repo espejo](#el-repo-espejo)).

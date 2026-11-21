@@ -1,5 +1,6 @@
 import type {
   ModelElementDef,
+  OrganizationDef,
   ProjectDefinition,
   ProjectSubjectDef,
   ScheduleTaskDef,
@@ -242,8 +243,14 @@ const SUBJECTS: readonly ProjectSubjectDef[] = [
   },
 ];
 
+export const LOS_AROMOS_ORGANIZATION: OrganizationDef = {
+  id: 'inmobiliaria-los-aromos',
+  name: 'Inmobiliaria Los Aromos',
+};
+
 export const LOS_AROMOS: ProjectDefinition = {
   id: 'los-aromos',
+  organizationId: LOS_AROMOS_ORGANIZATION.id,
   name: 'Edificio Los Aromos',
   location: 'Ñuñoa, Santiago',
   description: '5 pisos y 20 departamentos, en obra gruesa.',

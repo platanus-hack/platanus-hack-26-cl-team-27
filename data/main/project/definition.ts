@@ -122,8 +122,14 @@ export interface SystemDef {
   readonly occupiesSpace: boolean;
 }
 
+export interface OrganizationDef {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface ProjectDefinition {
   readonly id: string;
+  readonly organizationId: string;
   readonly name: string;
   readonly location: string;
   readonly description: string;
