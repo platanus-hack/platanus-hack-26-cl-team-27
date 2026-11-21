@@ -26,6 +26,9 @@
     },
     {
       "path": "./context/lake"
+    },
+    {
+      "path": "./context/inference"
     }
   ]
 }
