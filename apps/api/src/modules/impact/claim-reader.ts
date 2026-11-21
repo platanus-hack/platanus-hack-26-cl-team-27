@@ -1,6 +1,4 @@
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 import type { ClaimReader } from '@team27/context-impact';
 import {
@@ -11,19 +9,10 @@ import {
   FixtureClaimReader,
 } from '@team27/context-impact/adapters';
 
+import { apiRoot } from '../../common/api-root.ts';
 import { SAMPLE_CLAIM_FIXTURES } from './fixtures.ts';
 
 export const CACHE_FOLDER = 'inference-cache';
-
-export const apiRoot = (from: string = import.meta.url): string => {
-  let directory = dirname(fileURLToPath(from));
-  while (!existsSync(join(directory, 'package.json'))) {
-    const parent = dirname(directory);
-    if (parent === directory) return process.cwd();
-    directory = parent;
-  }
-  return directory;
-};
 
 export const defaultCacheDirectory = (): string =>
   join(apiRoot(), CACHE_FOLDER);

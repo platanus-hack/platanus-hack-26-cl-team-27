@@ -40,7 +40,7 @@ pnpm dev:api | pnpm dev:web
 pnpm etl                            # carga y juega la muestra: Enter = paso siguiente (ver apps/etl/README.md)
 pnpm etl auto [--velocidad 1|2|4] | reiniciar | paso <id> | estado
 pnpm aps:check                      # prueba las credenciales de APS (solo éxito o fallo y HTTP)
-pnpm aps:models [--force]           # sube y traduce models/*.rvt a SVF2 y escribe models/models.json
+pnpm aps:models [--force]           # sube y traduce apps/api/models/*.rvt a SVF2 y escribe su models.json
 pnpm db:studio                      # Prisma Studio
 pnpm check                          # lint, test, typecheck y build de todo
 pnpm affected                       # lo mismo, solo lo que cambió respecto de main
@@ -72,6 +72,7 @@ pnpm format
 - Después de agregar o quitar una dependencia entre proyectos, corre `pnpm nx sync`.
 - Todo `/api/*` de la web se reenvía a la API (`rewrites` en `apps/web/next.config.ts`): no crees rutas en `apps/web/src/app/api/`, porque le ganan al reenvío. El `rewrite` fija `API_URL` al compilar la web.
 - La CI (`.github/workflows/check.yml`) corre `pnpm install --frozen-lockfile` y `pnpm check` en cada push a `main` y cada PR: si cambias dependencias, commitea el `pnpm-lock.yaml`.
+- El deploy sale del espejo (`agustin-rios/hack-team-27`), no del repo de la organización. `mirror.yml` lo pone al día en cada push a `main`, también al mergear un PR en GitHub, si existe el secret `MIRROR_TOKEN`. Si no existe, quien mergea corre `git pull && git push` con el doble push ([despliegue](docs/despliegue.md#el-repo-espejo)).
 - Nx carga el `.env` de la raíz en cada tarea, y `data/main/prisma.config.ts` también lo lee. La API no lee archivos: toma el entorno y no arranca si una variable no cumple su schema.
 - Si `pnpm db:up` falla en WSL con «docker could not be found», activa la integración con WSL en Docker Desktop, o apunta `DATABASE_URL` a otro Postgres.
 - En WSL, el shell puede traer un Node viejo: `nvm use` antes de `pnpm`.

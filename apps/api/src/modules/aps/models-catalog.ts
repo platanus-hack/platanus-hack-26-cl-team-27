@@ -1,5 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+
+import { apiRoot } from '../../common/api-root.ts';
 
 export const DISCIPLINES = [
   'architectural',
@@ -32,13 +34,9 @@ export interface ModelsCatalog {
   readonly models: readonly CatalogModel[];
 }
 
-export const MODELS_DIR = fileURLToPath(
-  new URL('../../../../../models/', import.meta.url),
-);
+export const MODELS_DIR = join(apiRoot(), 'models');
 
-export const CATALOG_PATH = fileURLToPath(
-  new URL('../../../../../models/models.json', import.meta.url),
-);
+export const CATALOG_PATH = join(MODELS_DIR, 'models.json');
 
 export const disciplineOf = (file: string): Discipline => {
   const name = file.toLowerCase();

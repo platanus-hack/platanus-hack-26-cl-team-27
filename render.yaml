@@ -29,6 +29,10 @@ services:
         generateValue: true
       - key: CORS_ALLOW_ORIGINS
         sync: false
+      - key: APS_CLIENT_ID
+        sync: false
+      - key: APS_CLIENT_SECRET
+        sync: false
 
 databases:
   - name: vigente-db

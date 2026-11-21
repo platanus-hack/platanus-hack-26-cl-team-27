@@ -85,7 +85,9 @@ src/
 ├── app.setup.ts                  prefijo /api, validación con schemas y filtro de errores (también los usan los tests)
 ├── app.module.ts                 los módulos de la app
 ├── config/                       variables de entorno validadas con zod
-├── common/provide-use-case.ts    registra un caso de uso de un contexto como provider de Nest
+├── common/
+│   ├── provide-use-case.ts       registra un caso de uso de un contexto como provider de Nest
+│   └── api-root.ts               la carpeta de la API (la de su package.json), la misma desde src/ que desde dist/
 ├── scenario/
 │   ├── los-aromos.ts             modelo base, grafo del proyecto y elenco (con Fernanda, que no recibe avisos)
 │   ├── areas.ts                  niveles, grilla de ejes, sistemas y la huella de cada elemento (el modelo de áreas)
@@ -98,8 +100,9 @@ src/
     ├── notification/             adapters y casos de uso de context-notification
     ├── coordination/             orquesta la cadena y expone las rutas de datos; `revision-body.ts` valida la ingesta genérica y la carga inicial, `chunk-reader.ts` lee los fragmentos de texto libre, `revit-minute.ts` valida la minuta de Revit y la convierte en hechos, y `integrations.controller.ts` la recibe
     ├── room/                     asientos, eventos, reinicio (módulo de la API, no un contexto)
-    └── aps/                      Autodesk Platform Services: ApsAuth (token 2-legged cacheado por scopes), el catálogo models/models.json y las rutas del visor
-scripts/                          aps-check.ts y aps-models.ts (pnpm aps:check y pnpm aps:models); Node los ejecuta sin compilar
+    └── aps/                      Autodesk Platform Services: ApsAuth (token 2-legged cacheado por scopes), el catálogo (models/models.json, ubicado con apiRoot) y las rutas del visor
+models/                           los .rvt de Revit (sin versionar) y models.json, el catálogo de APS
+scripts/                          aps-check.ts y aps-models.ts (pnpm aps:check y pnpm aps:models); Node los ejecuta sin compilar y tsconfig.scripts.json los suma al typecheck
 tests/                            replica src/: Vitest, sin base de datos
 ```
 
@@ -125,9 +128,11 @@ pnpm aps:models [--force]             # sube y traduce models/*.rvt y escribe mo
 `aps:models` usa los SDK oficiales (`@aps_sdk/oss`, `@aps_sdk/model-derivative`):
 
 1. Crea el bucket si no existe (`persistent`, región US). Su clave es `APS_BUCKET_KEY` o, si no está, `vigente-` más 16 hex del SHA-256 del client id.
-2. Por cada `.rvt` de `models/`, lo sube a OSS si no está o cambió de tamaño, y pide la traducción a SVF2 (vistas 2D y 3D) con `generateMasterViews`: una vista 3D por fase de Revit con todos los elementos del modelo, aunque el archivo no traiga vistas 3D propias (el de Site de Snowdon Towers solo trae planos). Se salta el que ya está traducido con el mismo tamaño; `--force` lo vuelve a traducir.
+2. Por cada `.rvt` de `models/` (la carpeta de la API, junto a `src/`), lo sube a OSS si no está o cambió de tamaño, y pide la traducción a SVF2 (vistas 2D y 3D) con `generateMasterViews`: una vista 3D por fase de Revit con todos los elementos del modelo, aunque el archivo no traiga vistas 3D propias (el de Site de Snowdon Towers solo trae planos). Se salta el que ya está traducido con el mismo tamaño; `--force` lo vuelve a traducir.
 3. Consulta el manifiesto cada 15 s (hasta 45 min) y guarda en `models/models.json` el archivo, la disciplina (sale del nombre), la URN, el estado y los mensajes del manifiesto (y un aviso si no quedó ninguna vista 3D). Si un archivo falla, sigue con los demás; el script termina con código 1 si alguno no quedó traducido.
 
-`models/models.json` no lleva secretos y se versiona. Los `.rvt` no se versionan (`.gitignore`).
+`models/models.json` no lleva secretos y se versiona. La API lo ubica con `apiRoot()`, igual que `inference-cache/`, y va dentro de la imagen. Los `.rvt` no se versionan (`.gitignore`) ni entran a la imagen (`.dockerignore`).
+
+Las URNs del catálogo viven en el bucket de la app de APS que corrió `aps:models`, y un token de otra app no las abre: la API desplegada usa esas mismas credenciales ([despliegue](../../docs/despliegue.md)).
 
 Variables, cómo se compone un contexto y por qué Node ejecuta los paquetes del workspace como TypeScript: [arquitectura](../../docs/arquitectura.md).

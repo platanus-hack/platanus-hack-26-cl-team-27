@@ -1,8 +1,11 @@
+import { join, relative } from 'node:path';
+
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { AuthenticationClient } from '@aps_sdk/authentication';
 
 import { setupApp } from '../../../src/app.setup.ts';
+import { apiRoot } from '../../../src/common/api-root.ts';
 import { ApsAuth, VIEWER_SCOPES } from '../../../src/modules/aps/aps-auth.ts';
 import { ApsController } from '../../../src/modules/aps/aps.controller.ts';
 import {
@@ -10,7 +13,9 @@ import {
   MODELS_CATALOG_READER,
 } from '../../../src/modules/aps/aps.tokens.ts';
 import {
+  CATALOG_PATH,
   disciplineOf,
+  readCatalog,
   type ModelsCatalog,
 } from '../../../src/modules/aps/models-catalog.ts';
 
@@ -81,6 +86,21 @@ describe('disciplineOf', () => {
       'electrical',
       'other',
     ]);
+  });
+});
+
+describe('readCatalog', () => {
+  it('lee el catálogo versionado de la carpeta models de la API', async () => {
+    expect(relative(apiRoot(), CATALOG_PATH)).toBe(
+      join('models', 'models.json'),
+    );
+    expect((await readCatalog())?.models.length).toBeGreaterThan(0);
+  });
+
+  it('da null si el catálogo no existe', async () => {
+    expect(
+      await readCatalog(join(apiRoot(), 'models', 'no-existe.json')),
+    ).toBeNull();
   });
 });
 

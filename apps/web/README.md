@@ -22,7 +22,7 @@ pnpm nx run @team27/web:test          # Vitest: los *.spec.ts de src/
 | `/presentador`                   | La consola de Fernanda: requieren atención, propuestas (activas e historial), asientos y reinicio            |
 | `/espacios`                      | Espacios y documentos; el documento se abre en un panel. Acepta `?espacio=`, `?documento=` y `?revision=`    |
 | `/cambios/[id]`                  | Detalle de una propuesta; acepta `?para=<stakeholderId>`                                                     |
-| `/modelos`                       | El visor de APS con todas las disciplinas de `models/models.json` en una escena: abre con Arquitectura y carga las demás al encenderlas, con un interruptor por disciplina y las propiedades del elemento seleccionado |
+| `/modelos`                       | El visor de APS con todas las disciplinas del catálogo de la API (`GET /api/aps/models`) en una escena: abre con Arquitectura y carga las demás al encenderlas, con un interruptor por disciplina y las propiedades del elemento seleccionado |
 | `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                                                             |
 
 Los route groups `(site)`, `(sala)` y `(asiento)` dan a cada pantalla su propio layout: el sitio con encabezado y navegación (marca la sección actual), el telón sin márgenes y el celular en una columna de 430 px. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
