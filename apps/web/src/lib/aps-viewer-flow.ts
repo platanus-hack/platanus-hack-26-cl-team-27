@@ -431,14 +431,31 @@ export interface CaseSceneOptions {
 
 const GEOMETRY_EVENT = 'geometryLoaded';
 
-const waitForGeometry = (viewer: Viewer3D, timeoutMs: number): Promise<void> =>
-  new Promise((resolve) => {
-    const timer = setTimeout(resolve, timeoutMs);
-    viewer.addEventListener(GEOMETRY_EVENT, () => {
-      clearTimeout(timer);
-      resolve();
-    });
+const waitForGeometry = (
+  viewer: Viewer3D,
+  models: number,
+  timeoutMs: number,
+): { readonly done: Promise<void>; readonly stop: () => void } => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let loaded = 0;
+  let finish: () => void = () => undefined;
+  const done = new Promise<void>((resolve) => {
+    finish = resolve;
+    timer = setTimeout(resolve, timeoutMs);
   });
+  const onLoaded = () => {
+    loaded += 1;
+    if (loaded >= models) finish();
+  };
+  viewer.addEventListener(GEOMETRY_EVENT, onLoaded);
+  return {
+    done,
+    stop: () => {
+      clearTimeout(timer);
+      viewer.removeEventListener?.(GEOMETRY_EVENT, onLoaded);
+    },
+  };
+};
 
 export const createCaseScene = async (
   container: HTMLElement,
@@ -452,6 +469,11 @@ export const createCaseScene = async (
   const viewer = new viewing.GuiViewer3D(container);
   if (viewer.start() > 0) throw new Error('Tu navegador no soporta WebGL.');
   const handles = new Map<Discipline, ViewerModelHandle>();
+  const geometry = waitForGeometry(
+    viewer,
+    models.length,
+    options.geometryTimeoutMs ?? 20000,
+  );
   let globalOffset: { x: number; y: number; z: number } | undefined;
   const ordered = [...models].sort(
     (a, b) =>
@@ -461,6 +483,7 @@ export const createCaseScene = async (
   for (const model of ordered) {
     const doc = await loadDocument(viewing, model.urn);
     if (isCancelled()) {
+      geometry.stop();
       viewer.finish();
       return null;
     }
@@ -476,7 +499,8 @@ export const createCaseScene = async (
     globalOffset ??= handle.getData().globalOffset;
     handles.set(model.discipline, handle);
   }
-  await waitForGeometry(viewer, options.geometryTimeoutMs ?? 20000);
+  await geometry.done;
+  geometry.stop();
   if (isCancelled()) {
     viewer.finish();
     return null;
@@ -487,7 +511,9 @@ export const createCaseScene = async (
   );
   const resolved = new Map<string, Promise<ElementRef | null>>();
   const current = new Map<string, Delta>();
+  const shown = new Map<string, Delta>();
   const running = new Map<string, () => void>();
+  let queue: Promise<void> = Promise.resolve();
   let fitted = false;
 
   const resolveElement = (id: string): Promise<ElementRef | null> => {
@@ -517,16 +543,17 @@ export const createCaseScene = async (
     if (!ref) return;
     const handle = handles.get(ref.discipline);
     if (!handle) return;
-    const from = current.get(id) ?? ZERO_DELTA;
     running.get(id)?.();
+    const from = shown.get(id) ?? ZERO_DELTA;
     current.set(id, target);
     const write = (value: Delta) => {
+      shown.set(id, value);
       void translateElement(viewer, handle, ref.dbId, value, options.axes);
     };
     running.set(id, tween(from, target, options.slideMs ?? 900, write));
   };
 
-  const apply = async (plan: ScenePlan) => {
+  const applyNow = async (plan: ScenePlan) => {
     const ids = new Set([...Object.keys(plan.moves), ...current.keys()]);
     for (const id of ids) {
       const target = plan.moves[id] ?? ZERO_DELTA;
@@ -549,6 +576,11 @@ export const createCaseScene = async (
       fitted = true;
       controls.fitTo(toned);
     }
+  };
+
+  const apply = (plan: ScenePlan): Promise<void> => {
+    queue = queue.then(() => applyNow(plan)).catch(() => undefined);
+    return queue;
   };
 
   return {

@@ -76,6 +76,7 @@ export interface Viewer3D {
   ): void;
   clearThemingColors(model: ViewerModelHandle): void;
   addEventListener(type: string, listener: (event: unknown) => void): void;
+  removeEventListener?(type: string, listener: (event: unknown) => void): void;
 }
 
 export interface AutodeskViewing {

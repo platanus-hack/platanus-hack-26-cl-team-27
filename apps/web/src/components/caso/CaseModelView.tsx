@@ -119,7 +119,7 @@ export function CaseModelView({
       )}
       {phase === 'error' && (
         <p role="alert" className="text-sm text-critical-text">
-          {MISSING_MODELS_TEXT}. {problem}
+          No se pudo abrir el visor 3D: se muestra el plano 2D. {problem}
         </p>
       )}
       {phase === 'loading-viewer' && (
