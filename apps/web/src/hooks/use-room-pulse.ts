@@ -69,6 +69,7 @@ export const useRoomPulse = ({
           },
           controller.signal,
         );
+        const wasSynced = state.cursor !== null && state.epoch !== null;
         const step = applyPulse(state, response);
         state = step.state;
         failures = 0;
@@ -76,6 +77,8 @@ export const useRoomPulse = ({
         if (step.reset) {
           setEvents([]);
           handlers.current.onReset?.();
+        } else if (!wasSynced) {
+          handlers.current.onEvents?.([]);
         } else if (step.fresh.length > 0) {
           setEvents(state.events);
           handlers.current.onEvents?.(step.fresh);

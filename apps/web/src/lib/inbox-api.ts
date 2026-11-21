@@ -68,10 +68,7 @@ export interface InboxFiltered {
 }
 
 export type InboxItem =
-  | InboxVote
-  | InboxDiscrepancy
-  | InboxStale
-  | InboxFiltered;
+  InboxVote | InboxDiscrepancy | InboxStale | InboxFiltered;
 
 export interface InboxResponse {
   readonly castId: string;

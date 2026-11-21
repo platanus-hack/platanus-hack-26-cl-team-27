@@ -3,11 +3,7 @@ import { request, type Auth } from './http';
 export type Channel = 'email' | 'whatsapp' | 'slack';
 
 export type SpaceKind =
-  | 'drive'
-  | 'sharepoint'
-  | 'email'
-  | 'whatsapp'
-  | 'libro_obra';
+  'drive' | 'sharepoint' | 'email' | 'whatsapp' | 'libro_obra';
 
 export interface CastMember {
   readonly id: string;
@@ -35,7 +31,7 @@ export interface RoomSpace {
 
 export interface Seal {
   readonly version: number;
-  readonly sealedAt: string;
+  readonly sealedAt: string | null;
   readonly lines: readonly string[];
 }
 

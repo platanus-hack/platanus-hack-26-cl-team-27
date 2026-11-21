@@ -3,11 +3,7 @@ import type { FactValue } from './format';
 import type { Channel } from './room-api';
 
 export type ProposalStatus =
-  | 'open'
-  | 'disputed'
-  | 'merged'
-  | 'withdrawn'
-  | 'replaced';
+  'open' | 'disputed' | 'merged' | 'withdrawn' | 'replaced';
 
 export interface Progress {
   readonly approved: number;

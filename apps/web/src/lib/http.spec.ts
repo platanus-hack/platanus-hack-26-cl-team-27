@@ -48,7 +48,9 @@ describe('describeError', () => {
     expect(describeError(new ApiError(409, 'seat_taken', ''))).toContain(
       'se te adelantó',
     );
-    expect(describeError(new ApiError(403, null, 'x'))).toContain('no es de tu');
+    expect(describeError(new ApiError(403, null, 'x'))).toContain(
+      'no es de tu',
+    );
     expect(describeError(new TypeError('fetch failed'))).toContain('conexión');
   });
 });

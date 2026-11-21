@@ -4,11 +4,7 @@ import type { FactValue } from './format';
 export type ValueStatus = 'confirmed' | 'proposed' | 'disputed';
 
 export type BaselineSectionId =
-  | 'estructura'
-  | 'instalaciones'
-  | 'fachada'
-  | 'costos'
-  | 'plazo';
+  'estructura' | 'instalaciones' | 'fachada' | 'costos' | 'plazo';
 
 export interface BaselineEntry {
   readonly section: BaselineSectionId;

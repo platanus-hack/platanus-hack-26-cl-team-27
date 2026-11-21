@@ -46,7 +46,10 @@ export interface DropResponse {
       readonly reason: string;
     }[];
   }[];
-  readonly discrepancies: readonly { readonly id: string; readonly ownerId: string }[];
+  readonly discrepancies: readonly {
+    readonly id: string;
+    readonly ownerId: string;
+  }[];
   readonly backed: readonly string[];
   readonly stale: readonly {
     readonly revisionId: string;
@@ -82,8 +85,7 @@ export const describeDrop = (drop: DropResponse): string => {
     );
   if (drop.discrepancies.length > 0)
     parts.push('Quedó una discrepancia para el dueño del valor.');
-  if (drop.backed.length > 0)
-    parts.push('Respaldó una discrepancia abierta.');
+  if (drop.backed.length > 0) parts.push('Respaldó una discrepancia abierta.');
   if (drop.stale.length > 0) parts.push('Dejó documentos por actualizar.');
   return parts.length > 0 ? parts.join(' ') : 'Quedó registrado, sin cambios.';
 };

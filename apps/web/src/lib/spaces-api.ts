@@ -3,18 +3,10 @@ import type { FactValue } from './format';
 import type { SpaceKind } from './room-api';
 
 export type ClaimOutcome =
-  | 'same'
-  | 'corroborates'
-  | 'change'
-  | 'discrepancy'
-  | 'stale'
-  | 'new';
+  'same' | 'corroborates' | 'change' | 'discrepancy' | 'stale' | 'new';
 
 export type DocumentState =
-  | 'current'
-  | 'stale'
-  | 'discrepancy'
-  | 'acknowledged';
+  'current' | 'stale' | 'discrepancy' | 'acknowledged';
 
 export interface ClaimView {
   readonly subjectId: string;

@@ -79,7 +79,10 @@ export const request = async <T>(
   const { method = 'GET', body, signal } = options;
   const response = await fetch(path, {
     method,
-    headers: buildHeaders({ ...options, write: options.write ?? method !== 'GET' }),
+    headers: buildHeaders({
+      ...options,
+      write: options.write ?? method !== 'GET',
+    }),
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: 'no-store',
     signal,
