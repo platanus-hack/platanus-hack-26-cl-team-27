@@ -31,6 +31,7 @@ En `next.config.ts`, agrega `'@team27/ui'` a `transpilePackages`.
 
 | Componente | Qué es |
 |---|---|
+| `BrandMark`, `BrandWordmark` | El isotipo y el logotipo de Vigente, en `currentColor`; el tamaño va por `className`. Ver [marca](../../docs/marca.md) |
 | `Button` | Variantes `primary`, `secondary`, `ghost`, `danger`; tamaños `sm` y `md` |
 | `Card`, `PageHeader` | Tarjeta con título, descripción y acciones; encabezado de página |
 | `Field`, `Input`, `Select` | Campos de formulario con etiqueta |

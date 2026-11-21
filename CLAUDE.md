@@ -1,6 +1,6 @@
-# Team 27 — Monorepo de Platanus Hack 26
+# Vigente (Team 27) — Monorepo de Platanus Hack 26
 
-Monorepo de la hackatón: Nx 24 + pnpm 10, una web en Next.js 16 (React 19, Tailwind 4), una API en NestJS 12, PostgreSQL con Prisma 7 y el dominio en contextos hexagonales. En `tool-use-case/` viven los conectores reales con el software del proyecto, como el add-in de Revit en C#. El producto convierte cada cambio de un proyecto de construcción en avisos a los equipos que afecta, en las herramientas que ya usan. El modelo de negocio todavía se está definiendo.
+Monorepo de la hackatón: Nx 24 + pnpm 10, una web en Next.js 16 (React 19, Tailwind 4), una API en NestJS 12, PostgreSQL con Prisma 7 y el dominio en contextos hexagonales. En `tool-use-case/` viven los conectores reales con el software del proyecto, como el add-in de Revit en C#. El producto se llama Vigente ([docs/marca.md](docs/marca.md)) y convierte cada cambio de un proyecto de construcción en avisos a los equipos que afecta, en las herramientas que ya usan. El modelo de negocio todavía se está definiendo.
 
 Lo que se construye es una muestra para el pitch, no un MVP. Va en un espacio controlado: un proyecto ficticio con un elenco fijo, el software de origen y los canales simulados dentro de la web, y sin gestión de equipos, organizaciones ni usuarios. Se avanza por segmentos ([docs/muestra.md](docs/muestra.md#segmentos)), y cada uno se cierra con tests, docs y `pnpm check` en verde.
 
@@ -23,6 +23,7 @@ Antes de tocar un área, lee su doc. Si cambias un comportamiento, actualiza el 
 | Base de datos y migraciones                                                                                          | [data/main/README.md](data/main/README.md)                     |
 | El add-in de Revit: la minuta de cambios al guardar, compilar, instalar y preparar el modelo                         | [tool-use-case/revit/README.md](tool-use-case/revit/README.md) |
 | Tema y componentes                                                                                                   | [packages/ui/README.md](packages/ui/README.md)                 |
+| Marca: nombre, isotipo, logotipo, color y archivos                                                                   | [docs/marca.md](docs/marca.md)                                 |
 
 ## Comandos
 

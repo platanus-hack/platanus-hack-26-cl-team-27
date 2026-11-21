@@ -1,5 +1,6 @@
 'use client';
 
+import { BrandMark, BrandWordmark } from '@team27/ui';
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
@@ -48,15 +49,21 @@ export function SalaBoard() {
   return (
     <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-6 p-6 lg:p-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-semibold tracking-tight text-ink">
-            {data?.room.project.name ?? 'La sala de la obra'}
-          </h1>
-          <p className="text-xl text-ink-2">
-            {data
-              ? `${data.room.project.location} · ${data.room.project.description}`
-              : 'La verdad de la obra, consensuada'}
-          </p>
+        <div className="flex flex-wrap items-center gap-6">
+          <span className="flex items-center gap-3 text-ink">
+            <BrandMark className="size-12 text-accent-text" />
+            <BrandWordmark className="h-9 w-auto" />
+          </span>
+          <div className="border-l border-hairline pl-6">
+            <h1 className="text-4xl font-semibold tracking-tight text-ink">
+              {data?.room.project.name ?? 'La sala de la obra'}
+            </h1>
+            <p className="text-xl text-ink-2">
+              {data
+                ? `${data.room.project.location} · ${data.room.project.description}`
+                : 'La verdad de la obra, consensuada'}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-6">
           <LiveBadge status={status} large />

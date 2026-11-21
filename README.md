@@ -1,10 +1,10 @@
 # team-27 Platanus Hack 26: Santiago ft. Buk Project
 
-<img src="./project-logo.png" alt="Logo del proyecto" width="200" />
+<img src="./project-logo.png" alt="Logo de Vigente" width="200" />
 
 Track: 🔗 Multiplayer
 
-**Convertimos cada cambio de un proyecto de construcción en acción coordinada, antes de que sus consecuencias se propaguen.**
+**Vigente convierte cada cambio de un proyecto de construcción en acción coordinada, antes de que sus consecuencias se propaguen.**
 
 ## Problema
 
