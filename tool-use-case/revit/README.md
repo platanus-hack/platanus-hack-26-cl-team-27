@@ -140,7 +140,7 @@ El cuerpo es [`contract/flow-minute.example.json`](./contract/flow-minute.exampl
 3. actualiza la base de cambios de ese pilar, para que el siguiente guardado no informe el movimiento aplicado como un cambio nuevo;
 4. muestra «Vigente aplicó la propuesta aceptada por Camila Vera».
 
-Cada propuesta se aplica una sola vez por modelo abierto: el add-in recuerda los ids aplicados mientras Revit esté abierto. Si ningún elemento tiene esa Marca, avisa en vez de callar. El botón **Aplicar propuesta** de la cinta fuerza la consulta ahora.
+Cada propuesta se aplica una sola vez por modelo: el add-in anota los ids aplicados en `%LOCALAPPDATA%\Team27\Minuta\flow-applied.txt`, así que reabrir Revit no la repite (un reinicio del caso crea otra propuesta con otro id). Si el movimiento falla o ningún elemento tiene esa Marca, avisa una vez, no la anota y no vuelve a insistir sola. El botón **Aplicar propuesta** de la cinta consulta ahora y reintenta las que fallaron.
 
 ### Configuración del flujo
 
@@ -166,7 +166,7 @@ En `minuta.config.json`, la sección `flow`. `apiUrl` y `presenterKey` son las d
 | `titleContains` | Texto del título del modelo (sin distinguir mayúsculas); gana la primera entrada que calce. `LosAromos_EST.rvt` calza con `_EST` |
 | `seat` | El asiento del elenco que actúa (`x-act-as`): quien envía debe ser dueño del elemento |
 | `discipline` | La disciplina del modelo que viaja en la minuta |
-| `reason` | Motivo opcional que acompaña cada cambio de ese modelo |
+| `reason` | Motivo que acompaña cada cambio de ese modelo; la API lo exige, así que sin uno sale «Cambio de ubicación hecho en Revit» |
 | `sends` / `applies` | Si el modelo envía movimientos de pilares y si aplica propuestas aceptadas (ambos `true` por defecto) |
 
 ### Lista para la demo en un PC con Revit
@@ -180,7 +180,7 @@ En `minuta.config.json`, la sección `flow`. `apiUrl` y `presenterKey` son las d
 7. Pantalla de Paula: «Resuelto por Camila Vera a las HH:MM».
 8. Guarda el modelo eléctrico: no debe salir ninguna minuta nueva por el movimiento aplicado.
 
-Qué no se probó sin Revit (el build y los tests corren en contenedor): lo que toca la API de Revit, es decir la lectura de Marca y `LocationPoint`, `MoveElements` sobre una bandeja (si está fijada o es de un tipo que no admite traslación, falla y el add-in lo muestra), el `ExternalEvent` y los diálogos; y el viaje HTTP real contra la API del flujo (los tests comparan el JSON con el contrato). Límites: se traslada el elemento completo, no un tramo de 6 m (la bandeja de la demo tiene que ser un elemento corto con esa Marca); la deduplicación vive en memoria, así que al reabrir Revit con la propuesta aún aceptada se vuelve a aplicar; el eje Y del modelo debe apuntar al norte del caso.
+Qué no se probó sin Revit (el build y los tests corren en contenedor): lo que toca la API de Revit, es decir la lectura de Marca y `LocationPoint`, `MoveElements` sobre una bandeja (si está fijada o es de un tipo que no admite traslación, falla y el add-in lo muestra), el `ExternalEvent` y los diálogos; y el viaje HTTP real contra la API del flujo (los tests comparan el JSON con el contrato). Límites: se traslada el elemento completo, no un tramo de 6 m (la bandeja de la demo tiene que ser un elemento corto con esa Marca); el eje Y del modelo debe apuntar al norte del caso.
 
 ## Los botones
 

@@ -12,6 +12,7 @@ public sealed record FlowMinute(
     IReadOnlyList<FlowChange> Changes)
 {
     public const string RevitSource = "revit";
+    public const string DefaultReason = "Cambio de ubicación hecho en Revit";
 
     public static FlowMinute? Create(string minuteId, string title, string discipline, IReadOnlyList<FlowChange> changes)
     {
@@ -20,7 +21,10 @@ public sealed record FlowMinute(
             return null;
         }
         var clean = string.IsNullOrWhiteSpace(title) ? "Modelo sin título" : title.Trim();
-        return new FlowMinute(minuteId, RevitSource, new FlowModel(clean, discipline), changes);
+        var complete = changes
+            .Select(c => string.IsNullOrWhiteSpace(c.Reason) ? c with { Reason = DefaultReason } : c)
+            .ToList();
+        return new FlowMinute(minuteId, RevitSource, new FlowModel(clean, discipline), complete);
     }
 }
 

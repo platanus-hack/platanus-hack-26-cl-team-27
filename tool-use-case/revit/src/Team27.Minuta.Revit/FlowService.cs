@@ -15,7 +15,8 @@ internal sealed class FlowService : IDisposable
     private readonly FlowDispatcher dispatcher;
     private readonly UiQueue ui;
     private readonly Log log;
-    private readonly AppliedLedger ledger = new();
+    private readonly AppliedLedger ledger = new(System.IO.Path.Combine(Log.DefaultRoot, "flow-applied.txt"));
+    private readonly HashSet<(string Document, string Proposal)> failed = new();
     private readonly Dictionary<Document, ColumnSnapshot> baselines = new();
     private readonly ConcurrentDictionary<string, string> applySeats = new();
     private Timer? timer;
@@ -71,17 +72,28 @@ internal sealed class FlowService : IDisposable
         var current = ColumnReader.Read(document);
         var changes = ColumnDiff.Between(before, current, model.Reason);
         baselines[document] = current;
-        var minute = FlowMinute.Create(Guid.NewGuid().ToString(), Title(document), model.Discipline, changes);
-        if (minute is null)
+        if (changes.Count == 0)
         {
             _ = dispatcher.FlushAsync();
             return;
         }
-        log.Info($"Flujo: minuta {minute.MinuteId} con {string.Join(", ", changes.Select(FlowText.Moved))}");
-        _ = dispatcher.SubmitAsync(minute, model.Seat);
+        foreach (var change in changes)
+        {
+            var minute = FlowMinute.Create(Guid.NewGuid().ToString(), Title(document), model.Discipline, [change]);
+            if (minute is null)
+            {
+                continue;
+            }
+            log.Info($"Flujo: minuta {minute.MinuteId} con {FlowText.Moved(change)}");
+            _ = dispatcher.SubmitAsync(minute, model.Seat);
+        }
     }
 
-    public void CheckNow() => _ = Poll();
+    public void CheckNow()
+    {
+        ui.Post(_ => failed.Clear());
+        _ = Poll();
+    }
 
     private async Task Poll()
     {
@@ -122,12 +134,22 @@ internal sealed class FlowService : IDisposable
             {
                 continue;
             }
-            ledger.Add(key, proposal.Id);
-            ApplyTo(document, proposal);
+            if (failed.Contains((key, proposal.Id)))
+            {
+                continue;
+            }
+            if (ApplyTo(document, proposal))
+            {
+                ledger.Add(key, proposal.Id);
+            }
+            else
+            {
+                failed.Add((key, proposal.Id));
+            }
         }
     }
 
-    private void ApplyTo(Document document, FlowProposal proposal)
+    private bool ApplyTo(Document document, FlowProposal proposal)
     {
         var targets = ColumnReader.FindByMark(document, proposal.ElementId);
         if (targets.Count == 0)
@@ -135,8 +157,8 @@ internal sealed class FlowService : IDisposable
             log.Info($"Flujo: «{document.Title}» no tiene un elemento con Marca {proposal.ElementId}; la propuesta {proposal.Id} no se aplica ahí");
             Dialogs.Show(
                 $"Vigente no encontró {proposal.ElementId} en este modelo",
-                $"La propuesta aceptada mueve el elemento con Marca {proposal.ElementId}, pero «{document.Title}» no tiene ninguno. Revisa el parámetro Marca del elemento.");
-            return;
+                $"La propuesta aceptada mueve el elemento con Marca {proposal.ElementId}, pero «{document.Title}» no tiene ninguno. Revisa el parámetro Marca del elemento y pulsa Aplicar propuesta.");
+            return false;
         }
         var feet = FlowPlanner.ToFeet(proposal.Delta);
         var translation = new XYZ(feet.Dx, feet.Dy, feet.Dz);
@@ -153,13 +175,14 @@ internal sealed class FlowService : IDisposable
             Dialogs.Show(
                 $"Vigente no pudo mover {proposal.ElementId}",
                 $"Revit rechazó el movimiento: {ex.Message}\n\nSi el elemento está fijado, suéltalo y mueve {proposal.ElementId} a mano.");
-            return;
+            return false;
         }
         Rebase(document, proposal.ElementId);
         log.Info($"Flujo: propuesta {proposal.Id} aplicada en «{document.Title}»: {FlowText.Moved(proposal.ElementId, proposal.Delta)}");
         Dialogs.Show(
             FlowPlanner.Notice(proposal),
             $"{FlowText.Moved(proposal.ElementId, proposal.Delta)} en «{document.Title}». Guarda el modelo para dejarlo así.");
+        return true;
     }
 
     private void Rebase(Document document, string mark)

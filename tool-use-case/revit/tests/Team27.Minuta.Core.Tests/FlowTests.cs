@@ -78,11 +78,28 @@ public class FlowTests
     }
 
     [Fact]
-    public void OmitsReasonWhenThereIsNone()
+    public void FillsAReasonWhenThereIsNone()
     {
         var minute = FlowMinute.Create("id", "M", "estructura", [new FlowChange("P-12", "location", new Delta(0, 0.4, 0), null)])!;
         var change = JsonDocument.Parse(FlowJson.Serialize(minute)).RootElement.GetProperty("changes")[0];
-        Assert.False(change.TryGetProperty("reason", out _));
+        Assert.Equal(FlowMinute.DefaultReason, change.GetProperty("reason").GetString());
+    }
+
+    [Fact]
+    public void LedgerSurvivesARestart()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"flow-applied-{Guid.NewGuid():N}.txt");
+        try
+        {
+            new AppliedLedger(path).Add("ELEC", "p1");
+            var reopened = new AppliedLedger(path);
+            Assert.True(reopened.Contains("ELEC", "p1"));
+            Assert.False(reopened.Contains("ELEC", "p2"));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [Fact]

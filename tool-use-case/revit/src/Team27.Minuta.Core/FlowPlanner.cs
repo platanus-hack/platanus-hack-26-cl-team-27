@@ -4,6 +4,30 @@ public sealed class AppliedLedger
 {
     private readonly object gate = new();
     private readonly Dictionary<string, HashSet<string>> byDocument = new(StringComparer.Ordinal);
+    private readonly string? path;
+
+    public AppliedLedger(string? path = null)
+    {
+        this.path = path;
+        if (path is null || !File.Exists(path))
+        {
+            return;
+        }
+        try
+        {
+            foreach (var line in File.ReadAllLines(path))
+            {
+                var parts = line.Split('\t');
+                if (parts.Length == 2 && parts[0].Length > 0 && parts[1].Length > 0)
+                {
+                    Insert(parts[0], parts[1]);
+                }
+            }
+        }
+        catch (IOException)
+        {
+        }
+    }
 
     public bool Contains(string documentKey, string proposalId)
     {
@@ -17,13 +41,36 @@ public sealed class AppliedLedger
     {
         lock (gate)
         {
-            if (!byDocument.TryGetValue(documentKey, out var set))
+            if (!Insert(documentKey, proposalId) || path is null)
             {
-                set = new HashSet<string>(StringComparer.Ordinal);
-                byDocument[documentKey] = set;
+                return;
             }
-            set.Add(proposalId);
+            try
+            {
+                var directory = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+                File.AppendAllText(path, $"{documentKey}\t{proposalId}{Environment.NewLine}");
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
+    }
+
+    private bool Insert(string documentKey, string proposalId)
+    {
+        if (!byDocument.TryGetValue(documentKey, out var set))
+        {
+            set = new HashSet<string>(StringComparer.Ordinal);
+            byDocument[documentKey] = set;
+        }
+        return set.Add(proposalId);
     }
 
     public void Forget(string documentKey)
