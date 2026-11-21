@@ -8,23 +8,24 @@ Lo que se construye es una muestra para el pitch, no un MVP. Va en un espacio co
 
 Antes de tocar un área, lee su doc. Si cambias un comportamiento, actualiza el doc en el mismo cambio.
 
-| Área                                                                                                                 | Doc                                                            |
-| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Problema, propuesta, actores, historias de usuario, glosario del dominio                                             | [docs/negocio.md](docs/negocio.md)                             |
-| La muestra: espacio controlado, proyecto, elenco, guion y segmentos                                                  | [docs/muestra.md](docs/muestra.md)                             |
-| La sala de la obra: el lago de hechos, el consenso multijugador, asientos, bots, API y web de la muestra             | [docs/multijugador.md](docs/multijugador.md)                   |
-| Solapamientos: cada documento como un PR contra la fuente única, áreas, fragmentos, detección y validación conjunta  | [docs/solapamientos.md](docs/solapamientos.md)                 |
-| Monorepo, fronteras, contextos hexagonales (y cómo crear uno), web ↔ API, variables, datos, TypeScript, tareas de Nx | [docs/arquitectura.md](docs/arquitectura.md)                   |
-| Diagramas de arquitectura, DevOps y flujo de datos                                                                   | [docs/diagramas/README.md](docs/diagramas/README.md)           |
-| Auditoría de la idea: debate adversarial, la idea purificada (Mano alzada), soporte del producto y plan              | [docs/auditoria.md](docs/auditoria.md)                         |
-| Despliegue: espejo a un repo personal, API y Postgres en Render, web en Vercel, y el día del pitch                   | [docs/despliegue.md](docs/despliegue.md)                       |
-| La web                                                                                                               | [apps/web/README.md](apps/web/README.md)                       |
-| La API                                                                                                               | [apps/api/README.md](apps/api/README.md)                       |
-| El ETL de la muestra: lago de archivos, parsers, guion, jugadores simulados y CLI                                    | [apps/etl/README.md](apps/etl/README.md)                       |
-| Base de datos y migraciones                                                                                          | [data/main/README.md](data/main/README.md)                     |
-| El add-in de Revit: la minuta de cambios al guardar, compilar, instalar y preparar el modelo                         | [tool-use-case/revit/README.md](tool-use-case/revit/README.md) |
-| Tema y componentes                                                                                                   | [packages/ui/README.md](packages/ui/README.md)                 |
-| Marca: nombre, isotipo, logotipo, color y archivos                                                                   | [docs/marca.md](docs/marca.md)                                 |
+| Área                                                                                                                 | Doc                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Problema, propuesta, actores, historias de usuario, glosario del dominio                                             | [docs/negocio.md](docs/negocio.md)                                                            |
+| La muestra: espacio controlado, proyecto, elenco, guion y segmentos                                                  | [docs/muestra.md](docs/muestra.md)                                                            |
+| La sala de la obra: el lago de hechos, el consenso multijugador, asientos, bots, API y web de la muestra             | [docs/multijugador.md](docs/multijugador.md)                                                  |
+| Solapamientos: cada documento como un PR contra la fuente única, áreas, fragmentos, detección y validación conjunta  | [docs/solapamientos.md](docs/solapamientos.md)                                                |
+| Monorepo, fronteras, contextos hexagonales (y cómo crear uno), web ↔ API, variables, datos, TypeScript, tareas de Nx | [docs/arquitectura.md](docs/arquitectura.md)                                                  |
+| Diagramas de arquitectura, DevOps y flujo de datos                                                                   | [docs/diagramas/README.md](docs/diagramas/README.md)                                          |
+| Auditoría de la idea: debate adversarial, la idea purificada (Mano alzada), soporte del producto y plan              | [docs/auditoria.md](docs/auditoria.md)                                                        |
+| Despliegue: espejo a un repo personal, API y Postgres en Render, web en Vercel, y el día del pitch                   | [docs/despliegue.md](docs/despliegue.md)                                                      |
+| Spec: síntesis, el plan de 26 tareas frente al código, backlog, flujo de usuario y arquitectura en draw.io           | [docs/spec/README.md](docs/spec/README.md), y para agentes [docs/spec/ia.md](docs/spec/ia.md) |
+| La web                                                                                                               | [apps/web/README.md](apps/web/README.md)                                                      |
+| La API                                                                                                               | [apps/api/README.md](apps/api/README.md)                                                      |
+| El ETL de la muestra: lago de archivos, parsers, guion, jugadores simulados y CLI                                    | [apps/etl/README.md](apps/etl/README.md)                                                      |
+| Base de datos y migraciones                                                                                          | [data/main/README.md](data/main/README.md)                                                    |
+| El add-in de Revit: la minuta de cambios al guardar, compilar, instalar y preparar el modelo                         | [tool-use-case/revit/README.md](tool-use-case/revit/README.md)                                |
+| Tema y componentes                                                                                                   | [packages/ui/README.md](packages/ui/README.md)                                                |
+| Marca: nombre, isotipo, logotipo, color y archivos                                                                   | [docs/marca.md](docs/marca.md)                                                                |
 
 ## Comandos
 

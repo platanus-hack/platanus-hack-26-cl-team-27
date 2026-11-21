@@ -1,0 +1,202 @@
+<mxfile host="drawio">
+  <diagram id="arq" name="arq">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1240" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="arq-title" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1;fontColor=#2C2C2A;" value="Vigente · arquitectura de software: lo construido, lo simulado y lo que falta" vertex="1">
+          <mxGeometry x="40" y="20" width="900" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-hdrF" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="&lt;b&gt;Fuentes&lt;/b&gt;" vertex="1">
+          <mxGeometry x="40" y="65" width="220" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-hdrP" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="&lt;b&gt;Personas y servicios&lt;/b&gt;" vertex="1">
+          <mxGeometry x="960" y="65" width="240" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-revit" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;Revit + add-in Minuta&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;C#, .NET 8 y 10: arma la minuta de cambios al guardar el modelo&lt;/span&gt;" vertex="1">
+          <mxGeometry x="40" y="100" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-lago" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#085041;dashed=1;" value="&lt;b&gt;Lago ficticio de archivos&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Drive, costos, correo, WhatsApp y libro de obra · apps/etl/lago&lt;/span&gt;" vertex="1">
+          <mxGeometry x="40" y="200" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-etl" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#085041;dashed=1;" value="&lt;b&gt;ETL de la muestra&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;apps/etl: parsers deterministas, guion y jugadores de los asientos vacíos&lt;/span&gt;" vertex="1">
+          <mxGeometry x="40" y="300" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-acc" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FDF1E7;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="&lt;b&gt;Autodesk ACC · APS&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;OAuth, tokens cifrados, webhooks y AEC Data Model&lt;/span&gt;" vertex="1">
+          <mxGeometry x="40" y="420" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-formats" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FDF1E7;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="&lt;b&gt;Presto, S10, P6, MS Project&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Parsers de sus exportaciones: BC3, XER, XML&lt;/span&gt;" vertex="1">
+          <mxGeometry x="40" y="520" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-cloud" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=2;fillColor=none;dashed=1;strokeColor=#888780;fontColor=#5F5E5A;fontSize=12;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;" value="Nube de Vigente · API y Postgres en Render, web en Vercel" vertex="1">
+          <mxGeometry x="290" y="90" width="640" height="640" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-auth" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FDF1E7;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="&lt;b&gt;Cuentas y organizaciones&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Hoy: token de asiento y clave de presentador, sin usuarios&lt;/span&gt;" vertex="1">
+          <mxGeometry x="310" y="120" width="270" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-web" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;Web · apps/web, Next.js 16&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;/sala, /asiento, /presentador, /espacios, /cambios, /valor&lt;/span&gt;" vertex="1">
+          <mxGeometry x="600" y="120" width="310" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=3;fillColor=#F6FBF9;strokeColor=#0F6E56;fontColor=#085041;fontSize=12;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;" value="&lt;b&gt;API · apps/api, NestJS 12&lt;/b&gt; · todo cuelga de /api" vertex="1">
+          <mxGeometry x="310" y="210" width="600" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-integrations" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;integrations&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Minuta de Revit&lt;/span&gt;" vertex="1">
+          <mxGeometry x="330" y="245" width="170" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-coordination" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;coordination&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Orquesta la cadena&lt;/span&gt;" vertex="1">
+          <mxGeometry x="520" y="245" width="200" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-room" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;room&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Asientos, eventos, reinicio&lt;/span&gt;" vertex="1">
+          <mxGeometry x="740" y="245" width="150" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-ctxlabel" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="Contextos hexagonales (context/*): domain · application · infra" vertex="1">
+          <mxGeometry x="330" y="312" width="400" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-lake" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;lake&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Hechos, lo vigente, propuestas, solapamientos, procedencia&lt;/span&gt;" vertex="1">
+          <mxGeometry x="330" y="340" width="170" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-impact" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;impact&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Dependencias, costo y plazo por reglas; lee texto libre; probabilidad&lt;/span&gt;" vertex="1">
+          <mxGeometry x="520" y="340" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-notification" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;notification&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Un aviso por afectado y su respuesta&lt;/span&gt;" vertex="1">
+          <mxGeometry x="740" y="340" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-scenario" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;scenario · Edificio Los Aromos&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Elenco, grafo de dependencias, documentos y áreas, en código: hace de onboarding&lt;/span&gt;" vertex="1">
+          <mxGeometry x="330" y="435" width="560" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-pg" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#3C3489;" value="&lt;b&gt;PostgreSQL 18 · Prisma 7&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;data/main: revisiones, hechos, lo vigente, propuestas, avisos, asientos y eventos&lt;/span&gt;" vertex="1">
+          <mxGeometry x="310" y="540" width="290" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-worker" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FDF1E7;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="&lt;b&gt;Worker y outbox en Postgres&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Envío por canal, reintentos, recordatorios y escalamiento&lt;/span&gt;" vertex="1">
+          <mxGeometry x="620" y="540" width="290" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-obs" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FDF1E7;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="&lt;b&gt;Observabilidad&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Sentry en la API y la web&lt;/span&gt;" vertex="1">
+          <mxGeometry x="310" y="650" width="290" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-ci" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;CI · GitHub Actions&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;pnpm check en cada push y PR; deploy desde el repo espejo&lt;/span&gt;" vertex="1">
+          <mxGeometry x="620" y="650" width="290" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-people" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#F1EFE8;strokeColor=#888780;fontColor=#2C2C2A;" value="&lt;b&gt;Afectados&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;En el celular, bandeja con el look de su canal&lt;/span&gt;" vertex="1">
+          <mxGeometry x="960" y="100" width="240" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-presenter" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#F1EFE8;strokeColor=#888780;fontColor=#2C2C2A;" value="&lt;b&gt;Telón y presentadora&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;/sala en el proyector y /presentador&lt;/span&gt;" vertex="1">
+          <mxGeometry x="960" y="185" width="240" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-channels" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#085041;dashed=1;" value="&lt;b&gt;Canales simulados&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Maquetas de correo, WhatsApp y Slack dentro de la web&lt;/span&gt;" vertex="1">
+          <mxGeometry x="960" y="270" width="240" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-claude" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#F1EFE8;strokeColor=#888780;fontColor=#2C2C2A;" value="&lt;b&gt;Anthropic Claude&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Opcional: lee WhatsApp, folios y actas&lt;/span&gt;" vertex="1">
+          <mxGeometry x="960" y="360" width="240" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-hdrC" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="&lt;b&gt;Canales reales&lt;/b&gt; · adapters de un puerto ChannelSender en notification" vertex="1">
+          <mxGeometry x="290" y="750" width="400" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-resend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FDF1E7;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="&lt;b&gt;Correo&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Resend&lt;/span&gt;" vertex="1">
+          <mxGeometry x="290" y="780" width="200" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-whatsapp" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FDF1E7;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="&lt;b&gt;WhatsApp&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Meta Cloud API, plantillas aprobadas&lt;/span&gt;" vertex="1">
+          <mxGeometry x="510" y="780" width="200" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-teams" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FDF1E7;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="&lt;b&gt;Teams&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Microsoft Graph API&lt;/span&gt;" vertex="1">
+          <mxGeometry x="730" y="780" width="200" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-issues" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FDF1E7;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="&lt;b&gt;ACC Issues&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;La herramienta del afectado&lt;/span&gt;" vertex="1">
+          <mxGeometry x="950" y="780" width="250" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e1" edge="1" parent="1" source="arq-revit" target="arq-integrations" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;exitX=1;exitY=0.5;entryX=0;entryY=0.25;" value="1 · POST minuta">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e2" edge="1" parent="1" source="arq-lago" target="arq-etl" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;" value="lee">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e3" edge="1" parent="1" source="arq-etl" target="arq-coordination" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;dashed=1;exitX=1;exitY=0.5;entryX=0.25;entryY=1;" value="2 · POST /revisions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e4" edge="1" parent="1" source="arq-integrations" target="arq-coordination" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;" value="misma cadena">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e5" edge="1" parent="1" source="arq-coordination" target="arq-lake" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;exitX=0.25;exitY=1;entryX=0.5;entryY=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e6" edge="1" parent="1" source="arq-coordination" target="arq-impact" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e7" edge="1" parent="1" source="arq-coordination" target="arq-notification" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;exitX=0.75;exitY=1;entryX=0.5;entryY=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e8" edge="1" parent="1" source="arq-impact" target="arq-claude" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;exitX=1;exitY=0.25;entryX=0;entryY=0.5;" value="3 · texto libre">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e9" edge="1" parent="1" source="arq-api" target="arq-pg" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;exitX=0.25;exitY=1;entryX=0.5;entryY=0;" value="4 · una transacción">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e10" edge="1" parent="1" source="arq-web" target="arq-room" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="5 · /api/* y sondeo">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e11" edge="1" parent="1" source="arq-people" target="arq-web" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;exitX=0;exitY=0.5;entryX=1;entryY=0.25;" value="6 · HTTPS">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e12" edge="1" parent="1" source="arq-presenter" target="arq-web" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;exitX=0;exitY=0.5;entryX=1;entryY=0.75;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e13" edge="1" parent="1" source="arq-web" target="arq-channels" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#5F5E5A;dashed=1;exitX=1;exitY=1;entryX=0;entryY=0.5;" value="avisos">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e14" edge="1" parent="1" source="arq-acc" target="arq-integrations" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;exitX=1;exitY=0.25;entryX=0;entryY=0.75;" value="webhooks">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e15" edge="1" parent="1" source="arq-formats" target="arq-acc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e16" edge="1" parent="1" source="arq-auth" target="arq-web" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e17" edge="1" parent="1" source="arq-pg" target="arq-worker" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="outbox">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e18" edge="1" parent="1" source="arq-worker" target="arq-resend" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;exitX=0.25;exitY=1;" value="7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e19" edge="1" parent="1" source="arq-worker" target="arq-whatsapp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;exitX=0.5;exitY=1;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e20" edge="1" parent="1" source="arq-worker" target="arq-teams" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;exitX=0.75;exitY=1;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-e21" edge="1" parent="1" source="arq-worker" target="arq-issues" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endSize=8;fontSize=11;fontStyle=1;labelBackgroundColor=#FFFFFF;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;exitX=1;exitY=0.75;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-lg0" parent="1" style="rounded=1;html=1;fillColor=#F1EFE8;strokeColor=#888780;" value="" vertex="1">
+          <mxGeometry x="40" y="905" width="14" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-lt0" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="Personas y software externo" vertex="1">
+          <mxGeometry x="60" y="900" width="165" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-lg1" parent="1" style="rounded=1;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;" value="" vertex="1">
+          <mxGeometry x="230" y="905" width="14" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-lt1" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="Vigente, construido" vertex="1">
+          <mxGeometry x="250" y="900" width="165" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-lg2" parent="1" style="rounded=1;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;dashed=1;" value="" vertex="1">
+          <mxGeometry x="420" y="905" width="14" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-lt2" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="Simulado en la muestra" vertex="1">
+          <mxGeometry x="440" y="900" width="165" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-lg3" parent="1" style="rounded=1;html=1;fillColor=#FDF1E7;strokeColor=#B4690E;dashed=1;" value="" vertex="1">
+          <mxGeometry x="610" y="905" width="14" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-lt3" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="Por construir" vertex="1">
+          <mxGeometry x="630" y="900" width="165" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-lg4" parent="1" style="rounded=1;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;" value="" vertex="1">
+          <mxGeometry x="800" y="905" width="14" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="arq-lt4" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="Datos" vertex="1">
+          <mxGeometry x="820" y="900" width="165" height="24" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
