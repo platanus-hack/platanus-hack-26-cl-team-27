@@ -296,18 +296,69 @@ model RoomState {
   @@map("room_state")
 }
 
+model Organization {
+  id          String       @id
+  name        String
+  createdAt   DateTime     @default(now()) @map("created_at")
+  projects    Project[]
+  memberships Membership[]
+  invitations Invitation[]
+
+  @@map("organizations")
+}
+
+model User {
+  id          String       @id @default(uuid()) @db.Uuid
+  authSubject String       @unique @map("auth_subject")
+  email       String       @unique
+  name        String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  memberships Membership[]
+
+  @@map("users")
+}
+
+model Membership {
+  organizationId String       @map("organization_id")
+  userId         String       @map("user_id") @db.Uuid
+  role           String
+  createdAt      DateTime     @default(now()) @map("created_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, userId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+model Invitation {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id")
+  email          String
+  role           String
+  createdAt      DateTime     @default(now()) @map("created_at")
+  acceptedAt     DateTime?    @map("accepted_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, email])
+  @@index([email])
+  @@map("invitations")
+}
+
 model Project {
-  id               String   @id
+  id               String       @id
+  organizationId   String       @map("organization_id")
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   name             String
   location         String
   description      String
-  authorId         String   @map("author_id")
-  costOwnerId      String   @map("cost_owner_id")
-  scheduleOwnerId  String   @map("schedule_owner_id")
-  modelDocumentId  String?  @map("model_document_id")
-  longitudinalAxes Json     @map("longitudinal_axes")
-  transversalAxes  Int[]    @map("transversal_axes")
-  createdAt        DateTime @default(now()) @map("created_at")
+  authorId         String       @map("author_id")
+  costOwnerId      String       @map("cost_owner_id")
+  scheduleOwnerId  String       @map("schedule_owner_id")
+  modelDocumentId  String?      @map("model_document_id")
+  longitudinalAxes Json         @map("longitudinal_axes")
+  transversalAxes  Int[]        @map("transversal_axes")
+  createdAt        DateTime     @default(now()) @map("created_at")
 
   members      ProjectMember[]
   spaces       ProjectSpace[]

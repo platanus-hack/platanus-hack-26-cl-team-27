@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from '../generated/prisma/client.ts';
 import type {
   AxisDef,
   ModelPropertyDef,
+  OrganizationDef,
   ProjectDefinition,
   SpatialRule,
   SubjectAttributeDef,
@@ -19,6 +20,7 @@ export const saveProjectDefinition = async (
 ): Promise<void> => {
   const projectId = project.id;
   const fields = {
+    organizationId: project.organizationId,
     name: project.name,
     location: project.location,
     description: project.description,
@@ -142,6 +144,42 @@ export const saveProjectDefinition = async (
   });
 };
 
+export const saveOrganization = async (
+  prisma: PrismaClient,
+  organization: OrganizationDef,
+): Promise<void> => {
+  await prisma.organization.upsert({
+    where: { id: organization.id },
+    create: { id: organization.id, name: organization.name },
+    update: { name: organization.name },
+  });
+};
+
+export const inviteToOrganization = async (
+  prisma: PrismaClient,
+  invitation: {
+    readonly organizationId: string;
+    readonly email: string;
+    readonly role: string;
+  },
+): Promise<void> => {
+  const email = invitation.email.trim().toLowerCase();
+  await prisma.invitation.upsert({
+    where: {
+      organizationId_email: {
+        organizationId: invitation.organizationId,
+        email,
+      },
+    },
+    create: {
+      organizationId: invitation.organizationId,
+      email,
+      role: invitation.role,
+    },
+    update: { role: invitation.role },
+  });
+};
+
 export const listProjectIds = async (
   prisma: PrismaClient,
 ): Promise<string[]> => {
@@ -175,6 +213,7 @@ export const loadProjectDefinition = async (
   if (!row) return null;
   return {
     id: row.id,
+    organizationId: row.organizationId,
     name: row.name,
     location: row.location,
     description: row.description,
