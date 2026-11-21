@@ -1,2 +1,2 @@
-export const APP_NAME = 'Team 27';
-export const APP_TAGLINE = 'Platanus Hack 26';
+export const APP_NAME = 'La sala de la obra';
+export const APP_TAGLINE = 'Edificio Los Aromos · Platanus Hack 26';
