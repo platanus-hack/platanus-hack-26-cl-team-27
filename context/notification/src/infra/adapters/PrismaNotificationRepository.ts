@@ -36,9 +36,11 @@ const toNotification = (row: NotificationRow): Notification => ({
 
 export class PrismaNotificationRepository implements NotificationRepository {
   private readonly prisma: PrismaClient;
+  private readonly projectId: string;
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient, projectId: string) {
     this.prisma = prisma;
+    this.projectId = projectId;
   }
 
   async saveMany(
@@ -48,6 +50,7 @@ export class PrismaNotificationRepository implements NotificationRepository {
       drafts.map((draft) =>
         this.prisma.notification.create({
           data: {
+            projectId: this.projectId,
             changeId: draft.changeId,
             stakeholderId: draft.stakeholderId,
             channel: draft.channel,
@@ -64,6 +67,7 @@ export class PrismaNotificationRepository implements NotificationRepository {
   async list(filter: NotificationFilter): Promise<Notification[]> {
     const rows = await this.prisma.notification.findMany({
       where: {
+        projectId: this.projectId,
         ...(filter.changeIds
           ? { changeId: { in: [...filter.changeIds] } }
           : {}),
@@ -81,7 +85,7 @@ export class PrismaNotificationRepository implements NotificationRepository {
     response: NotificationResponse,
   ): Promise<Notification | null> {
     const { count } = await this.prisma.notification.updateMany({
-      where: { id },
+      where: { id, projectId: this.projectId },
       data: {
         response: response.kind,
         responseNote: response.note,
@@ -89,13 +93,15 @@ export class PrismaNotificationRepository implements NotificationRepository {
       },
     });
     if (count === 0) return null;
-    const row = await this.prisma.notification.findUnique({ where: { id } });
+    const row = await this.prisma.notification.findUnique({
+      where: { id, projectId: this.projectId },
+    });
     return row ? toNotification(row) : null;
   }
 
   async clearResponse(id: string): Promise<Notification | null> {
     const { count } = await this.prisma.notification.updateMany({
-      where: { id },
+      where: { id, projectId: this.projectId },
       data: { response: null, responseNote: null, respondedAt: null },
     });
     if (count === 0) return null;
@@ -103,7 +109,9 @@ export class PrismaNotificationRepository implements NotificationRepository {
   }
 
   async findById(id: string): Promise<Notification | null> {
-    const row = await this.prisma.notification.findUnique({ where: { id } });
+    const row = await this.prisma.notification.findUnique({
+      where: { id, projectId: this.projectId },
+    });
     return row ? toNotification(row) : null;
   }
 }

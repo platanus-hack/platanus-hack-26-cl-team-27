@@ -42,14 +42,17 @@ const toProposal = (row: ProposalRow): Proposal => ({
 
 export class PrismaProposalRepository implements ProposalRepository {
   private readonly prisma: PrismaClient;
+  private readonly projectId: string;
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient, projectId: string) {
     this.prisma = prisma;
+    this.projectId = projectId;
   }
 
   async create(proposal: NewProposal): Promise<Proposal> {
     const row = await this.prisma.proposal.create({
       data: {
+        projectId: this.projectId,
         changeId: proposal.changeId,
         changeIds: toJson(proposal.changeIds),
         documentId: proposal.documentId,
@@ -72,7 +75,7 @@ export class PrismaProposalRepository implements ProposalRepository {
   async save(proposal: Proposal): Promise<void> {
     await this.prisma.$transaction([
       this.prisma.proposal.update({
-        where: { id: proposal.id },
+        where: { id: proposal.id, projectId: this.projectId },
         data: {
           status: proposal.status,
           resolvedAt: proposal.resolvedAt,
@@ -95,7 +98,7 @@ export class PrismaProposalRepository implements ProposalRepository {
 
   async findById(id: string): Promise<Proposal | null> {
     const row = await this.prisma.proposal.findUnique({
-      where: { id },
+      where: { id, projectId: this.projectId },
       include: { reviews: true },
     });
     return row ? toProposal(row) : null;
@@ -103,7 +106,7 @@ export class PrismaProposalRepository implements ProposalRepository {
 
   async list(status?: ProposalStatus): Promise<Proposal[]> {
     const rows = await this.prisma.proposal.findMany({
-      where: status ? { status } : undefined,
+      where: { projectId: this.projectId, ...(status ? { status } : {}) },
       include: { reviews: true },
       orderBy: { openedAt: 'asc' },
     });
@@ -112,7 +115,10 @@ export class PrismaProposalRepository implements ProposalRepository {
 
   async listActive(): Promise<Proposal[]> {
     const rows = await this.prisma.proposal.findMany({
-      where: { status: { in: ['open', 'disputed'] } },
+      where: {
+        projectId: this.projectId,
+        status: { in: ['open', 'disputed'] },
+      },
       include: { reviews: true },
       orderBy: { openedAt: 'asc' },
     });
@@ -120,6 +126,8 @@ export class PrismaProposalRepository implements ProposalRepository {
   }
 
   async clear(): Promise<void> {
-    await this.prisma.proposal.deleteMany();
+    await this.prisma.proposal.deleteMany({
+      where: { projectId: this.projectId },
+    });
   }
 }

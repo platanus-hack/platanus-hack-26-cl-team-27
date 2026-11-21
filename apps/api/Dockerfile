@@ -26,4 +26,4 @@ ENV NODE_ENV=production \
 
 EXPOSE 10000
 
-CMD ["sh", "-c", "cd /repo/data/main && node_modules/.bin/prisma migrate deploy && cd /repo/apps/api && exec node dist/main.js"]
+CMD ["sh", "-c", "cd /repo/data/main && node_modules/.bin/prisma migrate deploy && node seed/main.ts --si-no-hay && cd /repo/apps/api && exec node dist/main.js"]

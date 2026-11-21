@@ -1,3 +1,4 @@
+import { project } from '../../project.ts';
 import {
   type MinuteInput,
   acceptProposal,
@@ -25,7 +26,7 @@ const MINUTE: MinuteInput = {
 const NOW = new Date('2026-11-21T21:30:00Z');
 
 const posted = () => {
-  const store = seedStore(1);
+  const store = seedStore(1, project);
   const outcome = submitMinute(store, 'paula-rojas', MINUTE, NOW);
   return { store, outcome };
 };
@@ -106,7 +107,7 @@ describe('flow engine', () => {
   });
 
   it('solo el dueño del elemento publica la minuta', () => {
-    const store = seedStore(1);
+    const store = seedStore(1, project);
     expect(
       statusCode(() => submitMinute(store, 'camila-vera', MINUTE, NOW)),
     ).toBe(403);
@@ -114,7 +115,7 @@ describe('flow engine', () => {
   });
 
   it('un elemento desconocido es 404', () => {
-    const store = seedStore(1);
+    const store = seedStore(1, project);
     const bad = {
       ...MINUTE,
       changes: [{ ...MINUTE.changes[0]!, elementId: 'X-1' }],
@@ -135,7 +136,7 @@ describe('flow engine', () => {
   });
 
   it('un movimiento que no choca no abre propuesta', () => {
-    const store = seedStore(1);
+    const store = seedStore(1, project);
     const small = {
       ...MINUTE,
       changes: [{ ...MINUTE.changes[0]!, delta: { dx: 0, dy: -0.1, dz: 0 } }],

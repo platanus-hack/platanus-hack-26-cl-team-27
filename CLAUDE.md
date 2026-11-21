@@ -37,6 +37,7 @@ pnpm install
 cp .env.example .env
 pnpm db:up                          # PostgreSQL 18 de docker compose en :5427
 pnpm db:migrate                     # migraciones pendientes
+pnpm db:seed                        # siembra el proyecto Los Aromos (lo reemplaza si ya está)
 pnpm dev                            # API en http://localhost:3001/api y web en http://localhost:3000
 pnpm dev:api | pnpm dev:web
 pnpm etl                            # carga y juega la muestra: Enter = paso siguiente (ver apps/etl/README.md)

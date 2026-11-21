@@ -74,7 +74,7 @@ Al terminar todo el guion, sin personas en los asientos, la sala queda en «Obra
 
 ### Una demo
 
-1. `pnpm db:up`, `pnpm db:migrate` y `pnpm dev`.
+1. `pnpm db:up`, `pnpm db:migrate`, `pnpm db:seed` y `pnpm dev`.
 2. En otra terminal, `pnpm etl`: carga el lago y queda esperando.
 3. Abre `/sala` (telón) y `/presentador`. Los invitados toman asientos desde su celular; los asientos vacíos los juega el ETL.
 4. `Enter` en cada paso. Si Paula disputa, `o` (o el botón de `/presentador`) reabre y aprueba.

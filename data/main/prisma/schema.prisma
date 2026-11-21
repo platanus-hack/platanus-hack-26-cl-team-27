@@ -10,6 +10,7 @@ datasource db {
 }
 
 model Change {
+  projectId   String   @map("project_id")
   id          String   @id @default(uuid()) @db.Uuid
   sourceId    String   @map("source_id")
   elementId   String   @map("element_id")
@@ -22,22 +23,25 @@ model Change {
   after       Json
   detectedAt  DateTime @default(now()) @map("detected_at")
 
-  @@index([detectedAt])
+  @@index([projectId, detectedAt])
   @@index([sourceId])
   @@map("changes")
 }
 
 model Impact {
+  projectId  String   @map("project_id")
   changeId   String   @id @map("change_id") @db.Uuid
   costDelta  Int      @map("cost_delta")
   delayDays  Int      @map("delay_days")
   detail     Json
   analyzedAt DateTime @default(now()) @map("analyzed_at")
 
+  @@index([projectId])
   @@map("impacts")
 }
 
 model Notification {
+  projectId     String    @map("project_id")
   id            String    @id @default(uuid()) @db.Uuid
   changeId      String    @map("change_id") @db.Uuid
   stakeholderId String    @map("stakeholder_id")
@@ -52,10 +56,12 @@ model Notification {
 
   @@index([changeId])
   @@index([stakeholderId])
+  @@index([projectId])
   @@map("notifications")
 }
 
 model Revision {
+  projectId     String   @map("project_id")
   id            String   @id @default(uuid()) @db.Uuid
   documentId    String   @map("document_id")
   documentName  String   @map("document_name")
@@ -70,11 +76,12 @@ model Revision {
   chunks        Chunk[]
   claims        Claim[]
 
-  @@unique([documentId, label])
+  @@unique([projectId, documentId, label])
   @@map("revisions")
 }
 
 model Chunk {
+  projectId  String   @map("project_id")
   id         String   @id @default(uuid()) @db.Uuid
   revisionId String   @map("revision_id") @db.Uuid
   position   Int
@@ -86,10 +93,12 @@ model Chunk {
   claims     Claim[]
 
   @@index([revisionId])
+  @@index([projectId])
   @@map("chunks")
 }
 
 model Claim {
+  projectId  String   @map("project_id")
   id         String   @id @default(uuid()) @db.Uuid
   revisionId String   @map("revision_id") @db.Uuid
   chunkId    String?  @map("chunk_id") @db.Uuid
@@ -105,11 +114,12 @@ model Claim {
 
   @@index([revisionId])
   @@index([chunkId])
-  @@index([subject, attribute])
+  @@index([projectId, subject, attribute])
   @@map("claims")
 }
 
 model BaselineEntry {
+  projectId  String            @map("project_id")
   subject    String
   attribute  String
   value      Json
@@ -121,11 +131,12 @@ model BaselineEntry {
   version    Int               @default(1)
   history    BaselineHistory[]
 
-  @@id([subject, attribute])
+  @@id([projectId, subject, attribute])
   @@map("baseline_entries")
 }
 
 model BaselineHistory {
+  projectId  String        @map("project_id")
   id         String        @id @default(uuid()) @db.Uuid
   subject    String
   attribute  String
@@ -136,13 +147,14 @@ model BaselineHistory {
   proposalId String?       @map("proposal_id")
   since      DateTime
   until      DateTime
-  entry      BaselineEntry @relation(fields: [subject, attribute], references: [subject, attribute], onDelete: Cascade)
+  entry      BaselineEntry @relation(fields: [projectId, subject, attribute], references: [projectId, subject, attribute], onDelete: Cascade)
 
-  @@index([subject, attribute])
+  @@index([projectId, subject, attribute])
   @@map("baseline_history")
 }
 
 model Proposal {
+  projectId        String    @map("project_id")
   id               String    @id @default(uuid()) @db.Uuid
   changeId         String?   @map("change_id")
   changeIds        Json      @default("[]") @map("change_ids")
@@ -158,7 +170,7 @@ model Proposal {
   supersededById   String?   @map("superseded_by_id")
   reviews          Review[]
 
-  @@index([status])
+  @@index([projectId, status])
   @@index([documentId])
   @@map("proposals")
 }
@@ -177,6 +189,7 @@ model Review {
 }
 
 model Discrepancy {
+  projectId          String    @map("project_id")
   id                 String    @id @default(uuid()) @db.Uuid
   subject            String
   attribute          String
@@ -193,11 +206,12 @@ model Discrepancy {
   createdAt          DateTime  @default(now()) @map("created_at")
   resolvedAt         DateTime? @map("resolved_at")
 
-  @@index([status])
+  @@index([projectId, status])
   @@map("discrepancies")
 }
 
 model Acknowledgement {
+  projectId  String   @map("project_id")
   id         String   @id @default(uuid()) @db.Uuid
   documentId String   @map("document_id")
   revisionId String   @map("revision_id")
@@ -207,10 +221,12 @@ model Acknowledgement {
   at         DateTime @default(now())
 
   @@index([documentId])
+  @@index([projectId])
   @@map("acknowledgements")
 }
 
 model Overlap {
+  projectId       String        @map("project_id")
   id              String        @id @default(uuid()) @db.Uuid
   proposalId      String?       @map("proposal_id")
   otherProposalId String?       @map("other_proposal_id")
@@ -231,7 +247,7 @@ model Overlap {
   resolvedAt      DateTime?     @map("resolved_at")
   votes           OverlapVote[]
 
-  @@index([status])
+  @@index([projectId, status])
   @@index([proposalId])
   @@map("overlaps")
 }
@@ -250,29 +266,210 @@ model OverlapVote {
 }
 
 model Seat {
-  castId     String   @id @map("cast_id")
+  projectId  String   @map("project_id")
+  castId     String   @map("cast_id")
   tokenHash  String   @map("token_hash")
   claimedAt  DateTime @default(now()) @map("claimed_at")
   lastBeatAt DateTime @default(now()) @map("last_beat_at")
 
+  @@id([projectId, castId])
   @@map("seats")
 }
 
 model RoomEvent {
-  seq     Int      @id @default(autoincrement())
-  epoch   Int
-  kind    String
-  message String
-  refs    Json
-  at      DateTime @default(now())
+  projectId String   @map("project_id")
+  seq       Int      @id @default(autoincrement())
+  epoch     Int
+  kind      String
+  message   String
+  refs      Json
+  at        DateTime @default(now())
 
-  @@index([epoch])
+  @@index([projectId, epoch])
   @@map("room_events")
 }
 
 model RoomState {
-  id    Int @id
-  epoch Int @default(1)
+  projectId String @id @map("project_id")
+  epoch     Int    @default(1)
 
   @@map("room_state")
+}
+
+model Project {
+  id               String   @id
+  name             String
+  location         String
+  description      String
+  authorId         String   @map("author_id")
+  costOwnerId      String   @map("cost_owner_id")
+  scheduleOwnerId  String   @map("schedule_owner_id")
+  modelDocumentId  String?  @map("model_document_id")
+  longitudinalAxes Json     @map("longitudinal_axes")
+  transversalAxes  Int[]    @map("transversal_axes")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  members      ProjectMember[]
+  spaces       ProjectSpace[]
+  documents    ProjectDocument[]
+  attributes   ProjectAttribute[]
+  subjects     ProjectSubject[]
+  elements     ModelElement[]
+  budgetItems  BudgetItem[]
+  tasks        ScheduleTask[]
+  dependencies ProjectDependency[]
+  levels       ProjectLevel[]
+  systems      ProjectSystem[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  projectId String  @map("project_id")
+  id        String
+  position  Int
+  name      String
+  role      String
+  channel   String
+  handle    String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, id])
+  @@map("project_members")
+}
+
+model ProjectSpace {
+  projectId String  @map("project_id")
+  id        String
+  position  Int
+  name      String
+  kind      String
+  ownerId   String  @map("owner_id")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, id])
+  @@map("project_spaces")
+}
+
+model ProjectDocument {
+  projectId String  @map("project_id")
+  id        String
+  position  Int
+  name      String
+  kind      String
+  spaceId   String  @map("space_id")
+  ownerId   String  @map("owner_id")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, id])
+  @@map("project_documents")
+}
+
+model ProjectAttribute {
+  projectId String  @map("project_id")
+  key       String
+  position  Int
+  label     String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, key])
+  @@map("project_attributes")
+}
+
+model ProjectSubject {
+  projectId  String  @map("project_id")
+  id         String
+  position   Int
+  name       String
+  section    String
+  category   String
+  attributes Json
+  spatial    Json?
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, id])
+  @@map("project_subjects")
+}
+
+model ModelElement {
+  projectId  String  @map("project_id")
+  id         String
+  position   Int
+  name       String
+  category   String
+  level      Int?
+  properties Json
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, id])
+  @@map("model_elements")
+}
+
+model BudgetItem {
+  projectId String  @map("project_id")
+  code      String
+  position  Int
+  name      String
+  unit      String
+  unitPrice Int     @map("unit_price")
+  category  String
+  quantity  String
+  factor    Float
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, code])
+  @@map("budget_items")
+}
+
+model ScheduleTask {
+  projectId    String   @map("project_id")
+  id           String
+  position     Int
+  name         String
+  days         Int
+  predecessors String[]
+  driver       Json?
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, id])
+  @@map("schedule_tasks")
+}
+
+model ProjectDependency {
+  projectId     String   @map("project_id")
+  position      Int
+  category      String
+  watches       String[]
+  stakeholderId String   @map("stakeholder_id")
+  summary       String
+  action        String
+  measures      String[]
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, position])
+  @@map("project_dependencies")
+}
+
+model ProjectLevel {
+  projectId String  @map("project_id")
+  id        String
+  position  Int
+  label     String
+  short     String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, id])
+  @@map("project_levels")
+}
+
+model ProjectSystem {
+  projectId     String  @map("project_id")
+  id            String
+  position      Int
+  label         String
+  occupiesSpace Boolean @map("occupies_space")
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, id])
+  @@map("project_systems")
 }
