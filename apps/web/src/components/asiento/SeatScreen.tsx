@@ -3,69 +3,111 @@
 import { Notice } from '@team27/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 
+import { ProposalDrawer } from '@/components/cambios/ProposalDrawer';
+import { Avatar } from '@/components/common/Avatar';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { Icon } from '@/components/common/Icon';
+import { textLink } from '@/components/common/link-styles';
 import {
   Empty,
   Loading,
   LoadError,
   WaitingForLake,
 } from '@/components/common/LoadState';
-import { Icon } from '@/components/common/Icon';
-import { initials } from '@/components/common/initials';
+import { Tabs } from '@/components/common/Tabs';
 import { useSeatToken } from '@/hooks/use-held-seats';
 import { useLive } from '@/hooks/use-live';
-import { ApiError } from '@/lib/http';
+import { ApiError, describeError } from '@/lib/http';
 import {
   getInbox,
-  isPending,
+  groupInbox,
   itemTime,
+  publicInbox,
+  type InboxDiscrepancy,
   type InboxItem,
-  type InboxResponse,
+  type InboxVote,
 } from '@/lib/inbox-api';
+import { getProposals, type ProposalView } from '@/lib/proposals-api';
 import { DEFAULT_INTERVAL_MS } from '@/lib/pulse';
-import { getRoom, type CastMember } from '@/lib/room-api';
+import { CHANNEL_LABEL, getRoom, type CastMember } from '@/lib/room-api';
 import { clearAllSeatTokens, clearSeatToken } from '@/lib/seat-storage';
+import { getSpaces } from '@/lib/spaces-api';
+import { dismissDiscrepancy } from '@/lib/votes-api';
 
 import { AuthorActions } from './AuthorActions';
-import { ChannelShell, type ChannelItem } from './ChannelShell';
-import { DiscrepancyCard } from './DiscrepancyCard';
-import { FilteredCard } from './FilteredCard';
+import { ChannelEntry, ChannelFrame, type ChannelEntryData } from './Channel';
+import {
+  AnsweredBody,
+  DiscrepancyBody,
+  FilteredBody,
+  StaleBody,
+  VoteBody,
+} from './InboxBodies';
 import { PresenceBadge } from './PresenceBadge';
-import { StaleCard } from './StaleCard';
-import { VoteCard } from './VoteCard';
 
 interface SeatData {
   readonly cast: CastMember | null;
-  readonly inbox: InboxResponse | null;
+  readonly items: readonly InboxItem[];
+  readonly authoring: readonly ProposalView[];
+  readonly proposals: readonly ProposalView[];
   readonly revoked: boolean;
   readonly lakeEmpty: boolean;
 }
 
-const SUBJECT: Record<InboxItem['type'], string> = {
-  vote: '',
-  discrepancy: 'Un valor no coincide con lo vigente',
-  stale: 'Tu documento quedó desfasado',
-  filtered: 'Este cambio no te toca',
-};
+type View = 'pending' | 'answered';
+
+const proposalTitle = (vote: InboxVote, proposal: ProposalView | null) =>
+  proposal?.elementName ?? vote.title;
 
 export function SeatScreen({ castId }: { readonly castId: string }) {
   const router = useRouter();
   const { ready, token } = useSeatToken(castId);
+  const [view, setView] = useState<View>('pending');
+  const [openChange, setOpenChange] = useState<string | null>(null);
+  const [dismissing, setDismissing] = useState<InboxDiscrepancy | null>(null);
+  const [dismissBusy, setDismissBusy] = useState(false);
+  const [dismissError, setDismissError] = useState<string | null>(null);
 
   const load = useCallback(
     async (signal: AbortSignal): Promise<SeatData> => {
       const room = await getRoom(signal);
       const lakeEmpty = room.lake.empty;
       const cast = room.cast.find((member) => member.id === castId) ?? null;
-      if (!token) return { cast, inbox: null, revoked: false, lakeEmpty };
+      const proposalsRequest = getProposals(undefined, signal);
+      const readOnly = async (revoked: boolean): Promise<SeatData> => {
+        const [proposals, spaces] = await Promise.all([
+          proposalsRequest,
+          getSpaces(signal),
+        ]);
+        return {
+          cast,
+          items: publicInbox(castId, proposals.proposals, spaces.spaces),
+          authoring: [],
+          proposals: proposals.proposals,
+          revoked,
+          lakeEmpty,
+        };
+      };
+      if (!token) return readOnly(false);
       try {
-        const inbox = await getInbox(castId, { seatToken: token }, signal);
-        return { cast, inbox, revoked: false, lakeEmpty };
+        const [inbox, proposals] = await Promise.all([
+          getInbox(castId, { seatToken: token }, signal),
+          proposalsRequest,
+        ]);
+        return {
+          cast,
+          items: inbox.items,
+          authoring: inbox.authoring,
+          proposals: proposals.proposals,
+          revoked: false,
+          lakeEmpty,
+        };
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
           clearSeatToken(castId);
-          return { cast, inbox: null, revoked: true, lakeEmpty };
+          return readOnly(true);
         }
         throw error;
       }
@@ -73,7 +115,7 @@ export function SeatScreen({ castId }: { readonly castId: string }) {
     [castId, token],
   );
 
-  const { data, error, loading, status, reload } = useLive({
+  const { data, error, loading, status, events, reload } = useLive({
     load,
     intervalMs: DEFAULT_INTERVAL_MS,
     dependencyKey: `${castId}:${token ?? ''}`,
@@ -86,6 +128,8 @@ export function SeatScreen({ castId }: { readonly castId: string }) {
     },
   });
 
+  const close = useCallback(() => setOpenChange(null), []);
+
   if (!ready || (loading && !data)) return <Loading />;
   if (!data)
     return (
@@ -94,95 +138,182 @@ export function SeatScreen({ castId }: { readonly castId: string }) {
       </div>
     );
 
-  const { cast, inbox } = data;
+  const { cast } = data;
   if (!cast)
     return (
       <div className="flex flex-col gap-3 p-4">
         <Notice tone="error">Ese asiento no existe.</Notice>
-        <Link
-          href="/"
-          className="text-sm font-medium text-accent-text hover:underline"
-        >
+        <Link href="/" className={`${textLink} text-sm`}>
           Elegir un asiento
         </Link>
       </div>
     );
 
   const readOnly = !token;
-  const items = inbox?.items ?? [];
-  const pending = items.filter(isPending);
-  const rest = items.filter((item) => !isPending(item));
-  const ordered = [...pending, ...rest].sort(
-    (a, b) =>
-      Number(isPending(b)) - Number(isPending(a)) ||
-      itemTime(b).localeCompare(itemTime(a)),
-  );
-
-  const channelItems: ChannelItem[] = ordered.map((item): ChannelItem => {
-    const body: ReactNode =
-      item.type === 'vote' ? (
-        <VoteCard item={item} seatToken={token} onDone={reload} />
-      ) : item.type === 'discrepancy' ? (
-        <DiscrepancyCard item={item} seatToken={token} onDone={reload} />
-      ) : item.type === 'stale' ? (
-        <StaleCard item={item} seatToken={token} onDone={reload} />
-      ) : (
-        <FilteredCard item={item} castId={castId} />
-      );
-    return {
-      id: `${item.type}-${item.id}`,
-      from: item.type === 'vote' ? 'Aviso de cambio' : 'Los Aromos',
-      at: itemTime(item),
-      subject: item.type === 'vote' ? item.title : SUBJECT[item.type],
-      unread: isPending(item),
-      body,
-    };
-  });
-
-  const upToDate = !readOnly && !data.lakeEmpty && pending.length === 0;
   const channel = cast.channel ?? 'email';
-  const auth = { seatToken: token };
-  const authoring = inbox?.authoring ?? [];
+  const proposalById = new Map(data.proposals.map((p) => [p.id, p]));
+  const groups = groupInbox(data.items);
+  const open = (changeId: string) => setOpenChange(changeId);
+
+  const entryFor = (item: InboxItem): ChannelEntryData => {
+    const base = { id: `${item.type}-${item.id}`, at: itemTime(item) || null };
+    switch (item.type) {
+      case 'vote': {
+        const proposal = proposalById.get(item.proposalId) ?? null;
+        const pending = groups.pending.includes(item);
+        return {
+          ...base,
+          tag: pending ? 'Te piden revisar' : 'Respondido',
+          tagTone: pending ? 'accent' : 'neutral',
+          title: proposalTitle(item, proposal),
+          unread: pending,
+          body: pending ? (
+            <VoteBody
+              vote={item}
+              proposal={proposal}
+              seatToken={token}
+              onDone={reload}
+              onOpen={() => open(item.changeId)}
+            />
+          ) : (
+            <AnsweredBody
+              vote={item}
+              proposal={proposal}
+              onOpen={() => open(item.changeId)}
+            />
+          ),
+        };
+      }
+      case 'discrepancy':
+        return {
+          ...base,
+          tag: 'Discrepancia',
+          tagTone: 'critical',
+          title: `${item.subjectName} · ${item.label}`,
+          unread: true,
+          body: (
+            <DiscrepancyBody
+              item={item}
+              seatToken={token}
+              onDismiss={setDismissing}
+            />
+          ),
+        };
+      case 'stale':
+        return {
+          ...base,
+          tag: 'Documento desfasado',
+          tagTone: 'serious',
+          title: `${item.documentTitle} · ${item.revisionLabel}`,
+          unread: true,
+          body: <StaleBody item={item} seatToken={token} onDone={reload} />,
+        };
+      case 'filtered':
+        return {
+          ...base,
+          tag: 'Para tu información',
+          tagTone: 'neutral',
+          title: item.title,
+          unread: false,
+          body: <FilteredBody item={item} onOpen={() => open(item.changeId)} />,
+        };
+    }
+  };
+
+  const entries = (items: readonly InboxItem[]) =>
+    items.map((item) => (
+      <ChannelEntry
+        key={`${item.type}-${item.id}`}
+        channel={channel}
+        entry={entryFor(item)}
+      />
+    ));
+
+  const list = (
+    items: readonly InboxItem[],
+    empty: ReactNode,
+    extra: readonly InboxItem[] = [],
+  ) =>
+    items.length === 0 && extra.length === 0 ? (
+      <div className="bg-surface px-4 py-6">{empty}</div>
+    ) : (
+      <ChannelFrame channel={channel} cast={cast}>
+        {items.length === 0 ? (
+          <div className="px-4 py-4">{empty}</div>
+        ) : (
+          entries(items)
+        )}
+        {extra.length > 0 && (
+          <h2 className="px-4 pt-4 pb-1 text-xs font-medium text-ink-2">
+            Para tu información
+          </h2>
+        )}
+        {entries(extra)}
+      </ChannelFrame>
+    );
+
+  const confirmDismiss = async () => {
+    if (!dismissing) return;
+    setDismissBusy(true);
+    setDismissError(null);
+    try {
+      await dismissDiscrepancy(dismissing.id, { seatToken: token });
+      setDismissing(null);
+      reload();
+    } catch (failure) {
+      setDismissError(describeError(failure));
+    } finally {
+      setDismissBusy(false);
+    }
+  };
 
   return (
-    <div className="flex min-h-dvh flex-col gap-4 pb-8">
+    <div className="flex min-h-dvh flex-col pb-10">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-hairline bg-surface px-4 py-3">
-        <span
-          aria-hidden
-          className="grid size-10 place-items-center rounded-full bg-accent text-sm font-semibold text-on-accent"
-        >
-          {initials(cast.name)}
-        </span>
+        <Avatar name={cast.name} tone="accent" size="lg" />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-base font-semibold text-ink">
             {cast.name}
           </h1>
-          <p className="truncate text-sm text-ink-2">{cast.role}</p>
+          <p className="truncate text-sm text-ink-2">
+            {cast.role}
+            {cast.channel && ` · ${CHANNEL_LABEL[cast.channel]}`}
+          </p>
         </div>
         <div className="flex flex-col items-end gap-0.5">
-          <PresenceBadge status={status} />
-          <Link
-            href="/sala"
-            className="text-sm font-medium text-accent-text hover:underline"
-          >
+          <PresenceBadge
+            status={readOnly ? 'connecting' : status}
+            readOnly={readOnly}
+          />
+          <Link href="/sala" className={`${textLink} text-sm`}>
             Ver la sala
           </Link>
         </div>
       </header>
 
-      {data.revoked && (
-        <div className="px-4">
+      <div className="flex flex-col gap-2 px-4 pt-3 empty:hidden">
+        {status === 'offline' && (
+          <Notice tone="error">Sin conexión. Seguimos intentando solos.</Notice>
+        )}
+        {data.revoked && (
           <Notice tone="error">
             Tu asiento se liberó.{' '}
             <Link className="underline" href="/">
-              Elige uno de nuevo
+              Tómalo de nuevo
             </Link>
             .
           </Notice>
-        </div>
-      )}
-      {readOnly && !data.revoked && (
-        <div className="px-4">
+        )}
+        {cast.presenter && (
+          <Notice>
+            Este es el asiento de la presentadora. Sus avisos están en{' '}
+            <Link className="underline" href="/presentador">
+              la sala de Fernanda
+            </Link>
+            .
+          </Notice>
+        )}
+        {readOnly && !data.revoked && !cast.presenter && (
           <Notice>
             Estás viendo este asiento en solo lectura.{' '}
             <Link className="underline" href="/">
@@ -190,51 +321,99 @@ export function SeatScreen({ castId }: { readonly castId: string }) {
             </Link>{' '}
             para responder.
           </Notice>
-        </div>
-      )}
-      {upToDate && channelItems.length > 0 && (
-        <p className="flex items-center gap-2 px-4 text-base font-semibold text-ink">
-          <Icon name="check" filled className="size-5 text-good" />
-          Estás al día
-        </p>
-      )}
-      {data.lakeEmpty && (
-        <div className="px-4">
+        )}
+        {error && <Notice tone="error">{error}</Notice>}
+      </div>
+
+      {data.lakeEmpty ? (
+        <div className="p-4">
           <WaitingForLake>
             Cuando llegue la carga inicial, aquí aparecen tus avisos.
           </WaitingForLake>
         </div>
-      )}
-      {error && (
-        <div className="px-4">
-          <Notice tone="error">{error}</Notice>
-        </div>
+      ) : (
+        <>
+          <Tabs
+            label="Tu bandeja"
+            className="mt-2 bg-plane px-2"
+            active={view}
+            onChange={setView}
+            tabs={[
+              {
+                id: 'pending',
+                label: 'Pendientes',
+                count: groups.pending.length,
+              },
+              {
+                id: 'answered',
+                label: 'Respondidos',
+                count: groups.answered.length,
+              },
+            ]}
+          />
+          {view === 'pending'
+            ? list(
+                groups.pending,
+                <Empty icon="check">
+                  <span>
+                    <span className="block font-semibold text-ink">
+                      Estás al día
+                    </span>
+                    No tienes pendientes. Cuando un cambio te toque, llega aquí.
+                  </span>
+                </Empty>,
+                groups.info,
+              )
+            : list(
+                groups.answered,
+                <Empty>Todavía no respondes ningún aviso.</Empty>,
+              )}
+        </>
       )}
 
-      <ChannelShell
-        channel={channel}
-        cast={cast}
-        items={channelItems}
-        empty={
-          upToDate ? (
-            <p className="flex items-center gap-2 text-lg font-semibold text-ink">
-              <Icon name="check" filled className="size-6 text-good" />
-              Estás al día
-            </p>
-          ) : (
-            <Empty>Aquí aparecerán tus avisos.</Empty>
-          )
-        }
-      />
-
-      {authoring.length > 0 && (
-        <section className="px-4">
-          <h2 className="mb-2 text-base font-semibold text-ink">
+      {data.authoring.length > 0 && (
+        <section className="mt-6 px-4">
+          <h2 className="mb-2 text-sm font-semibold text-ink">
             Tus propuestas
           </h2>
-          <AuthorActions proposals={authoring} auth={auth} onDone={reload} />
+          <AuthorActions
+            proposals={data.authoring}
+            auth={{ seatToken: token }}
+            onDone={reload}
+          />
         </section>
       )}
+
+      {openChange && (
+        <ProposalDrawer
+          changeId={openChange}
+          forStakeholder={castId}
+          refreshKey={events[0]?.seq ?? 0}
+          onClose={close}
+          onChanged={reload}
+        />
+      )}
+      {dismissing && (
+        <ConfirmDialog
+          title="¿Descartar la discrepancia?"
+          confirmLabel="Sí, descartar"
+          busyLabel="Descartando…"
+          busy={dismissBusy}
+          error={dismissError}
+          onConfirm={() => void confirmDismiss()}
+          onCancel={() => {
+            setDismissing(null);
+            setDismissError(null);
+          }}
+        >
+          {dismissing.sourceTitle} deja de contar como pendiente y lo vigente
+          sigue igual.
+        </ConfirmDialog>
+      )}
+      <p className="mt-6 flex items-center justify-center gap-1.5 px-4 text-center text-xs text-ink-3">
+        <Icon name="lock" className="size-3.5" />
+        Maqueta del canal: nada sale de la app.
+      </p>
     </div>
   );
 }

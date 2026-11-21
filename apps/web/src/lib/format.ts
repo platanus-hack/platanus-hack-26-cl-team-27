@@ -53,3 +53,33 @@ export const firstName = (name: string): string => name.split(' ')[0] ?? name;
 
 export const plural = (count: number, one: string, many: string): string =>
   `${formatNumber(count)} ${count === 1 ? one : many}`;
+
+export const formatChange = (
+  before: FactValue | null,
+  after: FactValue | null,
+  unit: string | null,
+): string =>
+  `${before === null ? 'Sin dato' : formatValue(before, unit)} → ${
+    after === null ? 'Se elimina' : formatValue(after, unit)
+  }`;
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+
+export const formatRelative = (iso: string, now: number): string => {
+  const at = new Date(iso).getTime();
+  if (Number.isNaN(at)) return '';
+  if (now <= 0) return formatClock(iso);
+  const elapsed = Math.max(0, now - at);
+  if (elapsed < MINUTE) return 'Recién';
+  if (elapsed < HOUR) return `Hace ${Math.floor(elapsed / MINUTE)} min`;
+  if (elapsed < 24 * HOUR) return `Hace ${Math.floor(elapsed / HOUR)} h`;
+  return formatClock(iso);
+};
+
+export const latest = (dates: readonly (string | null)[]): string | null =>
+  dates.reduce<string | null>(
+    (best, date) =>
+      date !== null && (best === null || date > best) ? date : best,
+    null,
+  );

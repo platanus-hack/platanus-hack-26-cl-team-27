@@ -67,11 +67,68 @@ export interface SpacesResponse {
 export const getSpaces = (signal?: AbortSignal): Promise<SpacesResponse> =>
   request<SpacesResponse>('/api/spaces', { signal });
 
-export const staleDocuments = (
+export interface PlacedDocument extends DocumentView {
+  readonly spaceId: string;
+  readonly spaceName: string;
+}
+
+const place = (space: SpaceView, document: DocumentView): PlacedDocument => ({
+  ...document,
+  spaceId: space.id,
+  spaceName: space.name,
+});
+
+export const pendingDocuments = (
   spaces: readonly SpaceView[],
-): (DocumentView & { spaceName: string })[] =>
+): PlacedDocument[] =>
   spaces.flatMap((space) =>
     space.documents
-      .filter((document) => document.state === 'stale')
-      .map((document) => ({ ...document, spaceName: space.name })),
+      .filter(
+        (document) =>
+          document.state === 'stale' || document.state === 'discrepancy',
+      )
+      .map((document) => place(space, document)),
   );
+
+export const revisionsNewestFirst = (document: DocumentView): RevisionView[] =>
+  [...document.revisions].sort((a, b) =>
+    b.capturedAt.localeCompare(a.capturedAt),
+  );
+
+export const latestRevision = (document: DocumentView): RevisionView | null =>
+  document.revisions.find((revision) => revision.current) ??
+  revisionsNewestFirst(document)[0] ??
+  null;
+
+export const findDocument = (
+  spaces: readonly SpaceView[],
+  {
+    documentId,
+    revisionId,
+  }: { documentId?: string | null; revisionId?: string | null },
+): PlacedDocument | null => {
+  for (const space of spaces) {
+    const document = space.documents.find(
+      (candidate) =>
+        candidate.id === documentId ||
+        (revisionId != null &&
+          candidate.revisions.some((revision) => revision.id === revisionId)),
+    );
+    if (document) return place(space, document);
+  }
+  return null;
+};
+
+export const revisionCount = (space: SpaceView): number =>
+  space.documents.reduce(
+    (total, document) => total + document.revisions.length,
+    0,
+  );
+
+export const SPACE_KIND_LABEL: Record<SpaceKind, string> = {
+  drive: 'Carpeta de planos',
+  sharepoint: 'Carpeta de costos',
+  email: 'Correo',
+  whatsapp: 'Chat de obra',
+  libro_obra: 'Libro de obra',
+};

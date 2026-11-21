@@ -5,20 +5,23 @@ export function SealBanner({ seal }: { readonly seal: Seal }) {
   return (
     <section
       role="status"
-      className="flex flex-wrap items-center gap-6 rounded-2xl border-4 border-good bg-good/15 p-6"
+      className="flex flex-wrap items-start gap-4 rounded-xl border-2 border-good bg-good/10 px-5 py-4"
     >
-      <Icon name="seal" filled className="size-20 text-good" />
+      <Icon name="seal" filled className="size-12 text-good" />
       <div className="min-w-0 flex-1">
-        <h2 className="text-5xl font-semibold tracking-tight text-ink">
-          Obra consensuada
+        <h2 className="text-2xl font-semibold tracking-tight text-ink">
+          Obra consensuada · Versión {seal.version}
         </h2>
-        <p className="mt-1 text-2xl text-ink">
-          Versión {seal.version} del proyecto
+        <p className="text-sm text-ink-2">
+          Todos los documentos están al día y no queda nada en disputa.
         </p>
         {seal.lines.length > 0 && (
-          <ul className="mt-2 flex flex-col gap-0.5 text-xl text-ink-2">
+          <ul className="mt-2 flex flex-col gap-0.5 text-sm text-ink">
             {seal.lines.map((line) => (
-              <li key={line}>{line}</li>
+              <li key={line} className="flex items-start gap-2">
+                <Icon name="check" className="mt-0.5 text-good" />
+                {line}
+              </li>
             ))}
           </ul>
         )}

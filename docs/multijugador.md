@@ -264,29 +264,42 @@ Sondeo corto con cursor, sin SSE ni WebSockets: el `rewrite` de Next puede buffe
 
 ## La web
 
-Textos de UI en español de Chile, con tuteo.
+Textos de UI en español de Chile, con tuteo. Cada experiencia tiene un trabajo: **la sala informa, el presentador resuelve, el asiento actúa y los espacios dejan explorar el origen**. La información va en tres niveles: resumen en la pantalla, detalle en un panel lateral (propuesta, documento o valor) y procedencia completa en su página. Los paneles no sacan a nadie de donde está, y cada uno tiene su ruta para compartir.
 
-| Ruta                             | Para qué                                                           |
-| -------------------------------- | ------------------------------------------------------------------ |
-| `/`                              | Elige quién eres en la obra: tomar un asiento, ver la sala, QR     |
-| `/sala`                          | Telón del proyector, solo lectura                                  |
-| `/asiento/[castId]`              | Celular del jugador, con el look de su canal                       |
-| `/presentador`                   | Reinicio, ocupación de asientos y propuestas con reabrir y retirar |
-| `/espacios`                      | Explorador de espacios, documentos y revisiones                    |
-| `/cambios/[id]`                  | Detalle de una propuesta; destino del link de cada aviso           |
-| `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                   |
+| Ruta                             | Para qué                                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------------------- |
+| `/`                              | Elegir quién eres en la obra: lista del elenco con rol y canal, tomar o volver a un asiento |
+| `/sala`                          | Telón del proyector, solo lectura                                                           |
+| `/asiento/[castId]`              | Bandeja del jugador en su celular, con el look de su canal                                  |
+| `/presentador`                   | Consola de Fernanda: lo que requiere atención, propuestas, asientos y reinicio              |
+| `/espacios`                      | Explorador de espacios y documentos; acepta `?espacio=`, `?documento=` y `?revision=`       |
+| `/cambios/[id]`                  | Detalle de una propuesta para compartir; destino del link de cada aviso (`?para=`)          |
+| `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                                            |
 
-**`/sala`.** Barra de totales (Costo del proyecto, Plazo, Versión del proyecto), anillo de consenso, tablero de lo vigente por sección (Estructura, Instalaciones, Fachada, Costos y plazo) con estado, fuentes y desfases, franja de propuestas con puntos por afectado y el nombre de quien falta (Marcos en gris con su razón), «Pendientes de actualizar» con dueño, mapa de espacios con pulso al recibir, ticker de eventos, sello «Obra consensuada» y QR. Tocar un valor abre la procedencia. Nunca muestra archivos: muestra hechos, estados y procedencia. Con el lago vacío muestra «Esperando la carga inicial».
+**`/sala`.** Encabezado compacto con el proyecto y «En vivo». Debajo, una franja con el costo, el plazo y la versión del proyecto (cada uno con su variación sobre el base) y la barra «X de 9 documentos al día» con lo que falta (desfasados y con discrepancia). Dos columnas:
 
-**`/asiento/[castId]`.** Un contenedor con el look del canal (bandeja de correo, chat de WhatsApp, hilo de Slack) y el mismo contenido:
+- **Principal:** «Propuestas abiertas», cada una con el antes y el después, su estado, quién falta o la nota de quien disputa, un avatar por revisor con su voto, el costo, el plazo y los filtrados con su razón («Marcos Fuentes no recibe aviso: …»). Debajo, «Lo vigente» en una tabla por sección (elemento, valor vigente con la propuesta si la hay, estado y fuentes).
+- **Lateral:** «Pendientes de actualizar» (documentos desfasados o con discrepancia, con su dueño y la diferencia), «Espacios conectados» (late al recibir una revisión), «Actividad reciente» y el QR, chico.
 
-- **Voto**: el cambio, lo que te toca, costo y plazo, progreso con «Falta alguien», y los botones «Revisado» y «Tengo un problema» con nota de hasta 280 caracteres.
-- **Discrepancia** (dueño del valor): «Dice 150 cm, lo vigente es 120 cm», con «Descartar» y «Esperar el plano».
-- **Desfase** (dueño del documento): «Tu documento usa 15 cm, lo vigente es 20 cm», con el texto «Cuando subas la revisión a tu carpeta, la leemos solos» y «Confirmo sin cambio».
-- **Filtrado**: «No te avisamos: …» con la razón.
-- Para la autora: «Reabrir con la observación» y «Retirar».
+Tocar una propuesta, un valor o un documento abre su panel: el detalle de la propuesta, la procedencia o las revisiones con sus hechos. Al consensuar aparece arriba «Obra consensuada · Versión N» con una línea por propuesta fusionada. La tipografía crece con el ancho de la pantalla para el proyector. Nunca muestra archivos: muestra hechos, estados y procedencia. Con el lago vacío muestra «Esperando la carga inicial».
 
-Estado vacío: «Estás al día». El token vive en `localStorage` con `try/catch`; sin él las pantallas siguen funcionando en solo lectura.
+**`/presentador`.** Pide la clave una vez por pestaña y la valida al cargar. Dos columnas:
+
+- **Requieren atención**, primero: las propuestas en disputa (la nota de quien disputa, «Reabrir con la observación» y «Ver detalle») y las discrepancias de los valores que respalda Fernanda (la fuente, los dos valores y por qué no cambia nada, con «Descartar» y «Esperar el plano»). Las discrepancias salen de la bandeja de Fernanda, que la API entrega con la clave del presentador.
+- **Propuestas**: una tabla con pestañas «Activas» e «Historial» (fusionadas, retiradas y reemplazadas), con estado, pendientes, última actividad, «Ver detalle» y un menú con las acciones que permite el estado (reabrir solo en disputa, retirar solo lo activo).
+- **Lateral:** los asientos (una persona, lo juega un bot o libre, con «Soltar») y, aparte, «Administración» con «Reiniciar la sala».
+
+Retirar, descartar y reiniciar piden confirmación. «Esperar el plano» se recuerda en el navegador (`localStorage`); no es estado de la sala.
+
+**`/asiento/[castId]`.** Encabezado con el nombre, el rol, el canal y la conexión. La bandeja tiene dos pestañas, «Pendientes» y «Respondidos», dentro de un contenedor con el look del canal (bandeja de correo, chat de WhatsApp o canal de Slack). Cada aviso lleva una etiqueta, la hora y su contenido:
+
+- **Te piden revisar**: qué cambia (antes y después), por qué te llega y qué hacer (con «Ver el cálculo»), costo y plazo, quién falta, la nota opcional de hasta 280 caracteres y «Revisado» o «Tengo un problema». Después de responder pasa a «Respondidos» con lo que contestaste, tu nota y el estado de la propuesta: «Esperando que la autora reabra con tu observación», «El cambio ya quedó vigente», retirada o reemplazada.
+- **Discrepancia** (dueño del valor): «Dice 150 cm, lo vigente es 120 cm», la fuente y por qué no cambia nada, con «Descartar» y «Esperar el plano».
+- **Documento desfasado** (dueño del documento): «Usa 15 cm, lo vigente es 20 cm», qué hacer y «Confirmo sin cambio», que pide una nota obligatoria.
+- **Para tu información** (filtrado): «No te avisamos: …» con la razón y «Ver por qué».
+- Para la autora, si tiene asiento: «Tus propuestas» con «Reabrir con la observación» y «Retirar».
+
+«Ver el detalle» abre el panel de la propuesta sin salir de la bandeja; desde ahí también se puede responder. Estados: «Estás al día», «Esperando la carga inicial», «Sin conexión», «Tu asiento se liberó» y «Solo lectura». Sin token, el asiento se ve en solo lectura con lo que la sala ya publica (sus votos, sus filtrados y sus desfases, pero no sus discrepancias) y los botones deshabilitados. El token vive en `localStorage` con `try/catch`.
 
 ## El escenario
 

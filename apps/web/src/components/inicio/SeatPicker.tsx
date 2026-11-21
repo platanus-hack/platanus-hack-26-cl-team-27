@@ -1,10 +1,11 @@
 'use client';
 
-import { Notice, PageHeader } from '@team27/ui';
+import { Notice } from '@team27/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { buttonLink, textLink } from '@/components/common/link-styles';
 import { Loading, LoadError } from '@/components/common/LoadState';
 import { useHeldSeats } from '@/hooks/use-held-seats';
 import { useLive } from '@/hooks/use-live';
@@ -17,7 +18,7 @@ import {
   saveSeatToken,
 } from '@/lib/seat-storage';
 
-import { SeatCard } from './SeatCard';
+import { SeatRow } from './SeatRow';
 
 export function SeatPicker() {
   const router = useRouter();
@@ -65,41 +66,49 @@ export function SeatPicker() {
     }
   };
 
+  const players = data?.cast.filter((member) => !member.presenter) ?? [];
+
   return (
-    <>
-      <PageHeader
-        title="¿Quién eres en la obra?"
-        description="Toma un asiento del elenco desde tu celular. Los asientos vacíos los juega un bot."
-        actions={
-          <Link
-            href="/sala"
-            className="inline-flex h-10 items-center rounded-lg border border-hairline bg-surface px-4 text-sm font-medium text-ink hover:bg-surface-2"
-          >
-            Ver la sala
-          </Link>
-        }
-      />
-      {message && (
-        <div className="mb-4">
-          <Notice tone={message.tone}>{message.text}</Notice>
+    <div className="mx-auto flex max-w-3xl flex-col gap-5">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">
+            ¿Quién eres en la obra?
+          </h1>
+          <p className="mt-1 max-w-xl text-sm text-ink-2">
+            Toma un asiento del elenco. Te llegan solo los cambios que te tocan,
+            con el aspecto de tu canal, y respondes desde aquí. Los asientos
+            vacíos los juega un bot.
+          </p>
         </div>
-      )}
-      {loading && <Loading />}
+        <Link href="/sala" className={buttonLink('secondary')}>
+          Ver la sala
+        </Link>
+      </header>
+      {message && <Notice tone={message.tone}>{message.text}</Notice>}
+      {loading && !data && <Loading />}
       {error && !data && <LoadError message={error} />}
       {data && (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.cast.map((member) => (
-            <li key={member.id}>
-              <SeatCard
-                member={member}
-                mine={held.ids.includes(member.id)}
-                busy={busyId === member.id}
-                onClaim={(target) => void claim(target)}
-              />
-            </li>
+        <ul className="divide-y divide-hairline rounded-xl border border-hairline bg-surface">
+          {players.map((member) => (
+            <SeatRow
+              key={member.id}
+              member={member}
+              mine={held.ids.includes(member.id)}
+              busy={busyId === member.id}
+              onClaim={(target) => void claim(target)}
+            />
           ))}
         </ul>
       )}
-    </>
+      {data && (
+        <p className="text-sm text-ink-2">
+          ¿Eres quien presenta?{' '}
+          <Link href="/presentador" className={textLink}>
+            Entra a la sala de Fernanda →
+          </Link>
+        </p>
+      )}
+    </div>
   );
 }

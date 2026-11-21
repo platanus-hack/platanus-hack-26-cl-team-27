@@ -7,7 +7,8 @@ const VARIANTS = {
   secondary: 'border border-hairline bg-surface text-ink hover:bg-surface-2',
   ghost: 'text-ink-2 hover:bg-surface-2 hover:text-ink',
   danger:
-    'border border-hairline bg-surface text-critical-text hover:bg-surface-2',
+    'border border-critical/50 bg-surface text-critical-text hover:bg-critical/10',
+  critical: 'bg-critical text-white hover:bg-critical/90',
 } as const;
 
 const SIZES = {

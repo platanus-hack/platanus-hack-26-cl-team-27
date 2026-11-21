@@ -1,8 +1,14 @@
 import type { ValueStatus } from '@/lib/baseline-api';
-import type { DocumentState, ClaimOutcome } from '@/lib/spaces-api';
+import {
+  STATUS_LABEL,
+  toProposalStatus,
+  type ProposalStatus,
+} from '@/lib/proposals-api';
+import type { ClaimOutcome, DocumentState } from '@/lib/spaces-api';
 
 import type { IconName } from './Icon';
 import { StateMark, type Tone } from './StateMark';
+import { StatusChip } from './StatusChip';
 
 interface Look {
   readonly tone: Tone;
@@ -27,6 +33,14 @@ export const DOCUMENT_STATE: Record<DocumentState, Look> = {
   },
 };
 
+const PROPOSAL_LOOK: Record<ProposalStatus, Omit<Look, 'label'>> = {
+  open: { tone: 'warning', icon: 'hourglass' },
+  disputed: { tone: 'critical', icon: 'alert' },
+  merged: { tone: 'good', icon: 'check' },
+  withdrawn: { tone: 'neutral', icon: 'minus' },
+  replaced: { tone: 'neutral', icon: 'arrow' },
+};
+
 export const OUTCOME_LABEL: Record<ClaimOutcome, string> = {
   same: 'Igual a lo vigente',
   corroborates: 'Corrobora lo vigente',
@@ -36,6 +50,18 @@ export const OUTCOME_LABEL: Record<ClaimOutcome, string> = {
   new: 'Valor nuevo',
 };
 
+export const OUTCOME_TONE: Record<ClaimOutcome, Tone> = {
+  same: 'neutral',
+  corroborates: 'good',
+  change: 'warning',
+  discrepancy: 'critical',
+  stale: 'serious',
+  new: 'neutral',
+};
+
+const isValueStatus = (status: string): status is ValueStatus =>
+  status in VALUE_STATUS;
+
 export function ValueStatusMark({
   status,
   large,
@@ -43,14 +69,24 @@ export function ValueStatusMark({
   readonly status: ValueStatus;
   readonly large?: boolean;
 }) {
-  const look = VALUE_STATUS[status];
-  return <StateMark {...look} large={large} />;
+  return <StateMark {...VALUE_STATUS[status]} large={large} />;
 }
 
-export function DocumentStateMark({
+export function ValueStatusChip({ status }: { readonly status: string }) {
+  if (!isValueStatus(status)) return null;
+  return <StatusChip {...VALUE_STATUS[status]} />;
+}
+
+export function DocumentStateChip({
   state,
 }: {
   readonly state: DocumentState;
 }) {
-  return <StateMark {...DOCUMENT_STATE[state]} />;
+  return <StatusChip {...DOCUMENT_STATE[state]} />;
+}
+
+export function ProposalStatusChip({ status }: { readonly status: string }) {
+  const known = toProposalStatus(status);
+  if (!known) return <StatusChip tone="neutral" icon="dot" label={status} />;
+  return <StatusChip {...PROPOSAL_LOOK[known]} label={STATUS_LABEL[known]} />;
 }

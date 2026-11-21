@@ -14,17 +14,19 @@ pnpm nx run @team27/web:test          # Vitest: los *.spec.ts de src/
 
 ## Rutas
 
-| Ruta                             | Qué es                                                                                                  |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `/`                              | Elegir asiento: tarjetas del elenco, «Ver la sala», «Volver a mi asiento». Fernanda entra a `/presentador` |
-| `/sala`                          | El telón del proyector, solo lectura, a pantalla completa                                               |
-| `/asiento/[castId]`              | El celular del jugador (mobile-first, 390 px), con el look de su canal                                  |
-| `/presentador`                   | Reinicio, ocupación de asientos y propuestas con reabrir y retirar; los documentos llegan por el ETL (`pnpm etl`) |
-| `/espacios`                      | Explorador de espacios, documentos y revisiones (solo lectura, muestra el puntero)                      |
-| `/cambios/[id]`                  | Detalle de una propuesta; acepta `?para=<stakeholderId>`                                                |
-| `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                                                        |
+| Ruta                             | Qué es                                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `/`                              | Elegir asiento: lista del elenco con rol, canal y estado; «Tomar este asiento» o «Volver a mi asiento»       |
+| `/sala`                          | El telón del proyector, solo lectura; propuestas, valores y documentos se abren en un panel                  |
+| `/asiento/[castId]`              | La bandeja del jugador (mobile-first, 430 px), con pestañas Pendientes y Respondidos y el look de su canal    |
+| `/presentador`                   | La consola de Fernanda: requieren atención, propuestas (activas e historial), asientos y reinicio            |
+| `/espacios`                      | Espacios y documentos; el documento se abre en un panel. Acepta `?espacio=`, `?documento=` y `?revision=`    |
+| `/cambios/[id]`                  | Detalle de una propuesta; acepta `?para=<stakeholderId>`                                                     |
+| `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                                                             |
 
-Los route groups `(site)`, `(sala)` y `(asiento)` dan a cada pantalla su propio layout: el sitio con encabezado, el telón sin márgenes y el celular en una columna de 430 px. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
+Los route groups `(site)`, `(sala)` y `(asiento)` dan a cada pantalla su propio layout: el sitio con encabezado y navegación (marca la sección actual), el telón sin márgenes y el celular en una columna de 430 px. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
+
+Qué muestra cada pantalla y por qué está ordenada así: [multijugador, «La web»](../../docs/multijugador.md#la-web).
 
 ## Estructura
 
@@ -32,24 +34,28 @@ Los route groups `(site)`, `(sala)` y `(asiento)` dan a cada pantalla su propio 
 src/
 ├── app/                   rutas y layouts (route groups), globals.css y favicon
 ├── components/
-│   ├── common/            Icon, StateMark (icono + texto), CostDelay, LiveBadge, estados de carga
-│   ├── inicio/            SeatPicker y SeatCard
-│   ├── sala/              SalaBoard, TotalsBar, ConsensusRing, BaselineBoard, ProposalStrip, StalePanel,
-│   │                      SpaceMap, EventTicker, SealBanner, JoinQr, ProvenanceDrawer
-│   ├── asiento/           SeatScreen, ChannelShell (EmailInbox, WhatsAppChat, SlackFeed), VoteCard,
-│   │                      VoteButtons, DiscrepancyCard, StaleCard, FilteredCard, AuthorActions,
-│   │                      PresenceBadge
-│   ├── presentador/       PresenterConsole, KeyGate, ResetButton, SeatOccupancy
-│   ├── espacios/          SpaceExplorer, SpaceTabs, DocumentList, RevisionRow
-│   ├── cambios/           ChangeDetailView, FactDiff, ImpactSummary, ReviewerList, FilteredList
-│   └── valor/             ValuePage, ProvenanceChain
-├── hooks/                 useRoomPulse, useLive, useHeldSeats, useSeatToken, usePresenterKey
-└── lib/                   un módulo por tema, con sus tipos y su cliente tipado (ver abajo)
+│   ├── common/            Drawer, ConfirmDialog, ActionMenu, Tabs, SectionHeader, StatusChip, Avatar,
+│   │                      RelativeTime, Icon, StateMark, status (chips de estado), CostDelay, LiveBadge,
+│   │                      SiteNav, LoadState, link-styles
+│   ├── inicio/            SeatPicker y SeatRow
+│   ├── sala/              SalaBoard, SummaryStrip, ProposalList, ValueTable, PendingDocuments, SpaceList,
+│   │                      ActivityFeed, SealBanner, JoinQr, ProvenanceDrawer
+│   ├── asiento/           SeatScreen, Channel (marco y aviso por canal), InboxBodies (voto, respondido,
+│   │                      discrepancia, desfase, filtrado), VoteForm, AuthorActions, PresenceBadge
+│   ├── presentador/       PresenterConsole, KeyGate, AttentionList, ProposalTable, SeatList
+│   ├── espacios/          SpaceExplorer, DocumentDrawer, RevisionFacts
+│   ├── cambios/           ChangeDetailBody (el detalle, compartido), ChangeResponse, ChangeDetailView,
+│   │                      ProposalDrawer
+│   └── valor/             ValuePage, ProvenanceChain, useChangeIds
+├── hooks/                 useRoomPulse, useLive, useResource, useNow, useHeldSeats, useSeatToken,
+│                          usePresenterKey
+└── lib/                   un módulo por tema, con sus tipos, su cliente tipado y su lógica pura (ver abajo)
 ```
 
 - `@/*` apunta a `src/*`.
 - `next.config.ts` reenvía todo `/api/*` a `API_URL` y transpila los paquetes del workspace (`transpilePackages`). Por eso la web no define rutas en `app/api/`.
 - Los tests van junto al código (`*.spec.ts`) e importan `describe`, `it` y `vi` desde `vitest`, para que los tipe el mismo `tsconfig.json` de la app.
+- El detalle de una propuesta es un solo componente (`ChangeDetailBody`) que usan la página `/cambios/[id]` y el panel que abren la sala, el presentador y el celular.
 
 ## Cliente de la API (`src/lib`)
 
@@ -64,12 +70,21 @@ Cada módulo declara los tipos de las respuestas y las funciones que las piden. 
 | `spaces-api.ts`      | `GET /api/spaces`                                                                                          |
 | `inbox-api.ts`       | `GET /api/seats/:castId/inbox`                                                                             |
 | `proposals-api.ts`   | `GET /api/proposals?status`, `POST /api/proposals/:id/reopen`, `POST /api/proposals/:id/withdraw`           |
+| `attention.ts`       | Sin endpoint: junta las disputas y las discrepancias de Fernanda para «Requieren atención»                   |
+| `waiting.ts`         | Sin endpoint: recuerda en `localStorage` las discrepancias marcadas con «Esperar el plano»                   |
 | `votes-api.ts`       | `POST /api/notifications/:id/response` con `{ kind, note? }`, `POST /api/discrepancies/:id/dismiss`, `POST /api/stale/acknowledge` con `{ revisionId, note }` |
 | `changes-api.ts`     | `GET /api/changes/:id`                                                                                     |
 
-Con el lago vacío (`lake.empty`), `/sala`, `/presentador` y el celular muestran «Esperando la carga inicial» hasta que el ETL carga lo vigente. La web no sube documentos: la tarjeta de desfase dice «Cuando subas la revisión a tu carpeta, la leemos solos» y ofrece «Confirmo sin cambio».
+Con el lago vacío (`lake.empty`), `/sala`, `/presentador` y el celular muestran «Esperando la carga inicial» hasta que el ETL carga lo vigente. La web no sube documentos: la tarjeta de desfase dice «Sube la revisión nueva a tu carpeta y la leemos solos» y ofrece «Confirmo sin cambio».
 
-Los formatos (`format.ts`) son es-CL: pesos sin decimales (`$3.636.500`), `1 día` y `4 días`, coma decimal (`8,5 m`).
+La lógica de las pantallas vive en `lib`, pura y con tests:
+
+- `proposals-api.ts`: la última actividad, quién disputa, qué acciones permite cada estado (`actionsFor`), la separación entre activas e historial y la etiqueta de cada estado (también el `superseded` que trae la procedencia).
+- `inbox-api.ts`: qué está pendiente (un voto de una propuesta retirada o reemplazada ya no lo está), los grupos de la bandeja (`groupInbox`) y la bandeja de solo lectura (`publicInbox`), armada con `/api/proposals` y `/api/spaces`, porque `/api/seats/:castId/inbox` exige el asiento.
+- `spaces-api.ts`: los documentos pendientes, la última revisión y la búsqueda de un documento por id o por revisión.
+- La bandeja de Fernanda (`GET /api/seats/fernanda-lagos/inbox`) se pide con la clave del presentador, que la API trata como Fernanda.
+
+Los formatos (`format.ts`) son es-CL: pesos sin decimales (`$3.636.500`), `1 día` y `4 días`, coma decimal (`8,5 m`), el antes y el después con flecha (`15 cm → 20 cm`) y el tiempo relativo («Hace 2 min»), que `useNow` refresca cada 15 s.
 
 ## Tiempo real
 
@@ -88,8 +103,14 @@ Los formatos (`format.ts`) son es-CL: pesos sin decimales (`$3.636.500`), `1 dí
 
 ## Diseño
 
-- Los estados siempre llevan icono y texto, nunca solo color (`StateMark`).
-- `/sala` usa tipografía grande y contraste fuerte, y respeta el modo oscuro del tema de `@team27/ui`.
+- Menos contenedores: tablas, listas y divisores antes que tarjetas. Las tarjetas quedan para objetos que se tocan (una propuesta en la sala) y los paneles del costado.
+- Las acciones van junto a lo que operan: votar dentro del aviso, reabrir dentro de la disputa, retirar en el menú de la fila. Solo se muestran las que permite el estado.
+- Retirar, descartar y reiniciar piden confirmación (`ConfirmDialog`).
+- Lo que disputa o pide atención va en rojo para que no pase inadvertido: «Tengo un problema» y «Esperar el plano» en `critical` (rojo lleno), y «Descartar» en `danger`.
+- `Drawer` es un panel a la derecha y, en el celular, ocupa la pantalla entera. Se cierra con Esc, con la X o tocando afuera, y devuelve el foco a donde estaba.
+- Los estados siempre llevan icono y texto, nunca solo color (`StatusChip`, `StateMark`).
+- `/sala` agranda la tipografía con el ancho de la pantalla (`html:has(.sala-root)` en `globals.css`) y respeta el modo oscuro del tema de `@team27/ui`.
+- Las tablas esconden columnas en pantallas chicas y pasan ese dato bajo la columna principal: nada se desplaza de lado.
 - Los canales (correo, chat, canal de equipo) cambian el aspecto, no el contenido, y no usan logos ni marcas.
-- `JoinQr` codifica `window.location.origin + '/'` e imprime la URL debajo.
+- `JoinQr` codifica `window.location.origin + '/'` e imprime la URL al lado.
 - `next dev` en marcha reescribe `.next/dev/types` y rompe `next build` (`TS6196` en `validator.ts`): detén el `dev` antes de correr el build.

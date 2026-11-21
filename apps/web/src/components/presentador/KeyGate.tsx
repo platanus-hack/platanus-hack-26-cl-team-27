@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Card, Field, Input, Notice } from '@team27/ui';
+import { Button, Field, Input, Notice } from '@team27/ui';
 import { useState } from 'react';
 
 export function KeyGate({
@@ -12,12 +12,13 @@ export function KeyGate({
 }) {
   const [value, setValue] = useState('');
   return (
-    <Card
-      title="Clave del presentador"
-      description="La pedimos una vez por pestaña."
-    >
+    <div className="mx-auto max-w-sm py-10">
+      <h1 className="text-xl font-semibold text-ink">Sala de Fernanda</h1>
+      <p className="mt-1 text-sm text-ink-2">
+        Ingresa la clave del presentador. La pedimos una vez por pestaña.
+      </p>
       <form
-        className="flex max-w-sm flex-col gap-3"
+        className="mt-5 flex flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault();
           if (value.trim()) onSubmit(value.trim());
@@ -36,6 +37,6 @@ export function KeyGate({
           Entrar
         </Button>
       </form>
-    </Card>
+    </div>
   );
 }

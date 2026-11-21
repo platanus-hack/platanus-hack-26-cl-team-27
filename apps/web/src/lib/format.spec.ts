@@ -6,8 +6,11 @@ import {
   formatDays,
   formatSignedCLP,
   formatSignedDays,
+  formatChange,
+  formatRelative,
   formatValue,
   joinNames,
+  latest,
   plural,
 } from './format';
 
@@ -64,5 +67,42 @@ describe('textos', () => {
     expect(firstName('Paula Rojas')).toBe('Paula');
     expect(plural(1, 'documento', 'documentos')).toBe('1 documento');
     expect(plural(9, 'documento', 'documentos')).toBe('9 documentos');
+  });
+});
+
+describe('formatChange', () => {
+  it('une el antes y el después con flecha', () => {
+    expect(formatChange(15, 20, 'cm')).toBe('15 cm → 20 cm');
+    expect(formatChange(null, 8.5, 'm')).toBe('Sin dato → 8,5 m');
+    expect(formatChange(6, null, 'm')).toBe('6 m → Se elimina');
+  });
+});
+
+describe('formatRelative', () => {
+  const at = '2026-11-21T10:00:00.000Z';
+  const base = new Date(at).getTime();
+
+  it('dice recién, minutos u horas', () => {
+    expect(formatRelative(at, base + 20_000)).toBe('Recién');
+    expect(formatRelative(at, base + 5 * 60_000)).toBe('Hace 5 min');
+    expect(formatRelative(at, base + 2 * 3_600_000)).toBe('Hace 2 h');
+  });
+
+  it('cae a la hora cuando no conoce el ahora o pasó más de un día', () => {
+    expect(formatRelative(at, 0)).toMatch(/\d{2}:\d{2}:\d{2}/);
+    expect(formatRelative(at, base + 30 * 3_600_000)).toMatch(/\d{2}:\d{2}/);
+  });
+
+  it('no inventa con fechas inválidas', () => {
+    expect(formatRelative('no-es-fecha', base)).toBe('');
+  });
+});
+
+describe('latest', () => {
+  it('elige la fecha más nueva e ignora los vacíos', () => {
+    expect(latest(['2026-11-21T10:00:00Z', null, '2026-11-21T11:00:00Z'])).toBe(
+      '2026-11-21T11:00:00Z',
+    );
+    expect(latest([null, null])).toBeNull();
   });
 });

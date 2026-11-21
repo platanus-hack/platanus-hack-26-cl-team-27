@@ -2,38 +2,38 @@ import { cx } from '@team27/ui';
 
 import { formatSignedCLP, formatSignedDays } from '@/lib/format';
 
+import { Icon } from './Icon';
+
 export interface CostDelayProps {
   readonly costDelta: number;
   readonly delayDays: number;
-  readonly large?: boolean;
   readonly className?: string;
 }
 
-export function CostDelay({
-  costDelta,
-  delayDays,
-  large = false,
-  className,
-}: CostDelayProps) {
+export const costText = (costDelta: number): string =>
+  costDelta === 0 ? 'Sin costo' : formatSignedCLP(costDelta);
+
+export function CostDelay({ costDelta, delayDays, className }: CostDelayProps) {
   return (
     <dl
       className={cx(
-        'flex flex-wrap gap-x-6 gap-y-1',
-        large ? 'text-xl' : 'text-sm',
+        'flex flex-wrap items-center gap-x-4 gap-y-1 tabular-nums',
         className,
       )}
     >
-      <div className="flex items-baseline gap-2">
-        <dt className="text-ink-2">Costo</dt>
-        <dd className="font-semibold tabular-nums text-ink">
-          {costDelta === 0 ? 'Sin cambio' : formatSignedCLP(costDelta)}
-        </dd>
+      <div className="flex items-center gap-1.5">
+        <dt>
+          <Icon name="coins" className="text-ink-3" />
+          <span className="sr-only">Costo</span>
+        </dt>
+        <dd className="font-medium text-ink">{costText(costDelta)}</dd>
       </div>
-      <div className="flex items-baseline gap-2">
-        <dt className="text-ink-2">Plazo</dt>
-        <dd className="font-semibold tabular-nums text-ink">
-          {formatSignedDays(delayDays)}
-        </dd>
+      <div className="flex items-center gap-1.5">
+        <dt>
+          <Icon name="calendar" className="text-ink-3" />
+          <span className="sr-only">Plazo</span>
+        </dt>
+        <dd className="font-medium text-ink">{formatSignedDays(delayDays)}</dd>
       </div>
     </dl>
   );

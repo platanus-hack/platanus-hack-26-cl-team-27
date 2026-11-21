@@ -1,4 +1,7 @@
 import { Notice } from '@team27/ui';
+import type { ReactNode } from 'react';
+
+import { Icon } from './Icon';
 
 export function LoadError({ message }: { readonly message: string }) {
   return <Notice tone="error">{message}</Notice>;
@@ -12,24 +15,35 @@ export function Loading({ label = 'Cargando…' }: { readonly label?: string }) 
   );
 }
 
-export function Empty({ children }: { readonly children: React.ReactNode }) {
-  return <p className="py-3 text-sm text-ink-2">{children}</p>;
+export function Empty({
+  children,
+  icon,
+}: {
+  readonly children: ReactNode;
+  readonly icon?: 'check';
+}) {
+  return (
+    <p className="flex items-center gap-2 py-3 text-sm text-ink-2">
+      {icon && <Icon name={icon} filled className="size-5 text-good" />}
+      {children}
+    </p>
+  );
 }
 
 export function WaitingForLake({
   children = 'Los documentos llegan por el ETL: pnpm etl.',
 }: {
-  readonly children?: React.ReactNode;
+  readonly children?: ReactNode;
 }) {
   return (
     <div
       role="status"
-      className="rounded-xl border border-hairline bg-surface p-8 text-center"
+      className="rounded-xl border border-dashed border-axis px-6 py-8 text-center"
     >
-      <p className="text-xl font-semibold text-ink">
+      <p className="text-base font-semibold text-ink">
         Esperando la carga inicial
       </p>
-      <p className="mt-2 text-base text-ink-2">{children}</p>
+      <p className="mt-1 text-sm text-ink-2">{children}</p>
     </div>
   );
 }
