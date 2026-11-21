@@ -1,0 +1,95 @@
+import type { ProjectGraph } from '../src/domain/ProjectGraph.ts';
+
+export const GRAPH: ProjectGraph = {
+  costOwnerId: 'costos',
+  scheduleOwnerId: 'obra',
+  budgetItems: [
+    {
+      code: '03.02',
+      name: 'Hormigón H30 en losas',
+      unit: 'm³',
+      unitPrice: 145_000,
+      category: 'losa',
+      quantity: 'volumen',
+      factor: 1,
+    },
+    {
+      code: '03.03',
+      name: 'Acero en losas',
+      unit: 'kg',
+      unitPrice: 1_350,
+      category: 'losa',
+      quantity: 'volumen',
+      factor: 85,
+    },
+    {
+      code: '07.01',
+      name: 'Ventanas',
+      unit: 'm²',
+      unitPrice: 185_000,
+      category: 'ventana',
+      quantity: 'superficie',
+      factor: 1,
+    },
+  ],
+  tasks: [
+    {
+      id: 'base',
+      name: 'Fundaciones',
+      days: 20,
+      predecessors: [],
+      driver: null,
+    },
+    {
+      id: 'losa',
+      name: 'Hormigonado losa nivel 3',
+      days: 3,
+      predecessors: ['base'],
+      driver: { elementId: 'losa-n3', quantity: 'volumen', productivity: 15 },
+    },
+    {
+      id: 'muros',
+      name: 'Muros nivel 3',
+      days: 6,
+      predecessors: ['losa'],
+      driver: null,
+    },
+    {
+      id: 'ventanas',
+      name: 'Instalación de ventanas',
+      days: 4,
+      predecessors: ['base'],
+      driver: {
+        elementId: 'ventanas-norte',
+        quantity: 'superficie',
+        productivity: 12,
+      },
+    },
+  ],
+  dependencies: [
+    {
+      category: 'losa',
+      watches: ['espesor_cm'],
+      stakeholderId: 'calculista',
+      summary: 'Cambia el peso propio de la {elemento}',
+      action: 'Revisa vigas bajo la {elemento}',
+      measures: ['peso_propio'],
+    },
+    {
+      category: 'losa',
+      watches: ['espesor_cm'],
+      stakeholderId: 'sanitarias',
+      summary: 'Las pasadas cambian de largo',
+      action: 'Revisa camisas',
+      measures: [],
+    },
+    {
+      category: 'ventana',
+      watches: ['ancho_cm'],
+      stakeholderId: 'proveedor',
+      summary: 'Cambian las medidas',
+      action: 'Confirma plazo',
+      measures: ['superficie'],
+    },
+  ],
+};

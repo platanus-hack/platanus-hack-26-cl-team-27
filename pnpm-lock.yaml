@@ -152,6 +152,24 @@ importers:
         specifier: ^4.3.5
         version: 4.3.5
 
+  context/capture:
+    dependencies:
+      '@team27/data-main':
+        specifier: workspace:*
+        version: link:../../data/main
+
+  context/impact:
+    dependencies:
+      '@team27/data-main':
+        specifier: workspace:*
+        version: link:../../data/main
+
+  context/notification:
+    dependencies:
+      '@team27/data-main':
+        specifier: workspace:*
+        version: link:../../data/main
+
   data/main:
     dependencies:
       '@prisma/adapter-pg':
