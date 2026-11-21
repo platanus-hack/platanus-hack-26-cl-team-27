@@ -29,6 +29,8 @@ public sealed class App : IExternalApplication
 
     internal UiQueue Ui { get; private set; } = null!;
 
+    internal FlowService Flow { get; private set; } = null!;
+
     private string? settingsError;
     private HttpClient? http;
     private ControlledApplication? controlled;
@@ -49,6 +51,7 @@ public sealed class App : IExternalApplication
                 new MinuteClient(http, Settings),
                 result => Ui.Post(_ => Dialogs.ShowResult(this, result)),
                 Log);
+            Flow = new FlowService(Settings, new FlowClient(http, Settings), Ui, Log);
             var addin = new AddinInfo("Team27.Minuta", AddinVersion());
             Tracker = new ChangeTracker(
                 new SnapshotReader(Settings, Catalog, Categories, Log),
@@ -63,6 +66,7 @@ public sealed class App : IExternalApplication
             controlled.DocumentSavedAs += OnDocumentSavedAs;
             controlled.DocumentSynchronizedWithCentral += OnDocumentSynchronized;
             controlled.DocumentClosing += OnDocumentClosing;
+            Flow.StartPolling();
             Ribbon.Build(application, Log);
             Log.Info($"Add-in iniciado en Revit {application.ControlledApplication.VersionNumber}; API en {Settings.ApiUrl}");
             return Result.Succeeded;
@@ -86,6 +90,7 @@ public sealed class App : IExternalApplication
             controlled.DocumentSynchronizedWithCentral -= OnDocumentSynchronized;
             controlled.DocumentClosing -= OnDocumentClosing;
         }
+        Flow?.Dispose();
         Ui?.Dispose();
         http?.Dispose();
         Current = null;
@@ -132,6 +137,7 @@ public sealed class App : IExternalApplication
             if (e.Status == RevitAPIEventStatus.Succeeded)
             {
                 Tracker.Start(e.Document);
+                Flow.Start(e.Document);
             }
         });
 
@@ -141,6 +147,7 @@ public sealed class App : IExternalApplication
             if (e.Status == RevitAPIEventStatus.Succeeded)
             {
                 Tracker.Start(e.Document);
+                Flow.Start(e.Document);
             }
         });
 
@@ -157,7 +164,11 @@ public sealed class App : IExternalApplication
         Guard("armar la minuta", () => Saved(e.Document, e.Status, MinuteTrigger.Sync));
 
     private void OnDocumentClosing(object? sender, DocumentClosingEventArgs e) =>
-        Guard("cerrar el modelo", () => Tracker.Forget(e.Document));
+        Guard("cerrar el modelo", () =>
+        {
+            Tracker.Forget(e.Document);
+            Flow.Forget(e.Document);
+        });
 
     private void Saved(Document document, RevitAPIEventStatus status, string trigger)
     {
@@ -166,6 +177,7 @@ public sealed class App : IExternalApplication
             return;
         }
         WarnSettingsOnce();
+        Guard("armar la minuta del flujo", () => Flow.Saved(document));
         var minute = Tracker.TakeMinute(document, trigger);
         if (minute is null)
         {

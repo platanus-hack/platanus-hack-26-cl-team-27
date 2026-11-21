@@ -1,0 +1,13 @@
+{
+  "epoch": 3,
+  "proposal": {
+    "id": "prop-1",
+    "clashId": "clash-1",
+    "elementId": "E-B-03",
+    "ownerId": "camila-vera",
+    "delta": { "dx": 0, "dy": 0.4, "dz": 0 },
+    "status": "resuelta",
+    "decidedBy": "camila-vera",
+    "decidedByName": "Camila Vera"
+  }
+}
