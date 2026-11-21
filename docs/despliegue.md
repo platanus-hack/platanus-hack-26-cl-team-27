@@ -23,6 +23,8 @@ git remote set-url --add --push origin https://github.com/agustin-rios/hack-team
 git remote -v    # origin tiene un fetch y dos push
 ```
 
+Si cambia el dueño del espejo, saca la URL vieja con `git remote set-url --delete --push origin <url>`. GitHub redirige la URL vieja al repo transferido, así que dejarla solo empuja dos veces al mismo repo.
+
 Los commits quedan en el repo de la organización para el jurado, y el deploy corre desde el espejo.
 
 ## La API y la base en Render
