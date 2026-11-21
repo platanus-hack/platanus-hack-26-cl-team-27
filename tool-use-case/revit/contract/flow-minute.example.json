@@ -1,0 +1,13 @@
+{
+  "minuteId": "6f1c2b9e-3d4a-4f8b-9c1e-2a7d5b8e0f31",
+  "source": "revit",
+  "model": { "title": "LosAromos_EST", "discipline": "estructura" },
+  "changes": [
+    {
+      "elementId": "P-12",
+      "attribute": "location",
+      "delta": { "dx": 0, "dy": 0.4, "dz": 0 },
+      "reason": "Alinear con el muro de corte M-6 y bajar la torsión"
+    }
+  ]
+}

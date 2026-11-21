@@ -178,3 +178,19 @@ public sealed class PublishStateCommand : IExternalCommand
         return Result.Succeeded;
     }
 }
+
+[Transaction(TransactionMode.Manual)]
+public sealed class ApplyProposalCommand : IExternalCommand
+{
+    public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+    {
+        var app = App.Current;
+        if (app is null)
+        {
+            message = "El add-in Minuta de cambios no está iniciado: revisa minuta.log.";
+            return Result.Failed;
+        }
+        app.Flow.CheckNow();
+        return Result.Succeeded;
+    }
+}
