@@ -30,8 +30,12 @@ No es un MVP: es una muestra en un espacio controlado. El problema y la propuest
 - **Nada sale de la app.** Los canales son maquetas dentro de la web: no se manda ni un correo, mensaje o post real.
 - **La API no conoce la demo.** Recibe revisiones de documentos por `POST /api/revisions`, como de cualquier conector.
 - **El único componente simulado es el ETL** ([`apps/etl`](../apps/etl/README.md)). Cumple dos papeles:
-  - **Conectores:** lee los archivos del lago ficticio, extrae sus hechos con parsers deterministas y los carga a la API.
+  - **Conectores:** lee los archivos del lago ficticio y los carga a la API, partidos en fragmentos. De los documentos estructurados (planos, EETT, planillas) extrae los hechos con parsers deterministas. El texto libre (WhatsApp, libro de obra, actas) lo manda tal cual.
   - **Personas ausentes:** juega los asientos que nadie tomó.
+- **El texto libre lo lee la API con `context/inference`.**
+  - **Con `ANTHROPIC_API_KEY` en el `.env`:** lo lee Claude, y la primera lectura queda grabada para repetirse igual.
+  - **Sin la clave** (en `.env.example` va vacía): la lectura es **determinista**, con respuestas fijas y grabadas, y nada sale a la red.
+  - En los dos casos, cada hecho queda con su confianza, y lo que no alcanza 0,7 se ve pero no tiene efecto.
 - **Revit es el conector real.** El add-in de [`tool-use-case/revit`](../tool-use-case/revit/README.md) manda la minuta de cambios cada vez que se guarda el modelo, y la API la ingiere por el mismo camino.
 - **Los números salen de reglas.** Cantidades, precios unitarios y ruta crítica; ningún modelo de lenguaje los inventa. El mismo guion da siempre el mismo resultado.
 - **Sin gestión de equipos ni organizaciones.** No hay usuarios ni permisos.
@@ -96,20 +100,21 @@ En el ETL, cada espacio es una carpeta de `apps/etl/lago/` con archivos reales: 
 
 ## El guion
 
-El ETL parte con la **carga inicial**: lee los 9 documentos de partida y siembra lo vigente, con 15 valores confirmados y 9 de 9 documentos al día. Después, cada paso trae una revisión nueva:
+El ETL parte con la **carga inicial**: lee los 10 documentos de partida (entre ellos el plano IS-301 rev A, con el colector B2 a 10 m) y siembra lo vigente, con 16 valores confirmados y 10 de 10 documentos al día. Cada revisión llega como fragmentos: los estructurados traen sus hechos y los de texto libre (WhatsApp, libro de obra y acta) los lee la API con inferencia. Después, cada paso trae una revisión nueva:
 
-| Paso | Llega                           | Qué pasa                                                                                                                                                                                                                         | Al día |
-| ---- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| s1   | Plano E-102 rev C (Drive)       | Propuesta: losa N3 de 15 a 20 cm. Avisa a 4 de 7 (Paula, Javier, Daniela y Marcos), +$3.636.500 y +1 día. Paula disputa, Fernanda reabre, Paula aprueba: pasa a lo vigente. La EETT, el presupuesto y la Gantt quedan desfasados | 6 de 9 |
-| s2   | Presupuesto v3 (Costos)         | Daniela pone al día su presupuesto                                                                                                                                                                                               | 7 de 9 |
-| s3   | Mensaje 2 (WhatsApp)            | «Las ventanas del norte quedaron en 150»: no manda, solo abre una discrepancia para Fernanda                                                                                                                                     | 6 de 9 |
-| s4   | Plano A-201 rev C (Drive)       | Respalda el mensaje y propone ventanas de 120 a 150 cm: 4 de 7 (Quillay, Paula, Tomás y Daniela), +$1.998.000. Marcos no recibe aviso: 38 días de holgura. La cotización Q-118 queda desfasada                                   | 6 de 9 |
-| x1   | Folio 44 (libro de obra)        | El shaft S1 se corre a 8,5 m: otra discrepancia para Fernanda                                                                                                                                                                    | 5 de 9 |
-| x2   | Plano A-201 rev D (Drive)       | Respalda el folio y propone el shaft: 3 de 7 (Paula, Javier y Camila), sin costo ni plazo. Javier disputa y aprueba tras la reapertura                                                                                           | 6 de 9 |
-| s5   | Cotización Q-118 rev 2 (Correo) | Quillay recotiza con 150 cm: el ancho queda corroborado desde dos espacios                                                                                                                                                       | 7 de 9 |
-| s6   | Carta Gantt v5 y EETT-03 rev B  | Marcos y Paula se ponen al día: **«Obra consensuada»**                                                                                                                                                                           | 9 de 9 |
+| Paso | Llega                           | Qué pasa                                                                                                                                                                                                                                                                                                       | Al día   |
+| ---- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| s1   | Plano E-102 rev C (Drive)       | Propuesta: losa N3 de 15 a 20 cm. Avisa a 4 de 7 (Paula, Javier, Daniela y Marcos), +$3.636.500 y +1 día. Paula disputa, Fernanda reabre, Paula aprueba: pasa a lo vigente. La EETT, el presupuesto y la Gantt quedan desfasados                                                                               | 7 de 10  |
+| s2   | Presupuesto v3 (Costos)         | Daniela pone al día su presupuesto                                                                                                                                                                                                                                                                             | 8 de 10  |
+| s3   | Mensaje 2 (WhatsApp)            | «Las ventanas del norte quedaron en 150»: no manda, solo abre una discrepancia para Fernanda                                                                                                                                                                                                                   | 7 de 10  |
+| s4   | Plano A-201 rev C (Drive)       | Respalda el mensaje y propone ventanas de 120 a 150 cm: 4 de 7 (Quillay, Paula, Tomás y Daniela), +$1.998.000. Marcos no recibe aviso: 38 días de holgura. La cotización Q-118 queda desfasada                                                                                                                 | 7 de 10  |
+| x1   | Folio 44 (libro de obra)        | El shaft S1 se corre a 8,5 m: otra discrepancia para Fernanda                                                                                                                                                                                                                                                  | 6 de 10  |
+| x2   | Plano A-201 rev D (Drive)       | Respalda el folio y propone el shaft: 3 de 7 (Paula, Javier y Camila), sin costo ni plazo. A 8,5 m el shaft cae en la celda C-D/3 del nivel 3, donde pasa el colector B2 del IS-301 rev A: se abre un solapamiento que validan Fernanda y Javier. Javier vota que se tocan y la propuesta espera la validación | 7 de 10  |
+| x3   | Plano IS-301 rev B (Drive)      | Javier mueve el colector B2 a 13,5 m (celda D-E/3) y el cambio se fusiona solo. El solapamiento queda resuelto y la propuesta del shaft, con sus aprobaciones, pasa a lo vigente                                                                                                                               | 7 de 10  |
+| s5   | Cotización Q-118 rev 2 (Correo) | Quillay recotiza con 150 cm: el ancho queda corroborado desde dos espacios                                                                                                                                                                                                                                     | 8 de 10  |
+| s6   | Carta Gantt v5 y EETT-03 rev B  | Marcos y Paula se ponen al día: **«Obra consensuada»**                                                                                                                                                                                                                                                         | 10 de 10 |
 
-Al final queda la versión 4 del proyecto, con +$5.634.500 y +1 día, en un plazo de 109 días.
+Al final queda la versión 5 del proyecto (la propuesta del colector suma una), con +$5.634.500 y +1 día, en un plazo de 109 días.
 
 ## Cómo correrla
 

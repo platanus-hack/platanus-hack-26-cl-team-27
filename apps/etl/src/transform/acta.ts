@@ -1,10 +1,9 @@
 import {
   ParseError,
-  type Claim,
+  type Chunk,
   type RawFile,
   type Revision,
 } from '../types.ts';
-import { parseNumber, PROJECT_SUBJECT } from '../vocabulary.ts';
 import {
   finish,
   requireDocument,
@@ -25,20 +24,14 @@ export const parseActa = (file: RawFile): Revision => {
       'falta el título «ACTA DE COORDINACIÓN N° …»',
     );
   }
-  const claims: Claim[] = [];
+  const chunks: Chunk[] = [];
   for (const line of file.text.split(/\r?\n/)) {
     const agreement = /^(\d+)\.\s+(.*)$/.exec(line.trim());
     if (agreement === null) continue;
-    const delivery = /plazo de entrega .*?(\d+) días/i.exec(agreement[2] ?? '');
-    const days = parseNumber(delivery?.[1] ?? '');
-    if (days === null) continue;
-    claims.push({
-      subject: PROJECT_SUBJECT,
-      attribute: 'entrega_dias',
-      value: days,
-      unit: 'días',
-      role: 'afirma',
+    chunks.push({
       locator: `acuerdo ${agreement[1] ?? ''}`,
+      kind: 'acuerdo',
+      text: agreement[2] ?? '',
     });
   }
   return finish(file, {
@@ -49,6 +42,6 @@ export const parseActa = (file: RawFile): Revision => {
       'el número del acta',
     ),
     authorId: requirePerson(file, field(file, 'Redactó')),
-    claims,
+    chunks,
   });
 };

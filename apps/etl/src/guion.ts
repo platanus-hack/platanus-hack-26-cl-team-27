@@ -19,10 +19,12 @@ export const CARGA_INICIAL: readonly string[] = [
   'drive-proyecto/Acta_12.txt',
   'libro-de-obra/folio-41.txt',
   'whatsapp-obra/mensaje-1.txt',
+  'drive-proyecto/IS-301_revA.json',
 ];
 
 const E102_REV_C: RevisionRef = { documentId: 'e102', label: 'rev C' };
 const A201_REV_C: RevisionRef = { documentId: 'a201', label: 'rev C' };
+const A201_REV_D: RevisionRef = { documentId: 'a201', label: 'rev D' };
 
 export const PASOS: readonly Paso[] = [
   {
@@ -68,10 +70,18 @@ export const PASOS: readonly Paso[] = [
   {
     id: 'x2',
     title: 'Llega el plano A-201 rev D',
-    hint: 'Fernanda suelta el plano que respalda el folio y abre la propuesta del shaft.',
+    hint: 'Fernanda suelta el plano que respalda el folio y abre la propuesta del shaft. A 8,5 m el shaft cruza el colector B2 del nivel 3: el sistema abre un solapamiento y lo validan Javier y Fernanda.',
     extra: true,
     files: ['drive-proyecto/A-201_revD.json'],
     requires: [A201_REV_C],
+  },
+  {
+    id: 'x3',
+    title: 'Javier mueve el colector B2',
+    hint: 'Javier sube el plano IS-301 rev B con el colector B2 a 13,5 m. El solapamiento queda resuelto y la propuesta del shaft se fusiona.',
+    extra: true,
+    files: ['drive-proyecto/IS-301_revB.json'],
+    requires: [A201_REV_D],
   },
   {
     id: 's5',

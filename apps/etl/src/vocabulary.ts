@@ -19,6 +19,7 @@ export const PEOPLE: Readonly<Record<string, string>> = {
 
 export const DOCUMENT_ALIASES: Readonly<Record<string, string>> = {
   'e-102': 'e102',
+  'is-301': 'is301',
   'a-201': 'a201',
   'eett-03': 'eett03',
   'q-118': 'q118',
@@ -27,6 +28,16 @@ export const DOCUMENT_ALIASES: Readonly<Record<string, string>> = {
   'acta de coordinación': 'acta',
   'libro de obra': 'libro',
 };
+
+export const DOCUMENT_TITLES: Readonly<Record<string, string>> = {
+  e102: 'E-102',
+  a201: 'A-201',
+  is301: 'IS-301',
+  eett03: 'EETT-03',
+  q118: 'Q-118',
+};
+
+export const documentTitle = (id: string): string => DOCUMENT_TITLES[id] ?? id;
 
 export const WHATSAPP_DOCUMENT = 'whatsapp';
 
@@ -38,6 +49,7 @@ const SUBJECT_PATTERNS: readonly (readonly [string, RegExp])[] = [
   ['losa-cubierta', /\blosa de cubierta\b/i],
   ['shaft-s1', /\bshaft\b.*\bS1\b/i],
   ['ventanas-norte', /\bventanas?\b.*\bnorte\b/i],
+  ['colector-b2', /\bcolector\b.*\bB2\b/i],
 ];
 
 const BUDGET_ITEMS: ReadonlySet<string> = new Set([
@@ -124,6 +136,7 @@ const SUBJECT_LABELS: Readonly<Record<string, string>> = {
   'losa-n5': 'losa N5',
   'losa-cubierta': 'losa de cubierta',
   'shaft-s1': 'shaft S1',
+  'colector-b2': 'colector B2',
   'ventanas-norte': 'ventanas del norte',
   proyecto: 'plazo del proyecto',
 };

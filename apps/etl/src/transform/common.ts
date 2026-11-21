@@ -1,4 +1,11 @@
-import { ParseError, type RawFile, type Revision } from '../types.ts';
+import {
+  ParseError,
+  type Chunk,
+  type ChunkKind,
+  type Claim,
+  type RawFile,
+  type Revision,
+} from '../types.ts';
 import { documentId, personId } from '../vocabulary.ts';
 
 export type Parsed = Omit<Revision, 'spaceId' | 'pointer' | 'contentHash'>;
@@ -10,8 +17,25 @@ export const finish = (file: RawFile, parsed: Parsed): Revision => ({
   authorId: parsed.authorId,
   pointer: file.pointer,
   contentHash: file.sha256,
-  claims: parsed.claims,
+  chunks: parsed.chunks,
 });
+
+export const structuredChunks = (
+  claims: readonly Claim[],
+  kind: ChunkKind,
+): Chunk[] => {
+  const groups = new Map<string, Claim[]>();
+  for (const claim of claims) {
+    const group = groups.get(claim.locator);
+    if (group) group.push(claim);
+    else groups.set(claim.locator, [claim]);
+  }
+  return [...groups].map(([locator, grouped]) => ({
+    locator,
+    kind,
+    claims: grouped,
+  }));
+};
 
 export const requireDocument = (file: RawFile, name: string | null): string => {
   const id = name === null ? null : documentId(name);

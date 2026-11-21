@@ -7,6 +7,10 @@ import { Players } from '../src/players/players.ts';
 const items = indexByPath(readLake());
 
 const fakeApi = () => {
+  const state: { proposals: unknown[]; overlaps: unknown[] } = {
+    proposals: [],
+    overlaps: [],
+  };
   const loaded: { documentId: string; label: string }[] = [];
   const requests: string[] = [];
   let empty = true;
@@ -55,7 +59,10 @@ const fakeApi = () => {
         projectVersion: 1,
       });
     }
-    if (path === '/proposals') return Response.json({ proposals: [] });
+    if (path === '/proposals')
+      return Response.json({ proposals: state.proposals });
+    if (path === '/overlaps')
+      return Response.json({ overlaps: state.overlaps });
     if (path.startsWith('/events'))
       return Response.json({ epoch: 1, cursor: 0, reset: false, events: [] });
     if (path === '/lake/seed') {
@@ -81,6 +88,7 @@ const fakeApi = () => {
     api: new Api({ apiUrl: 'http://api.test', presenterKey: 'k' }, http),
     requests,
     loaded,
+    state,
   };
 };
 
@@ -99,11 +107,11 @@ const session = () => {
 };
 
 describe('sesión del guion', () => {
-  it('la carga inicial siembra las nueve revisiones por /lake/seed', async () => {
+  it('la carga inicial siembra las diez revisiones por /lake/seed', async () => {
     const { instance, requests, loaded } = session();
     await instance.ensureSeeded();
     expect(requests).toContain('POST /lake/seed');
-    expect(loaded).toHaveLength(9);
+    expect(loaded).toHaveLength(10);
   });
 
   it('respeta el orden del guion: s2 pide antes E-102 rev C', async () => {
@@ -134,7 +142,7 @@ describe('sesión del guion', () => {
     const outcome = await instance.runAuto(4);
     expect(outcome).toBe('cargado');
     expect(
-      loaded.slice(9).map((rev) => `${rev.documentId} ${rev.label}`),
+      loaded.slice(10).map((rev) => `${rev.documentId} ${rev.label}`),
     ).toEqual([
       'e102 rev C',
       'presupuesto v3',
@@ -142,10 +150,52 @@ describe('sesión del guion', () => {
       'a201 rev C',
       'libro folio 44',
       'a201 rev D',
+      'is301 rev B',
       'q118 rev 2',
       'gantt v5',
       'eett03 rev B',
     ]);
     expect(await instance.nextPaso()).toBeNull();
+  });
+
+  it('un solapamiento confirmado deja asentar el paso si falta un paso posterior', async () => {
+    const { instance, state } = session();
+    state.overlaps = [
+      {
+        id: 'o1',
+        proposalId: 'p',
+        revisionId: 'r',
+        chunkLocator: 'detalle shaft S1',
+        kind: 'misma-area',
+        area: { nivel: 'n3', celda: 'C-D/3', sistemas: ['sanitarias'] },
+        subjectId: 'shaft-s1',
+        otherSubjectId: 'colector-b2',
+        otherBacking: { documentId: 'is301', label: 'rev A', ownerId: 'j' },
+        status: 'confirmado',
+        validators: ['fernanda-lagos', 'javier-munoz'],
+        votes: [],
+      },
+    ];
+    state.proposals = [
+      {
+        id: 'p',
+        title: 'A-201 rev D',
+        status: 'open',
+        subjectId: 'shaft-s1',
+        costDelta: 0,
+        delayDays: 0,
+        filtered: [],
+        reviewers: [
+          {
+            stakeholderId: 'paula-rojas',
+            name: 'Paula Rojas',
+            notificationId: 'n',
+            decision: 'approve',
+            note: null,
+          },
+        ],
+      },
+    ];
+    expect(await instance.settle(true)).toBe('listo');
   });
 });

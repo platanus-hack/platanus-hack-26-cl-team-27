@@ -12,6 +12,7 @@ import {
 } from '../vocabulary.ts';
 import {
   finish,
+  structuredChunks,
   requireDocument,
   requirePerson,
   requireText,
@@ -93,6 +94,6 @@ export const parseEett = (file: RawFile): Revision => {
     documentId: requireDocument(file, head['documento'] ?? null),
     label: requireText(file, head['revision'], 'la revisión'),
     authorId: requirePerson(file, head['autor'] ?? null),
-    claims,
+    chunks: structuredChunks(claims, 'fila'),
   });
 };

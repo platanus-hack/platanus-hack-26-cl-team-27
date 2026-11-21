@@ -1,3 +1,4 @@
+import { claimsOf } from '../src/load/index.ts';
 import { readLake } from '../src/pipeline.ts';
 import { transformFile } from '../src/transform/index.ts';
 import { parseNumber, subjectOf } from '../src/vocabulary.ts';
@@ -39,8 +40,8 @@ describe('vocabulario', () => {
 
 describe('parsers', () => {
   it('cada archivo del lago produce una revisión con sha256 del contenido', () => {
-    expect(lake).toHaveLength(18);
-    expect(new Set(lake.map((item) => item.file.sha256)).size).toBe(18);
+    expect(lake).toHaveLength(20);
+    expect(new Set(lake.map((item) => item.file.sha256)).size).toBe(20);
   });
 
   it('el mismo archivo da siempre el mismo resultado', () => {
@@ -54,13 +55,13 @@ describe('parsers', () => {
       (item) => item.file.name === 'Presupuesto_itemizado_v3.csv',
     )!;
     expect(
-      v3.revision.claims.some((claim) => claim.locator === 'Partidas!F17'),
+      claimsOf(v3.revision).some((claim) => claim.locator === 'Partidas!F17'),
     ).toBe(false);
   });
 
   it('la cotización rev 1 no confirma el ancho de fabricación', () => {
     const rev1 = lake.find((item) => item.file.name === 'Q-118_rev1.csv')!;
-    expect(rev1.revision.claims.map((claim) => claim.role)).toEqual([
+    expect(claimsOf(rev1.revision).map((claim) => claim.role)).toEqual([
       'afirma',
       'usa',
     ]);
@@ -96,6 +97,31 @@ describe('parsers', () => {
     const revision = transformFile(chat);
     expect(revision.label).toBe('mensaje 2');
     expect(revision.authorId).toBe('paula-rojas');
-    expect(revision.claims).toEqual([]);
+    expect(claimsOf(revision)).toEqual([]);
+    expect(revision.chunks.map((chunk) => chunk.text)).toEqual([
+      'hola segunda línea del mismo mensaje',
+      'ok',
+    ]);
+  });
+
+  it('IS-301 da el colector B2 con su posición y su localizador', () => {
+    const revA = lake.find((item) => item.file.name === 'IS-301_revA.json')!;
+    const revB = lake.find((item) => item.file.name === 'IS-301_revB.json')!;
+    expect(revA.revision.documentId).toBe('is301');
+    expect(revA.revision.authorId).toBe('javier-munoz');
+    expect(revA.revision.label).toBe('rev A');
+    expect(claimsOf(revA.revision)).toEqual([
+      {
+        subject: 'colector-b2',
+        attribute: 'posicion_m',
+        value: 10,
+        unit: 'm',
+        role: 'afirma',
+        locator: 'cuadro de colectores nivel 3 rev A · Colector B2',
+      },
+    ]);
+    expect(claimsOf(revB.revision).map((claim) => claim.value)).toEqual([13.5]);
+    expect(revB.revision.chunks).toHaveLength(1);
+    expect(revB.revision.chunks[0]?.kind).toBe('fila');
   });
 });

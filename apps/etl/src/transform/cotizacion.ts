@@ -12,6 +12,7 @@ import {
 } from '../vocabulary.ts';
 import {
   finish,
+  structuredChunks,
   requireDocument,
   requirePerson,
   requireText,
@@ -83,6 +84,6 @@ export const parseCotizacion = (file: RawFile): Revision => {
     documentId: requireDocument(file, cell(table, 0, 1)),
     label: requireText(file, metaValue(table, 'Revisión'), 'la revisión'),
     authorId: requirePerson(file, metaValue(table, 'Proveedor')),
-    claims,
+    chunks: structuredChunks(claims, 'fila'),
   });
 };

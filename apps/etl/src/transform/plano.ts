@@ -7,6 +7,7 @@ import {
 import { ATTRIBUTE_UNITS, subjectOf } from '../vocabulary.ts';
 import {
   finish,
+  structuredChunks,
   requireDocument,
   requirePerson,
   requireText,
@@ -81,6 +82,6 @@ export const parsePlano = (file: RawFile): Revision => {
     documentId: requireDocument(file, text(stamp['documento'])),
     label: requireText(file, text(stamp['revision']), 'la revisión'),
     authorId: requirePerson(file, text(stamp['autor'])),
-    claims,
+    chunks: structuredChunks(claims, 'fila'),
   });
 };

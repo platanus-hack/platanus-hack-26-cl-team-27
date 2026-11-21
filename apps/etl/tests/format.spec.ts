@@ -39,7 +39,7 @@ describe('formato', () => {
         filtered: [{ stakeholderId: 'marcos-fuentes', reason: 'holgura' }],
       }),
     ).toBe(
-      'Propuesta: Losa nivel 3 · Espesor: 15 cm → 20 cm · 4 de 7 avisados · +$3.636.500 · +1 día',
+      'PR · Losa nivel 3 · Espesor: 15 cm → 20 cm · 4 de 7 avisados · +$3.636.500 · +1 día',
     );
   });
 
@@ -53,7 +53,39 @@ describe('formato', () => {
         reviewers: ['a', 'b', 'c'],
         filtered: [],
       }),
-    ).toBe('Propuesta: Shaft · 3 de 7 avisados');
+    ).toBe('PR · Shaft · 3 de 7 avisados');
+  });
+
+  it('describe el PR de una revisión con sus cambios y su bloqueo', () => {
+    const proposal = {
+      id: 'p',
+      title: 'A-201 rev D',
+      documentId: 'a201',
+      label: 'rev D',
+      authorId: 'fernanda-lagos',
+      costDelta: 0,
+      delayDays: 0,
+      reviewers: ['a', 'b', 'c'],
+      filtered: [],
+      unchanged: 1,
+      blockedByOverlap: true,
+      hunks: [
+        {
+          subjectId: 'shaft-s1',
+          attribute: 'posicion_m',
+          before: 6,
+          after: 8.5,
+          locator: 'detalle shaft S1',
+        },
+      ],
+    };
+    expect(describeProposal(proposal)).toBe(
+      'PR · A-201 rev D (Fernanda) · 1 cambio, 1 sin cambio · 3 de 7 avisados · bloqueado por solapamiento',
+    );
+    expect(describeLoad({ ...empty, proposals: [proposal] })).toEqual([
+      'PR · A-201 rev D (Fernanda) · 1 cambio, 1 sin cambio · 3 de 7 avisados · bloqueado por solapamiento',
+      '  shaft S1, distancia al eje A: 6 m → 8,5 m · detalle shaft S1',
+    ]);
   });
 
   it('describe una discrepancia y un respaldo, con unidades de Chile', () => {
@@ -99,8 +131,33 @@ describe('formato', () => {
         authorId: 'fernanda-lagos',
         pointer: 'p',
         contentHash: 'h',
-        claims: new Array(5).fill(null),
+        chunks: [
+          {
+            locator: 'cuadro',
+            kind: 'fila',
+            claims: new Array(5).fill(null),
+          },
+        ],
       }),
     ).toBe('Extraje drive-proyecto/E-102_revC.json: e102 rev C, 5 hechos.');
+  });
+
+  it('cuenta los fragmentos de texto que lee la API', () => {
+    expect(
+      describeExtraction('whatsapp-obra/mensaje-2.txt', {
+        documentId: 'whatsapp',
+        label: 'mensaje 2',
+        spaceId: 'whatsapp-obra',
+        authorId: 'marcos-fuentes',
+        pointer: 'p',
+        contentHash: 'h',
+        chunks: [
+          { locator: 'a', kind: 'mensaje', text: 'uno' },
+          { locator: 'b', kind: 'mensaje', text: 'dos' },
+        ],
+      }),
+    ).toBe(
+      'Extraje whatsapp-obra/mensaje-2.txt: whatsapp mensaje 2, 2 fragmentos de texto para que la API los lea.',
+    );
   });
 });

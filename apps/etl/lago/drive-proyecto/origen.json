@@ -30,5 +30,13 @@
   "Acta_12.txt": {
     "pointer": "Drive/Los Aromos/Actas/Acta_12.pdf",
     "tipo": "acta"
+  },
+  "IS-301_revA.json": {
+    "pointer": "Drive/Los Aromos/Sanitarias/IS-301_revA.pdf",
+    "tipo": "plano"
+  },
+  "IS-301_revB.json": {
+    "pointer": "Drive/Los Aromos/Sanitarias/IS-301_revB.pdf",
+    "tipo": "plano"
   }
 }

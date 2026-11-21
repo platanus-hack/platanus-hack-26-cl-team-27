@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { Revision } from '../types.ts';
+import type { Chunk, Claim, Revision } from '../types.ts';
 import type { Api, IngestResponse } from './api.ts';
 
 export * from './api.ts';
@@ -18,8 +18,19 @@ export const revisionBody = (revision: Revision) => ({
   spaceId: revision.spaceId,
   pointer: revision.pointer,
   contentHash: revision.contentHash,
-  claims: revision.claims,
+  chunks: revision.chunks.map((chunk) => ({
+    locator: chunk.locator,
+    kind: chunk.kind,
+    ...(chunk.text !== undefined ? { text: chunk.text } : {}),
+    ...(chunk.claims !== undefined ? { claims: chunk.claims } : {}),
+  })),
 });
+
+export const claimsOf = (revision: Pick<Revision, 'chunks'>): Claim[] =>
+  revision.chunks.flatMap((chunk) => chunk.claims ?? []);
+
+export const isTextChunk = (chunk: Chunk): boolean =>
+  chunk.text !== undefined && chunk.claims === undefined;
 
 export const ingestRevision = (
   api: Api,

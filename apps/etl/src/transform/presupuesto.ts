@@ -7,6 +7,7 @@ import {
 import { budgetSubject, parseNumber } from '../vocabulary.ts';
 import {
   finish,
+  structuredChunks,
   requireDocument,
   requirePerson,
   requireText,
@@ -60,6 +61,6 @@ export const parsePresupuesto = (file: RawFile): Revision => {
     documentId: requireDocument(file, table[0]?.[0] ?? null),
     label: requireText(file, metaValue(table, 'Versión'), 'la versión'),
     authorId: requirePerson(file, metaValue(table, 'Elaboró')),
-    claims: [...prices, ...uses],
+    chunks: structuredChunks([...prices, ...uses], 'fila'),
   });
 };

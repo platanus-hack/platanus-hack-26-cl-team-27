@@ -13,14 +13,25 @@ const revision: Revision = {
   authorId: 'fernanda-lagos',
   pointer: 'Drive/Los Aromos/Estructura/E-102_revC.pdf',
   contentHash: 'a'.repeat(64),
-  claims: [
+  chunks: [
     {
-      subject: 'losa-n3',
-      attribute: 'espesor_cm',
-      value: 20,
-      unit: 'cm',
-      role: 'afirma',
       locator: 'cuadro de losas rev C · Losa nivel 3',
+      kind: 'fila',
+      claims: [
+        {
+          subject: 'losa-n3',
+          attribute: 'espesor_cm',
+          value: 20,
+          unit: 'cm',
+          role: 'afirma',
+          locator: 'cuadro de losas rev C · Losa nivel 3',
+        },
+      ],
+    },
+    {
+      locator: 'folio 44',
+      kind: 'anotacion',
+      text: 'El shaft S1 se corre a 8,5 m del eje A.',
     },
   ],
 };
@@ -75,7 +86,7 @@ describe('carga a la API', () => {
       spaceId: 'drive-proyecto',
       pointer: revision.pointer,
       contentHash: revision.contentHash,
-      claims: revision.claims,
+      chunks: revision.chunks,
     });
   });
 
@@ -104,11 +115,51 @@ describe('carga a la API', () => {
           spaceId: 'drive-proyecto',
           pointer: revision.pointer,
           contentHash: revision.contentHash,
-          claims: revision.claims,
+          chunks: revision.chunks,
           authorId: 'fernanda-lagos',
         },
       ],
     });
+  });
+
+  it('los fragmentos de texto viajan sin hechos y los estructurados con ellos', async () => {
+    const { calls, http } = fakeFetch(() => Response.json({}));
+    await ingestRevision(new Api(config, http), revision);
+    const body = calls[0]?.body as {
+      chunks: Record<string, unknown>[];
+      claims?: unknown;
+    };
+    expect(body.claims).toBeUndefined();
+    expect(Object.keys(body.chunks[0]!)).toEqual(['locator', 'kind', 'claims']);
+    expect(body.chunks[1]).toEqual({
+      locator: 'folio 44',
+      kind: 'anotacion',
+      text: 'El shaft S1 se corre a 8,5 m del eje A.',
+    });
+    expect('claims' in body.chunks[1]!).toBe(false);
+  });
+
+  it('el voto de un solapamiento usa la ruta del contrato', async () => {
+    const { calls, http } = fakeFetch(() => Response.json({}));
+    await new Api(config, http).voteOverlap({
+      overlapId: 'o1',
+      kind: 'se_tocan',
+      note: 'cruza',
+      actAs: 'javier-munoz',
+      actionId: 'x',
+    });
+    expect(calls[0]?.method).toBe('POST');
+    expect(calls[0]?.url).toBe('http://api.test/api/overlaps/o1/vote');
+    expect(calls[0]?.headers['x-act-as']).toBe('javier-munoz');
+    expect(calls[0]?.headers['x-action-id']).toBe('x');
+    expect(calls[0]?.headers['x-presenter-key']).toBe('clave');
+    expect(calls[0]?.body).toEqual({ kind: 'se_tocan', note: 'cruza' });
+  });
+
+  it('los solapamientos se leen de GET /api/overlaps', async () => {
+    const { calls, http } = fakeFetch(() => Response.json({ overlaps: [] }));
+    expect(await new Api(config, http).overlaps()).toEqual([]);
+    expect(calls[0]?.url).toBe('http://api.test/api/overlaps');
   });
 
   it('el voto y la reapertura usan las rutas del contrato', async () => {

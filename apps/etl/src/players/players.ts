@@ -3,15 +3,20 @@ import {
   ApiError,
   isSeatHeld,
   type ApiEvent,
+  type OverlapView,
   type ProposalView,
 } from '../load/api.ts';
 import { actionIdOf } from '../load/index.ts';
+import { personName } from '../vocabulary.ts';
 import {
   AUTHOR_ID,
   disputeNotice,
-  isActiveStatus,
+  hasBlockers,
+  overlapNotices,
+  planOverlapVotes,
   planReopens,
   planVotes,
+  type PlannedOverlapVote,
   type PlannedReopen,
   type PlannedVote,
 } from './plan.ts';
@@ -32,13 +37,14 @@ export interface PlayersOptions {
 export interface PollResult {
   readonly events: readonly ApiEvent[];
   readonly proposals: readonly ProposalView[];
+  readonly overlaps: readonly OverlapView[];
   readonly notes: readonly string[];
   readonly reset: boolean;
 }
 
 const castName = (proposal: ProposalView | undefined, castId: string): string =>
   proposal?.reviewers.find((reviewer) => reviewer.stakeholderId === castId)
-    ?.name ?? castId;
+    ?.name ?? personName(castId);
 
 export class Players {
   private readonly api: Api;
@@ -53,6 +59,8 @@ export class Players {
   private cancels = new Set<() => void>();
   private pendingNotes: string[] = [];
   private latest: readonly ProposalView[] = [];
+  private latestOverlaps: readonly OverlapView[] = [];
+  private revisionLabels = new Map<string, string>();
 
   constructor(api: Api, options: PlayersOptions) {
     this.api = api;
@@ -76,6 +84,11 @@ export class Players {
     this.rounds = new Map();
     this.planned = new Set();
     this.noticed = new Set();
+    this.revisionLabels = new Map();
+  }
+
+  noteRevision(revisionId: string, label: string): void {
+    this.revisionLabels.set(revisionId, label);
   }
 
   private async pullEvents(): Promise<{ events: ApiEvent[]; reset: boolean }> {
@@ -113,11 +126,13 @@ export class Players {
 
   async poll(): Promise<PollResult> {
     const { events, reset } = await this.pullEvents();
-    const [proposals, room] = await Promise.all([
+    const [proposals, overlaps, room] = await Promise.all([
       this.api.proposals(),
+      this.api.overlaps(),
       this.api.room(),
     ]);
     this.latest = proposals;
+    this.latestOverlaps = overlaps;
     const humans = new Set(
       room.cast
         .filter(
@@ -134,6 +149,23 @@ export class Players {
     })) {
       this.planned.add(vote.key);
       this.arm(vote.delayMs, () => this.castVote(vote, proposals));
+    }
+    for (const vote of planOverlapVotes({
+      overlaps,
+      humans,
+      planned: this.planned,
+      speed: this.speed,
+    })) {
+      this.planned.add(vote.key);
+      this.arm(vote.delayMs, () => this.castOverlapVote(vote));
+    }
+    for (const notice of overlapNotices(
+      overlaps,
+      this.revisionLabels,
+      this.noticed,
+    )) {
+      this.noticed.add(notice.key);
+      this.pendingNotes.push(notice.text);
     }
     if (this.auto) {
       for (const reopen of planReopens({
@@ -157,7 +189,7 @@ export class Players {
     }
     const notes = this.pendingNotes;
     this.pendingNotes = [];
-    return { events, proposals, notes, reset };
+    return { events, proposals, overlaps, notes, reset };
   }
 
   private arm(delayMs: number, run: () => Promise<void>): void {
@@ -199,6 +231,33 @@ export class Players {
     }
   }
 
+  private async castOverlapVote(vote: PlannedOverlapVote): Promise<void> {
+    const who = castName(undefined, vote.castId);
+    try {
+      await this.api.voteOverlap({
+        overlapId: vote.overlapId,
+        kind: vote.kind,
+        note: vote.note,
+        actAs: vote.castId,
+        actionId: actionIdOf([vote.overlapId, vote.castId, vote.kind]),
+      });
+    } catch (error) {
+      if (isSeatHeld(error)) {
+        this.pendingNotes.push(
+          `${who} la juega una persona: no voto por ella en el solapamiento.`,
+        );
+        return;
+      }
+      if (error instanceof ApiError) {
+        this.pendingNotes.push(
+          `El voto de ${who} sobre el solapamiento no entró: ${error.message}`,
+        );
+        return;
+      }
+      throw error;
+    }
+  }
+
   private async castReopen(reopen: PlannedReopen): Promise<void> {
     try {
       await this.api.reopen(reopen.proposalId);
@@ -220,8 +279,12 @@ export class Players {
     return disputed.length;
   }
 
-  hasActive(proposals: readonly ProposalView[] = this.latest): boolean {
-    return proposals.some((proposal) => isActiveStatus(proposal.status));
+  isBusy(
+    deferConfirmed = false,
+    proposals: readonly ProposalView[] = this.latest,
+    overlaps: readonly OverlapView[] = this.latestOverlaps,
+  ): boolean {
+    return hasBlockers({ proposals, overlaps, deferConfirmed });
   }
 
   hasPendingWork(): boolean {

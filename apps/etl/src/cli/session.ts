@@ -11,7 +11,7 @@ import {
 import { Players } from '../players/players.ts';
 import { SCENE_PAUSE_MS, scaled } from '../players/plan.ts';
 import type { Extracted } from '../types.ts';
-import { personName } from '../vocabulary.ts';
+import { documentTitle, personName } from '../vocabulary.ts';
 import {
   describeExtraction,
   describeLoad,
@@ -41,6 +41,10 @@ const QUIET_EVENTS: ReadonlySet<string> = new Set([
   'seat.released',
   'autoplay.changed',
   'scene.started',
+  'overlap.detected',
+  'overlap.confirmed',
+  'overlap.cleared',
+  'overlap.resolved',
 ]);
 
 export class Session {
@@ -149,6 +153,10 @@ export class Session {
       this.say(`  ${describeExtraction(path, item.revision)}`);
       try {
         const response = await ingestRevision(this.deps.api, item.revision);
+        this.deps.players.noteRevision(
+          response.revisionId,
+          `${documentTitle(item.revision.documentId)} ${item.revision.label}`,
+        );
         for (const line of describeLoad(response)) this.say(`  ${line}`);
       } catch (error) {
         if (isSeatHeld(error)) {
@@ -168,14 +176,17 @@ export class Session {
         throw error;
       }
     }
-    const settled = await this.settle();
+    const deferConfirmed = PASOS.slice(PASOS.indexOf(paso) + 1).some(
+      (later) => !isDone(later, has, this.deps.items),
+    );
+    const settled = await this.settle(deferConfirmed);
     if (settled === 'listo') {
       this.say(`  ${describeUpToDate(await this.deps.api.room())}`);
     }
     return settled === 'salir' ? 'salir' : 'cargado';
   }
 
-  async settle(): Promise<'listo' | 'saltado' | 'salir'> {
+  async settle(deferConfirmed = false): Promise<'listo' | 'saltado' | 'salir'> {
     const pollMs = this.deps.pollMs ?? 600;
     for (;;) {
       const result = await this.deps.players.poll();
@@ -184,7 +195,11 @@ export class Session {
       }
       for (const note of result.notes) this.say(`  ${note}`);
       if (
-        !this.deps.players.hasActive(result.proposals) &&
+        !this.deps.players.isBusy(
+          deferConfirmed,
+          result.proposals,
+          result.overlaps,
+        ) &&
         !this.deps.players.hasPendingWork()
       ) {
         return 'listo';

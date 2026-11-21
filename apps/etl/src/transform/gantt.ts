@@ -7,6 +7,7 @@ import {
 import { parseNumber, PROJECT_SUBJECT } from '../vocabulary.ts';
 import {
   finish,
+  structuredChunks,
   requireDocument,
   requirePerson,
   requireText,
@@ -61,6 +62,6 @@ export const parseGantt = (file: RawFile): Revision => {
     documentId: requireDocument(file, table[0]?.[0] ?? null),
     label: requireText(file, metaValue(table, 'Versión'), 'la versión'),
     authorId: requirePerson(file, metaValue(table, 'Programó')),
-    claims: [...delivery, ...uses],
+    chunks: structuredChunks([...delivery, ...uses], 'fila'),
   });
 };

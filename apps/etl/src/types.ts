@@ -9,6 +9,16 @@ export interface Claim {
   readonly locator: string;
 }
 
+export type ChunkKind =
+  'fila' | 'anotacion' | 'acuerdo' | 'mensaje' | 'parametro' | 'texto';
+
+export interface Chunk {
+  readonly locator: string;
+  readonly kind: ChunkKind;
+  readonly text?: string;
+  readonly claims?: readonly Claim[];
+}
+
 export type SourceKind =
   | 'plano'
   | 'eett'
@@ -37,7 +47,7 @@ export interface Revision {
   readonly authorId: string;
   readonly pointer: string;
   readonly contentHash: string;
-  readonly claims: readonly Claim[];
+  readonly chunks: readonly Chunk[];
 }
 
 export interface Extracted {

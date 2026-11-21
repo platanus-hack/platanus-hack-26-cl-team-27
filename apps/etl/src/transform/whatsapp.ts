@@ -1,14 +1,5 @@
-import {
-  ParseError,
-  type Claim,
-  type RawFile,
-  type Revision,
-} from '../types.ts';
-import {
-  ATTRIBUTE_UNITS,
-  parseNumber,
-  WHATSAPP_DOCUMENT,
-} from '../vocabulary.ts';
+import { ParseError, type RawFile, type Revision } from '../types.ts';
+import { WHATSAPP_DOCUMENT } from '../vocabulary.ts';
 import { finish, requirePerson } from './common.ts';
 
 interface Message {
@@ -44,27 +35,14 @@ export const parseWhatsapp = (file: RawFile): Revision => {
   if (last === undefined) {
     throw new ParseError(file.relativePath, 'la exportación no tiene mensajes');
   }
-  const claims: Claim[] = [];
-  for (const message of messages) {
-    const windows = /(?:las )?ventanas del norte quedaron en (\d+)/i.exec(
-      message.body,
-    );
-    const width = parseNumber(windows?.[1] ?? '');
-    if (windows && width !== null) {
-      claims.push({
-        subject: 'ventanas-norte',
-        attribute: 'ancho_cm',
-        value: width,
-        unit: ATTRIBUTE_UNITS['ancho_cm'] ?? null,
-        role: 'afirma',
-        locator: `mensaje de las ${message.time}: «${windows[0]}»`,
-      });
-    }
-  }
   return finish(file, {
     documentId: WHATSAPP_DOCUMENT,
     label: `mensaje ${messages.length}`,
     authorId: requirePerson(file, last.sender),
-    claims,
+    chunks: messages.map((message) => ({
+      locator: `mensaje de las ${message.time}`,
+      kind: 'mensaje' as const,
+      text: message.body,
+    })),
   });
 };

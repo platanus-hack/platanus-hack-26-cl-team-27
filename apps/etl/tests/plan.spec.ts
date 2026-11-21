@@ -1,7 +1,11 @@
-import type { ProposalView } from '../src/load/api.ts';
+import type { OverlapView, ProposalView } from '../src/load/api.ts';
 import {
   delayFor,
+  describeOverlap,
   disputeNotice,
+  hasBlockers,
+  overlapNotices,
+  planOverlapVotes,
   planReopens,
   planVote,
   planVotes,
@@ -89,15 +93,11 @@ describe('planVote', () => {
     });
   });
 
-  it('Javier disputa el shaft y aprueba tras reabrir', () => {
+  it('Javier ya no disputa la propuesta del shaft: lo detecta el solapamiento', () => {
     expect(
       planVote({ castId: 'javier-munoz', subjectId: 'shaft-s1', round: 0 })
         .kind,
-    ).toBe('issue');
-    expect(
-      planVote({ castId: 'javier-munoz', subjectId: 'shaft-s1', round: 2 })
-        .note,
-    ).toBe('Resuelto el cruce con el colector, queda conforme');
+    ).toBe('reviewed');
   });
 
   it('Paula aprueba lo que no es la losa y Javier lo que no es el shaft', () => {
@@ -240,5 +240,195 @@ describe('reapertura', () => {
       text: 'Paula Rojas disputó: «Necesito 2 días» — [o] reabrir',
     });
     expect(disputeNotice(proposal(), new Map())).toBeNull();
+  });
+});
+
+const overlap = (overrides: Partial<OverlapView> = {}): OverlapView => ({
+  id: 'o1',
+  proposalId: 'p-shaft',
+  revisionId: 'r-a201d',
+  chunkLocator: 'detalle shaft S1',
+  kind: 'misma-area',
+  area: { nivel: 'n3', celda: 'C-D/3', sistemas: ['sanitarias'] },
+  subjectId: 'shaft-s1',
+  otherSubjectId: 'colector-b2',
+  otherBacking: {
+    documentId: 'is301',
+    label: 'rev A',
+    ownerId: 'javier-munoz',
+  },
+  status: 'abierto',
+  validators: ['fernanda-lagos', 'javier-munoz'],
+  votes: [],
+  ...overrides,
+});
+
+describe('solapamientos', () => {
+  it('Javier vota se_tocan con su nota y Fernanda no_se_tocan', () => {
+    const votes = planOverlapVotes({
+      overlaps: [overlap()],
+      humans: new Set(),
+      planned: new Set(),
+      speed: 2,
+    });
+    expect(
+      votes.map((vote) => [vote.castId, vote.kind, vote.note, vote.delayMs]),
+    ).toEqual([
+      [
+        'fernanda-lagos',
+        'no_se_tocan',
+        'Desde arquitectura no veo el cruce',
+        500,
+      ],
+      [
+        'javier-munoz',
+        'se_tocan',
+        'El shaft a 8,5 m cruza el colector B2 en el nivel 3',
+        2000,
+      ],
+    ]);
+  });
+
+  it('salta a las personas, a quien ya votó y a lo ya planificado', () => {
+    const votes = planOverlapVotes({
+      overlaps: [
+        overlap({
+          votes: [
+            { validatorId: 'fernanda-lagos', kind: 'no_se_tocan', note: null },
+          ],
+        }),
+        overlap({ id: 'o2', status: 'confirmado' }),
+      ],
+      humans: new Set(['javier-munoz']),
+      planned: new Set(),
+      speed: 1,
+    });
+    expect(votes).toEqual([]);
+    expect(
+      planOverlapVotes({
+        overlaps: [overlap()],
+        humans: new Set(),
+        planned: new Set(['overlap-vote:o1:javier-munoz']),
+        speed: 1,
+      }).map((vote) => vote.castId),
+    ).toEqual(['fernanda-lagos']);
+  });
+
+  it('describe el solapamiento y su resolución', () => {
+    const labels = new Map([['r-a201d', 'A-201 rev D']]);
+    expect(describeOverlap(overlap(), labels)).toBe(
+      'Solapamiento: Shaft S1 (A-201 rev D) y Colector B2 (IS-301 rev A) · nivel 3 · C-D/3 · sanitarias',
+    );
+    expect(describeOverlap(overlap({ status: 'resuelto' }), labels)).toContain(
+      'Solapamiento resuelto: Shaft S1',
+    );
+    expect(
+      describeOverlap(
+        overlap({
+          status: 'confirmado',
+          votes: [
+            {
+              validatorId: 'javier-munoz',
+              kind: 'se_tocan',
+              note: 'cruza',
+            },
+          ],
+        }),
+        labels,
+      ),
+    ).toMatch(/^Solapamiento confirmado: .* — «cruza»$/);
+  });
+
+  it('avisa cada estado una sola vez', () => {
+    const labels = new Map<string, string>();
+    const first = overlapNotices([overlap()], labels, new Set());
+    expect(first).toHaveLength(1);
+    expect(
+      overlapNotices([overlap()], labels, new Set([first[0]!.key])),
+    ).toEqual([]);
+    expect(
+      overlapNotices(
+        [overlap({ status: 'resuelto' })],
+        labels,
+        new Set([first[0]!.key]),
+      ),
+    ).toHaveLength(1);
+  });
+
+  const approved = (status = 'open'): ProposalView =>
+    proposal({
+      status,
+      reviewers: proposal().reviewers.map((reviewer) => ({
+        ...reviewer,
+        decision: 'approve' as const,
+      })),
+    });
+
+  it('un solapamiento abierto bloquea el paso', () => {
+    expect(
+      hasBlockers({
+        proposals: [],
+        overlaps: [overlap()],
+        deferConfirmed: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('el confirmado solo espera un paso posterior si queda alguno', () => {
+    const confirmed = overlap({ status: 'confirmado' });
+    expect(
+      hasBlockers({
+        proposals: [approved()],
+        overlaps: [confirmed],
+        deferConfirmed: true,
+      }),
+    ).toBe(false);
+    expect(
+      hasBlockers({
+        proposals: [approved()],
+        overlaps: [confirmed],
+        deferConfirmed: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('una propuesta con votos pendientes o disputada sigue bloqueando', () => {
+    const confirmed = overlap({ status: 'confirmado' });
+    expect(
+      hasBlockers({
+        proposals: [proposal()],
+        overlaps: [confirmed],
+        deferConfirmed: true,
+      }),
+    ).toBe(true);
+    expect(
+      hasBlockers({
+        proposals: [approved('disputed')].map((p) => ({
+          ...p,
+          reviewers: p.reviewers.map((r, i) =>
+            i === 0 ? { ...r, decision: 'dispute' as const } : r,
+          ),
+        })),
+        overlaps: [confirmed],
+        deferConfirmed: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('sin solapamientos una propuesta abierta bloquea y una fusionada no', () => {
+    expect(
+      hasBlockers({
+        proposals: [approved()],
+        overlaps: [],
+        deferConfirmed: true,
+      }),
+    ).toBe(true);
+    expect(
+      hasBlockers({
+        proposals: [approved('merged')],
+        overlaps: [overlap({ status: 'resuelto' })],
+        deferConfirmed: false,
+      }),
+    ).toBe(false);
   });
 });

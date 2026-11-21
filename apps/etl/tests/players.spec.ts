@@ -2,6 +2,7 @@ import {
   Api,
   ApiError,
   type ApiEvent,
+  type OverlapView,
   type ProposalView,
 } from '../src/load/api.ts';
 import { Players, type Schedule } from '../src/players/players.ts';
@@ -56,6 +57,30 @@ class FakeApi {
 
   async proposals() {
     return this.proposalsNow;
+  }
+
+  overlapsNow: OverlapView[] = [];
+  overlapVotes: {
+    overlapId: string;
+    kind: string;
+    note: string;
+    actAs: string;
+  }[] = [];
+
+  async overlaps() {
+    return this.overlapsNow;
+  }
+
+  async voteOverlap(input: {
+    overlapId: string;
+    kind: string;
+    note: string;
+    actAs: string;
+  }) {
+    if (this.heldFor.has(input.actAs)) {
+      throw new ApiError(409, 'seat_held', 'la tiene una persona');
+    }
+    this.overlapVotes.push(input);
   }
 
   async events(after: number | undefined) {
@@ -242,7 +267,50 @@ describe('Players', () => {
     const { api, players } = harness({ auto: true });
     api.proposalsNow = [slab('merged')];
     const result = await players.poll();
-    expect(players.hasActive(result.proposals)).toBe(false);
+    expect(players.isBusy(false, result.proposals, [])).toBe(false);
     expect(players.hasPendingWork()).toBe(false);
+  });
+
+  it('vota el solapamiento del shaft y el colector, salvo los asientos con persona', async () => {
+    const { api, players, fire } = harness({ auto: true });
+    api.overlapsNow = [
+      {
+        id: 'o1',
+        proposalId: 'p',
+        revisionId: 'r',
+        chunkLocator: 'detalle shaft S1',
+        kind: 'misma-area',
+        area: { nivel: 'n3', celda: 'C-D/3', sistemas: ['sanitarias'] },
+        subjectId: 'shaft-s1',
+        otherSubjectId: 'colector-b2',
+        otherBacking: {
+          documentId: 'is301',
+          label: 'rev A',
+          ownerId: 'javier-munoz',
+        },
+        status: 'abierto',
+        validators: ['fernanda-lagos', 'javier-munoz'],
+        votes: [],
+      },
+    ];
+    api.heldFor.add('fernanda-lagos');
+    const first = await players.poll();
+    expect(first.notes.join('\n')).toContain(
+      'Solapamiento: Shaft S1 y Colector B2 (IS-301 rev A) · nivel 3 · C-D/3 · sanitarias',
+    );
+    await fire();
+    expect(api.overlapVotes).toEqual([
+      expect.objectContaining({
+        overlapId: 'o1',
+        kind: 'se_tocan',
+        note: 'El shaft a 8,5 m cruza el colector B2 en el nivel 3',
+        actAs: 'javier-munoz',
+      }),
+    ]);
+    const next = await players.poll();
+    expect(next.notes.join('\n')).toContain(
+      'Fernanda Lagos la juega una persona',
+    );
+    expect(players.isBusy(true)).toBe(true);
   });
 });
