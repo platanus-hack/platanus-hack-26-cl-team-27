@@ -13,6 +13,7 @@ export const AXIS_6_X = 30;
 export const AXIS_B_Y = 6;
 export const TRAY_BASE_Y = [6.45, 6.75] as const;
 export const TRAY_FALLBACK_X = [6, 32] as const;
+export const FIXED_TRAY_FROM_X = 24.9;
 
 export interface Rect {
   readonly x: number;
@@ -56,6 +57,14 @@ export const intersectBoxes = (a: FlowBox, b: FlowBox): FlowBox | null => {
     max: [max[0] ?? 0, max[1] ?? 0, max[2] ?? 0],
   };
 };
+
+export const fixedTrayRange = (
+  segmentFromX: number,
+  run: number,
+): readonly [number, number] => [
+  FIXED_TRAY_FROM_X,
+  Math.max(FIXED_TRAY_FROM_X, segmentFromX - run),
+];
 
 export const slideOffset = (dy: number, applied: boolean): number =>
   applied ? -lengthToSvg(dy) : 0;

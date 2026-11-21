@@ -18,6 +18,7 @@ import {
 } from '@/lib/seat-storage';
 
 import { CamilaView } from './CamilaView';
+import { CaseModelView } from './CaseModelView';
 import { PaulaView } from './PaulaView';
 
 const WHO: Record<string, { name: string; role: string }> = {
@@ -90,7 +91,7 @@ export function CaseScreen({ castId }: { readonly castId: string }) {
           <h1 className="truncate text-lg font-semibold text-ink">
             {who.name}
           </h1>
-          <p className="truncate text-sm text-ink-2">
+          <p className="text-sm text-ink-2">
             {who.role} · {data.case.level}, {data.case.axis}
           </p>
         </div>
@@ -114,6 +115,7 @@ export function CaseScreen({ castId }: { readonly castId: string }) {
           onSeatLost={onSeatLost}
         />
       )}
+      <CaseModelView flow={data} hideWhenMissing />
     </div>
   );
 }

@@ -200,16 +200,16 @@ export function CamilaView({
       )}
       {applied && (
         <Card>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {proposal.appliedText && (
-              <StatusChip
-                tone="good"
-                icon="check"
-                label={proposal.appliedText}
-                className="self-start text-sm"
-              />
+              <div className="rounded-lg border border-good/40 bg-good/10 px-4 py-3">
+                <p className="flex items-center gap-2 text-lg font-semibold text-ink">
+                  <Icon name="check" className="size-5 text-good" />
+                  {proposal.appliedText}
+                </p>
+              </div>
             )}
-            <p className="text-base text-ink-2">{proposal.texts.title}</p>
+            <p className="text-base text-ink-2">{proposal.texts.proposal}</p>
           </div>
         </Card>
       )}

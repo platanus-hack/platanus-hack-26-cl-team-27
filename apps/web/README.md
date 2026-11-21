@@ -96,7 +96,7 @@ Todo el acceso a `/api/flow` vive en `lib/flow-api.ts` (tipos y llamadas: `getFl
 
 - `lib/case-plan.ts`: geometría pura del plano (metros a coordenadas SVG, con el norte arriba, 100 unidades por metro), choque entre cajas y desplazamiento de la bandeja.
 - `lib/case-view.ts`: textos y formatos del caso (`describeMove`, `formatCostLine`, la línea de tiempo de Paula).
-- `components/caso/CasePlan.tsx`: el plano en SVG con `viewBox`. Dibuja los ejes 5, 6 y B, P-12 (con su posición anterior punteada), la bandeja E-B-03, el colector B2, el choque achurado en rojo y el arreglo propuesto como fantasma verde. Al aceptarse la propuesta, el tramo de la bandeja se desliza a su nueva posición.
+- `components/caso/CasePlan.tsx`: el plano en SVG con `viewBox`. Dibuja los ejes 5, 6 y B, P-12 (con su posición anterior punteada), la bandeja E-B-03, el colector B2, el choque achurado en rojo y el arreglo propuesto como fantasma verde. Al aceptarse la propuesta, el tramo de 6 m se desliza a su nueva posición y se une al tramo fijo con dos quiebres de 45°. La API entrega solo el tramo movible; el tramo fijo se dibuja desde x = 24,9 m, a la derecha del colector (`fixedTrayRange` en `lib/case-plan.ts`).
 - `CamilaView` avisa su presencia (`viewing: 'propuesta'` mientras la tarjeta está a la vista, `'plano'` si no) cada 8 s y al volver a la pestaña. Solo con asiento propio; la vista del presentador no la envía y muestra la presencia de Camila a partir de `flow.presence`. El paso 3 de la línea de tiempo de Paula requiere el asiento real de Camila abierto en su dispositivo.
 - Si el token de un asiento deja de valer (401 al actuar o al avisar presencia), `CaseScreen` lo borra y vuelve a tomar el asiento solo. «Reiniciar caso» deja el hilo del presentador en el último `flow.reset`.
 - El caso no muestra bots.
@@ -128,7 +128,7 @@ Todo el acceso a `/api/flow` vive en `lib/flow-api.ts` (tipos y llamadas: `getFl
 
 `CaseModelView` (`components/caso`) muestra el paso 5 del flujo en el visor de APS: el pilar P-12 y la bandeja E-B-03 en sus modelos. Recibe el `FlowState` (`flow`, o `null`) y, opcionalmente, `models`, `externalIds` (id del caso a `uniqueId` de Revit) y `axes`. La lógica vive en `lib/aps-viewer-flow.ts`:
 
-- `selectCaseModels` busca en `GET /api/aps/models` los archivos que empiezan con `caso-estructura` (disciplina `structural`) y `caso-electrico` (`electrical`). Si no están, el componente muestra «Modelos del caso no cargados: se muestra el plano 2D» y no abre el visor; la pantalla `/caso` lo pone junto al plano SVG.
+- `selectCaseModels` busca en `GET /api/aps/models` los archivos que empiezan con `caso-estructura` (disciplina `structural`) y `caso-electrico` (`electrical`). Si no están, el componente muestra «Modelos del caso no cargados: se muestra el plano 2D» y no abre el visor. Cada pantalla de `/caso/[castId]` lo pone debajo de su vista con `hideWhenMissing`: sin modelos del caso, o si el visor falla, no muestra nada y basta el plano SVG. La vista del presentador no lo carga.
 - `planScene` decide, solo desde el `FlowState`, qué hacer: P-12 se mueve el delta del cambio cuando hay cambio; E-B-03 se mueve el delta de la propuesta cuando está `aplicada` o `resuelta`; el par en choque (`detectada`) va en rojo, y la bandeja aplicada en verde. Si la propuesta se rechaza, la bandeja no se mueve.
 - `createCaseScene` abre estructura primero (fija el `globalOffset`), espera `geometryLoaded` (20 s como tope) y entrega `apply(plan)`, que desliza el elemento 0,9 s y repinta. Cada pantalla reaplica el estado completo, sin depender de lo que hizo la otra.
 - Un elemento se busca por `externalIds[id]` y, si no, por la propiedad `Mark` (`findByMark`, con coincidencia exacta). `getWorldBoundsMeters` devuelve la caja en metros, con el `globalOffset` y la unidad del modelo.
@@ -146,7 +146,7 @@ Llamadas del visor «a verificar» contra una corrida real en el navegador:
 - El evento `geometryLoaded` y que el `externalId` del modelo traducido sea el `UniqueId` de Revit.
 - La orientación de «norte» respecto del eje y del visor (`axes`).
 
-Para cargar los modelos del caso: subir a APS `caso-estructura.rvt` (con el pilar de marca `P-12`) y `caso-electrico.rvt` (con la bandeja de marca `E-B-03`) como los demás (`pnpm aps:models`), de modo que `models/models.json` los liste con la disciplina correcta.
+Para cargar los modelos del caso: subir a APS `caso-estructura.rvt` (con el pilar de marca `P-12`) y `caso-electrico.rvt` (con la bandeja de marca `E-B-03`) como los demás (`pnpm aps:models`), de modo que `GET /api/aps/models` los liste con la disciplina correcta.
 
 ## Almacenamiento
 

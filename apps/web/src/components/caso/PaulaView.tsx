@@ -72,7 +72,11 @@ export function PaulaView({
             onClick={() => void send()}
           >
             <Icon name="arrow" className="size-4 -rotate-90" />
-            {busy ? 'Enviando…' : 'Mover P-12 40 cm al norte'}
+            {busy
+              ? 'Enviando…'
+              : sent
+                ? 'P-12 movido 40 cm al norte'
+                : 'Mover P-12 40 cm al norte'}
           </Button>
           {shownError && <Notice tone="error">{shownError}</Notice>}
           {flow.proposal?.status === 'resuelta' &&

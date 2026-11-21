@@ -5,6 +5,7 @@ import {
   AXIS_6_X,
   AXIS_B_Y,
   boxToRect,
+  fixedTrayRange,
   intersectBoxes,
   isApplied,
   lengthToSvg,
@@ -85,9 +86,10 @@ export function CasePlan({
   const dy = proposal?.delta.dy ?? 0;
   const segment = proposal?.segment ?? { fromX: 26, toX: 32 };
   const run = applied ? Math.abs(dy) : 0;
+  const [fixedFrom, fixedTo] = fixedTrayRange(segment.fromX, run);
   const trayLeft = rectFromRange(
-    tray.min[0],
-    segment.fromX - run,
+    fixedFrom,
+    fixedTo,
     TRAY_BASE_Y[0],
     TRAY_BASE_Y[1],
   );

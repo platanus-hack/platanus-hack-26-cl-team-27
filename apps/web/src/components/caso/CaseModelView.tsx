@@ -22,6 +22,7 @@ export interface CaseModelViewProps {
   readonly externalIds?: Readonly<Record<string, string>>;
   readonly axes?: AxisMap;
   readonly className?: string;
+  readonly hideWhenMissing?: boolean;
 }
 
 type Phase = 'loading-list' | 'missing' | 'loading-viewer' | 'ready' | 'error';
@@ -35,6 +36,7 @@ export function CaseModelView({
   externalIds,
   axes,
   className,
+  hideWhenMissing = false,
 }: CaseModelViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const scene = useRef<CaseScene | null>(null);
@@ -109,9 +111,10 @@ export function CaseModelView({
   }, [ready, flow]);
 
   const unavailable = phase === 'missing' || phase === 'error';
+  const silent = hideWhenMissing && (unavailable || phase === 'loading-list');
 
   return (
-    <div className={className}>
+    <div className={silent ? 'hidden' : className}>
       {phase === 'missing' && (
         <p role="status" className="text-sm text-ink-2">
           {MISSING_MODELS_TEXT}

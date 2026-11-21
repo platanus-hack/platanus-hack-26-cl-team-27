@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   boxToRect,
+  fixedTrayRange,
   intersectBoxes,
   isApplied,
   slideOffset,
@@ -12,6 +13,16 @@ import {
 import type { FlowProposal } from './flow-api.ts';
 
 describe('plan geometry', () => {
+  it('keeps the fixed part of the tray up to the first 45° bend', () => {
+    expect(fixedTrayRange(26, 0)).toEqual([24.9, 26]);
+    expect(fixedTrayRange(26, 0.4)).toEqual([24.9, 25.6]);
+  });
+
+  it('never gives the fixed part of the tray a negative width', () => {
+    const [from, to] = fixedTrayRange(25, 0.4);
+    expect(to).toBeGreaterThanOrEqual(from);
+  });
+
   it('maps meters to SVG coordinates with north up', () => {
     expect(toSvgX(30)).toBe(640);
     expect(toSvgY(6)).toBe(290);
