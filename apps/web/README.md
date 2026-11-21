@@ -124,6 +124,30 @@ Todo el acceso a `/api/flow` vive en `lib/flow-api.ts` (tipos y llamadas: `getFl
 
 `onSelectionChange` entrega la selección con la misma forma.
 
+## Visor del caso
+
+`CaseModelView` (`components/caso`) muestra el paso 5 del flujo en el visor de APS: el pilar P-12 y la bandeja E-B-03 en sus modelos. Recibe el `FlowState` (`flow`, o `null`) y, opcionalmente, `models`, `externalIds` (id del caso a `uniqueId` de Revit) y `axes`. La lógica vive en `lib/aps-viewer-flow.ts`:
+
+- `selectCaseModels` busca en `GET /api/aps/models` los archivos que empiezan con `caso-estructura` (disciplina `structural`) y `caso-electrico` (`electrical`). Si no están, el componente muestra «Modelos del caso no cargados: se muestra el plano 2D» y no abre el visor; la pantalla `/caso` lo pone junto al plano SVG.
+- `planScene` decide, solo desde el `FlowState`, qué hacer: P-12 se mueve el delta del cambio cuando hay cambio; E-B-03 se mueve el delta de la propuesta cuando está `aplicada` o `resuelta`; el par en choque (`detectada`) va en rojo, y la bandeja aplicada en verde. Si la propuesta se rechaza, la bandeja no se mueve.
+- `createCaseScene` abre estructura primero (fija el `globalOffset`), espera `geometryLoaded` (20 s como tope) y entrega `apply(plan)`, que desliza el elemento 0,9 s y repinta. Cada pantalla reaplica el estado completo, sin depender de lo que hizo la otra.
+- Un elemento se busca por `externalIds[id]` y, si no, por la propiedad `Mark` (`findByMark`, con coincidencia exacta). `getWorldBoundsMeters` devuelve la caja en metros, con el `globalOffset` y la unidad del modelo.
+- Los deltas del caso están en metros, x este, y norte, z arriba. `axes` (`axesRotatedBy(grados)`) los gira si el norte de Revit no coincide con el eje y del visor.
+- El visor no clona geometría: la posición propuesta (antes de aceptar) no se dibuja en 3D; el plano SVG muestra el fantasma.
+
+Llamadas del visor «a verificar» contra una corrida real en el navegador:
+
+- `Model.search(text, onSuccess, onError, ['Mark', 'Marca'])` y que `Mark` sea la propiedad de la marca.
+- `Model.getObjectTree`, `InstanceTree.enumNodeFragments(dbId, cb, true)` y `FragmentList.getWorldBounds`.
+- `FragmentList.updateAnimTransform(fragId, undefined, undefined, translation)` para mover, y `updateAnimTransform(fragId)` sin argumentos para devolver; `viewer.impl.sceneUpdated(true)`.
+- Que la traslación esté en unidades del modelo y no en metros, y que no la afecte el `globalOffset`.
+- `Model.getUnitScale()` (metros por unidad) y `getUnitString()`.
+- Que `getWorldBounds` no incluya la traslación animada.
+- El evento `geometryLoaded` y que el `externalId` del modelo traducido sea el `UniqueId` de Revit.
+- La orientación de «norte» respecto del eje y del visor (`axes`).
+
+Para cargar los modelos del caso: subir a APS `caso-estructura.rvt` (con el pilar de marca `P-12`) y `caso-electrico.rvt` (con la bandeja de marca `E-B-03`) como los demás (`pnpm aps:models`), de modo que `models/models.json` los liste con la disciplina correcta.
+
 ## Almacenamiento
 
 - El token de cada asiento vive en `localStorage` bajo `sala:asiento:<castId>` (`lib/seat-storage.ts`). Todo acceso va con `try/catch`: si el navegador no deja guardar, el token sigue en memoria mientras dure la pestaña y la pantalla muestra «Tu navegador no deja guardar el asiento». Sin token, `/asiento/[castId]` queda en solo lectura.

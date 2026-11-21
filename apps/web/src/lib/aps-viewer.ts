@@ -76,9 +76,10 @@ export interface Viewer3D {
   ): void;
   clearThemingColors(model: ViewerModelHandle): void;
   addEventListener(type: string, listener: (event: unknown) => void): void;
+  removeEventListener?(type: string, listener: (event: unknown) => void): void;
 }
 
-interface AutodeskViewing {
+export interface AutodeskViewing {
   Initializer(options: Record<string, unknown>, onReady: () => void): void;
   GuiViewer3D: new (container: HTMLElement) => Viewer3D;
   Document: {
@@ -91,14 +92,14 @@ interface AutodeskViewing {
   AGGREGATE_SELECTION_CHANGED_EVENT: string;
 }
 
-interface ViewerGlobals {
+export interface ViewerGlobals {
   Autodesk?: { Viewing: AutodeskViewing };
   THREE?: {
     Vector4: new (x: number, y: number, z: number, w: number) => unknown;
   };
 }
 
-const globals = (): ViewerGlobals => window as unknown as ViewerGlobals;
+export const globals = (): ViewerGlobals => window as unknown as ViewerGlobals;
 
 let loading: Promise<AutodeskViewing> | null = null;
 
