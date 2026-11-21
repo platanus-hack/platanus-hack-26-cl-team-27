@@ -14,14 +14,14 @@ import type { FlowProposal } from './flow-api.ts';
 describe('plan geometry', () => {
   it('maps meters to SVG coordinates with north up', () => {
     expect(toSvgX(30)).toBe(640);
-    expect(toSvgY(6)).toBe(230);
+    expect(toSvgY(6)).toBe(290);
     expect(toSvgY(6.7)).toBeLessThan(toSvgY(6.1));
   });
 
   it('turns a box into a rect', () => {
     expect(boxToRect({ min: [29.8, 6.1, 0], max: [30.2, 6.7, 2.55] })).toEqual({
       x: 620,
-      y: 160,
+      y: 220,
       width: 40,
       height: 60,
     });

@@ -66,7 +66,7 @@ describe('flow engine', () => {
       elementId: 'E-B-03',
       ownerId: 'camila-vera',
       delta: { dx: 0, dy: 0.4, dz: 0 },
-      segment: { fromX: 26.5, toX: 32 },
+      segment: { fromX: 26, toX: 32 },
       clearanceAfter: 0.15,
       status: 'propuesta',
       cost: { total: 161500, currency: 'CLP', vat: false },
@@ -98,7 +98,7 @@ describe('flow engine', () => {
       'Antes pasaba a 15 cm del pilar; ahora el pilar la atraviesa 25 cm.',
     );
     expect(state.proposal?.texts.proposal).toBe(
-      'Propuesta de Vigente: correr 40 cm al norte el tramo de 6 m de la bandeja E-B-03, entre x = 26,5 y 32,0 m, con dos quiebres de 45°. Queda a 15 cm del pilar, igual que antes.',
+      'Propuesta de Vigente: correr 40 cm al norte el tramo de 6 m de la bandeja E-B-03, entre x = 26,0 y 32,0 m, con dos quiebres de 45°. Queda a 15 cm del pilar, igual que antes.',
     );
     expect(state.proposal?.texts.cost).toBe(
       '$161.500 + IVA (6 m de reinstalación, 2 curvas, 5 consolas, 1 m de bandeja). Plazo: 0,5 día, no mueve la entrega.',

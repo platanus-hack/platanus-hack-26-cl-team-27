@@ -92,6 +92,8 @@ Los actores salen de `SeatsService`: token de asiento, o `x-presenter-key` más 
 | `POST /flow/presence` | 200 `FlowState`. `{ viewing: 'plano' \| 'propuesta' \| null }`. Registra qué mira la persona; el primer `propuesta` de la dueña emite `flow.presence` |
 | `POST /flow/reset` | 200 `FlowState`. Resiembra el caso y emite `flow.reset`. Con `x-presenter-key` |
 
+La frontera es deliberada: el lago aporta la geometría pura (`detectClashes`, `proposeFix`, `canAdvance`) y `flow-engine.ts` orquesta el estado en memoria del caso, la idempotencia por `minuteId`, la dueña de cada acción y los textos; el caso vive en la API y no en un contexto porque es un solo caso fijo y no se persiste.
+
 Estados de la propuesta: `propuesta`, `aceptada`, `aplicada`, `resuelta` y `rechazada`. El choque lleva `status` `detectada` o `resuelta`, y `noAutoFix: true` si ningún candidato de hasta 1,0 m sirve (entonces no hay `proposal`). `change` trae `summary` (el texto de la pantalla de quien cambia) y `waiting`; `proposal` trae `texts` (`title`, `why`, `proposal`, `cost`, `footer`), `appliedText` y `resolvedText` (nulos hasta que ocurren).
 
 ## Estructura
@@ -106,6 +108,7 @@ src/
 ├── scenario/
 │   ├── los-aromos.ts             modelo base, grafo del proyecto y elenco (con Fernanda, que no recibe avisos)
 │   ├── areas.ts                  niveles, grilla de ejes, sistemas y la huella de cada elemento (el modelo de áreas)
+│   ├── caso-p12.ts               el caso P-12 / bandeja E-B-03: elementos, reglas de holgura, costo y los textos de las pantallas
 │   └── documents.ts              espacios, sujetos, atributos con su unidad y el registro de documentos con su dueño (incluidos el modelo de Revit y el IS-301)
 └── modules/
     ├── database/                 el PrismaClient (token PRISMA_CLIENT), global, y UnitOfWork (transacción con lock)
@@ -114,6 +117,7 @@ src/
     ├── impact/                   adapters y casos de uso de context-impact: el grafo (sale de la definición del proyecto), el `ClaimReader` (Claude o respuestas fijas, con caché de archivos), el vocabulario del proyecto y `ExtractClaims`
     ├── notification/             adapters y casos de uso de context-notification
     ├── coordination/             orquesta la cadena y expone las rutas de datos; `revision-body.ts` valida la ingesta genérica y la carga inicial, `chunk-reader.ts` lee los fragmentos de texto libre, `revit-minute.ts` valida la minuta de Revit y la convierte en hechos, y `integrations.controller.ts` la recibe
+    ├── flow/                     el flujo de 4 pasos del caso P-12: flow-engine (estado en memoria, transiciones, idempotencia, dueñas y textos), controller, service y módulo
     ├── room/                     asientos, eventos, reinicio (módulo de la API, no un contexto)
     └── aps/                      Autodesk Platform Services: ApsAuth (token 2-legged cacheado por scopes), el catálogo models/models.json y las rutas del visor
 scripts/                          aps-check.ts y aps-models.ts (pnpm aps:check y pnpm aps:models); Node los ejecuta sin compilar

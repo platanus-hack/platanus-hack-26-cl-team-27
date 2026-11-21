@@ -38,7 +38,7 @@ Todo es puro: las funciones reciben los datos y devuelven el resultado.
 
 `domain/spatial/` es la geometría del flujo de choques. Todo es puro y en metros.
 
-- **`Box`:** caja alineada a los ejes (`min` y `max` como `[x, y, z]`), con `makeBox`, `translate`, `overlapOn`, `gapBetween` (la mayor separación entre ejes; negativa si se intersectan) y `clipX`. Las coordenadas se redondean a 1e-6.
+- **`Box`:** caja alineada a los ejes (`min` y `max` como `[x, y, z]`), con `makeBox`, `translate`, `overlapOn`, `gapBetween` (la mayor separación entre ejes; negativa si se intersectan). Las coordenadas se redondean a 1e-6.
 - **`detectClashes(elementos, reglas, eje)`:** un par choca si su separación es menor que la holgura de su par de disciplinas (`ClearanceRule`, `meters: null` exime al par; sin regla vale 0, es decir, solo choca si se intersectan). Los soportes (`support: true`, como las losas) nunca chocan. Cada `Clash` trae la penetración medida sobre el eje de la causa.
 - **`proposeFix`:** el arreglo determinista para un elemento movible. Traslada el elemento en la dirección de la causa el mínimo que recupera la holgura (penetración más holgura, redondeado hacia arriba a múltiplos de 0,05 m), lo valida contra todos los demás y, si un candidato falla, prueba el siguiente múltiplo hasta 1,0 m. Devuelve `delta`, la caja nueva, la holgura resultante y un chequeo por elemento, o `null` («sin arreglo automático»).
 - **`FlowProposalStatus` y `canAdvance`:** `propuesta` → `aceptada` → `aplicada` → `resuelta`, o `propuesta` → `rechazada`; los demás pasos no existen.

@@ -8,6 +8,7 @@ import { Loading, LoadError } from '@/components/common/LoadState';
 import { KeyGate } from '@/components/presentador/KeyGate';
 import { usePresenterKey } from '@/hooks/use-presenter-key';
 import { useFlow } from '@/hooks/use-flow';
+import { presenceOf } from '@/lib/case-view';
 import { formatClock } from '@/lib/format';
 import { AFFECTED_ID, AUTHOR_ID, resetFlow } from '@/lib/flow-api';
 import { ApiError, describeError } from '@/lib/http';
@@ -50,7 +51,17 @@ function Connected({
       </div>
     );
 
-  const thread = events.filter((event) => event.kind.startsWith('flow.'));
+  const flowEvents = events.filter((event) => event.kind.startsWith('flow.'));
+  const lastReset = flowEvents
+    .map((event) => event.kind)
+    .lastIndexOf('flow.reset');
+  const thread = flowEvents.slice(lastReset + 1);
+  const camilaPresence = presenceOf(data.presence, AFFECTED_ID);
+  const camilaState = !camilaPresence?.online
+    ? 'Sin conexión'
+    : camilaPresence.viewing === 'propuesta'
+      ? 'Revisando la propuesta'
+      : 'En línea';
   const asPaula = { presenterKey, actAs: AUTHOR_ID };
   const asCamila = { presenterKey, actAs: AFFECTED_ID };
 
@@ -83,7 +94,7 @@ function Connected({
         </section>
         <section aria-label="Pantalla de Camila Vera" className="min-w-0">
           <h2 className="mb-2 text-base font-semibold text-ink">
-            Camila Vera · Instalaciones eléctricas
+            Camila Vera · Instalaciones eléctricas · {camilaState}
           </h2>
           <CamilaView
             flow={data}
@@ -123,7 +134,7 @@ export function CasePresenter() {
   if (!key)
     return (
       <div className="px-4">
-        <KeyGate onSubmit={save} message={rejected} />
+        <KeyGate onSubmit={save} message={rejected} title="Caso Los Aromos" />
       </div>
     );
   return (

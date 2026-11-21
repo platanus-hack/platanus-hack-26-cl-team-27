@@ -2,10 +2,10 @@ import type { FlowBox, FlowElement, FlowProposal } from './flow-api.ts';
 
 export const PLAN = {
   minX: 23.6,
-  maxY: 8.3,
+  maxY: 8.9,
   scale: 100,
   width: 920,
-  height: 360,
+  height: 420,
 } as const;
 
 export const AXIS_5_X = 24;

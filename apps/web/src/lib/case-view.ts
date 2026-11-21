@@ -1,49 +1,6 @@
-import type { Delta, FlowPresence, FlowState } from './flow-api.ts';
+import type { FlowPresence, FlowState } from './flow-api.ts';
 import { AFFECTED_ID } from './flow-api.ts';
-import { firstName, formatCLP } from './format.ts';
-
-const METERS = new Intl.NumberFormat('es-CL', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-const NUMBER = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 2 });
-
-const HOUR_MINUTE = new Intl.DateTimeFormat('es-CL', {
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
-
-export const formatMeters = (value: number): string =>
-  `${METERS.format(value)} m`;
-
-export const formatHourMinute = (iso: string | null): string => {
-  if (!iso) return '';
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '' : HOUR_MINUTE.format(date);
-};
-
-export const describeMove = ({ dx, dy }: Delta): string => {
-  const cm = (value: number) => Math.round(Math.abs(value) * 100);
-  const parts: string[] = [];
-  if (dy !== 0) parts.push(`${cm(dy)} cm al ${dy > 0 ? 'norte' : 'sur'}`);
-  if (dx !== 0) parts.push(`${cm(dx)} cm al ${dx > 0 ? 'este' : 'oeste'}`);
-  return parts.join(' y ') || 'sin desplazamiento';
-};
-
-export const formatScheduleDays = (days: number): string =>
-  `${NUMBER.format(days)} ${days <= 1 ? 'día' : 'días'}`;
-
-export const formatCostLine = (
-  total: number,
-  vat: boolean,
-  days: number,
-  critical: boolean,
-): string =>
-  `${formatCLP(total)}${vat ? '' : ' + IVA'}. Plazo: ${formatScheduleDays(days)}, ${
-    critical ? 'mueve la entrega' : 'no mueve la entrega'
-  }.`;
+import { firstName } from './format.ts';
 
 export const presenceOf = (
   presence: readonly FlowPresence[],
@@ -51,16 +8,8 @@ export const presenceOf = (
 ): FlowPresence | null =>
   presence.find((entry) => entry.castId === castId) ?? null;
 
-export const sentText = (flow: FlowState): string | null => {
-  const { change, clash, case: info } = flow;
-  if (!change) return null;
-  if (change.summary) return change.summary;
-  const axis = info.axis.replace(/^Eje /, 'eje ');
-  const head = `Cambio enviado: ${change.elementId} se movió ${describeMove(change.delta)} (${info.level}, ${axis}).`;
-  return clash
-    ? `${head} Vigente encontró 1 equipo afectado: Instalaciones eléctricas (Camila Vera).`
-    : head;
-};
+export const sentText = (flow: FlowState): string | null =>
+  flow.change?.summary ?? null;
 
 export type StepState = 'done' | 'current' | 'pending' | 'problem';
 
@@ -76,7 +25,7 @@ export const authorTimeline = (flow: FlowState): readonly TimelineStep[] => {
   const reviewing = camila?.online === true && camila.viewing === 'propuesta';
   const resolved = proposal?.status === 'resuelta';
   const rejected = proposal?.status === 'rechazada';
-  const decider = proposal?.decidedByName ?? 'Camila Vera';
+  const decider = proposal?.decidedByName ?? '';
   const steps: TimelineStep[] = [
     {
       id: 'sent',
@@ -103,12 +52,10 @@ export const authorTimeline = (flow: FlowState): readonly TimelineStep[] => {
           : 'Esperando a Camila…',
     state: resolved || rejected ? 'done' : 'current',
   });
-  if (resolved)
+  if (resolved && proposal?.resolvedText)
     steps.push({
       id: 'resolved',
-      label:
-        proposal?.resolvedText ??
-        `Resuelto por ${decider} a las ${formatHourMinute(proposal?.decidedAt ?? null)}`,
+      label: proposal.resolvedText,
       state: 'done',
     });
   if (rejected)

@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 
 import { Icon } from '@/components/common/Icon';
 import { StatusChip } from '@/components/common/StatusChip';
-import { formatHourMinute } from '@/lib/case-view';
 import {
   acceptProposal,
   postPresence,
@@ -14,7 +13,7 @@ import {
   type FlowState,
   type Viewing,
 } from '@/lib/flow-api';
-import { describeError, type Auth } from '@/lib/http';
+import { ApiError, describeError, type Auth } from '@/lib/http';
 
 import { CasePlan } from './CasePlan';
 
@@ -22,10 +21,12 @@ function ProposalCard({
   proposal,
   auth,
   onChanged,
+  onSeatLost,
 }: {
   readonly proposal: FlowProposal;
   readonly auth: Auth;
   readonly onChanged: () => void;
+  readonly onSeatLost?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +41,10 @@ function ProposalCard({
       await action();
       onChanged();
     } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 401 && onSeatLost) {
+        onSeatLost();
+        return;
+      }
       setError(describeError(failure));
     } finally {
       setBusy(false);
@@ -56,7 +61,7 @@ function ProposalCard({
         </div>
         <ul className="flex flex-col gap-1.5">
           {proposal.checks.map((check) => (
-            <li key={check.label} className="flex items-start gap-2 text-sm">
+            <li key={check.label} className="flex items-start gap-2 text-base">
               <Icon
                 name={check.ok ? 'check' : 'alert'}
                 className={
@@ -67,7 +72,7 @@ function ProposalCard({
             </li>
           ))}
         </ul>
-        <p className="flex items-start gap-2 text-sm text-ink">
+        <p className="flex items-start gap-2 rounded-lg bg-surface-2 px-3 py-2 text-base font-medium text-ink">
           <Icon name="coins" className="mt-0.5 text-ink-3" />
           <span>{texts.cost}</span>
         </p>
@@ -123,7 +128,7 @@ function ProposalCard({
             </Button>
           </div>
         )}
-        <p className="text-sm text-ink-2">{texts.footer}</p>
+        <p className="text-base font-medium text-ink">{texts.footer}</p>
       </div>
     </Card>
   );
@@ -134,11 +139,13 @@ export function CamilaView({
   auth,
   reportPresence,
   onChanged,
+  onSeatLost,
 }: {
   readonly flow: FlowState;
   readonly auth: Auth;
   readonly reportPresence: boolean;
   readonly onChanged: () => void;
+  readonly onSeatLost?: () => void;
 }) {
   const { proposal } = flow;
   const cardVisible = proposal?.status === 'propuesta';
@@ -149,7 +156,12 @@ export function CamilaView({
     if (!reportPresence || !token) return undefined;
     const send = () => {
       if (!document.hidden)
-        postPresence(viewing, { seatToken: token }).catch(() => undefined);
+        postPresence(viewing, { seatToken: token }).catch(
+          (failure: unknown) => {
+            if (failure instanceof ApiError && failure.status === 401)
+              onSeatLost?.();
+          },
+        );
     };
     send();
     document.addEventListener('visibilitychange', send);
@@ -158,7 +170,7 @@ export function CamilaView({
       document.removeEventListener('visibilitychange', send);
       clearInterval(timer);
     };
-  }, [reportPresence, token, viewing]);
+  }, [reportPresence, token, viewing, onSeatLost]);
 
   const applied =
     proposal &&
@@ -179,20 +191,24 @@ export function CamilaView({
         </Card>
       )}
       {proposal && cardVisible && (
-        <ProposalCard proposal={proposal} auth={auth} onChanged={onChanged} />
+        <ProposalCard
+          proposal={proposal}
+          auth={auth}
+          onChanged={onChanged}
+          onSeatLost={onSeatLost}
+        />
       )}
       {applied && (
         <Card>
           <div className="flex flex-col gap-2">
-            <StatusChip
-              tone="good"
-              icon="check"
-              label={
-                proposal.appliedText ??
-                `Aplicado en tu plano a las ${formatHourMinute(proposal.decidedAt)}`
-              }
-              className="self-start text-sm"
-            />
+            {proposal.appliedText && (
+              <StatusChip
+                tone="good"
+                icon="check"
+                label={proposal.appliedText}
+                className="self-start text-sm"
+              />
+            )}
             <p className="text-base text-ink-2">{proposal.texts.title}</p>
           </div>
         </Card>

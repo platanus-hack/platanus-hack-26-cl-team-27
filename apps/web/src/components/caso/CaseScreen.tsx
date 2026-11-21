@@ -3,7 +3,7 @@
 import { Avatar } from '@/components/common/Avatar';
 import { Loading, LoadError } from '@/components/common/LoadState';
 import { Notice } from '@team27/ui';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { PresenceBadge } from '@/components/asiento/PresenceBadge';
 import { useSeatToken } from '@/hooks/use-held-seats';
@@ -11,7 +11,11 @@ import { useFlow } from '@/hooks/use-flow';
 import { AFFECTED_ID, AUTHOR_ID } from '@/lib/flow-api';
 import { describeError } from '@/lib/http';
 import { claimSeat } from '@/lib/room-api';
-import { readSeatToken, saveSeatToken } from '@/lib/seat-storage';
+import {
+  clearSeatToken,
+  readSeatToken,
+  saveSeatToken,
+} from '@/lib/seat-storage';
 
 import { CamilaView } from './CamilaView';
 import { PaulaView } from './PaulaView';
@@ -25,11 +29,12 @@ export function CaseScreen({ castId }: { readonly castId: string }) {
   const stored = useSeatToken(castId);
   const [claimed, setClaimed] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
-  const token = claimed ?? stored.token;
+  const [stale, setStale] = useState(false);
+  const token = claimed ?? (stale ? null : stored.token);
   const who = WHO[castId] ?? null;
 
   useEffect(() => {
-    if (!stored.ready || stored.token || claimed || !who) return;
+    if (!stored.ready || (stored.token && !stale) || claimed || !who) return;
     let active = true;
     claimSeat(castId)
       .then((response) => {
@@ -43,7 +48,14 @@ export function CaseScreen({ castId }: { readonly castId: string }) {
     return () => {
       active = false;
     };
-  }, [stored.ready, stored.token, claimed, castId, who]);
+  }, [stored.ready, stored.token, stale, claimed, castId, who]);
+
+  const onSeatLost = useCallback(() => {
+    clearSeatToken(castId);
+    setClaimError(null);
+    setClaimed(null);
+    setStale(true);
+  }, [castId]);
 
   const { data, error, loading, status, reload } = useFlow({
     castId,
@@ -87,9 +99,20 @@ export function CaseScreen({ castId }: { readonly castId: string }) {
       {claimError && <Notice tone="error">{claimError}</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
       {castId === AUTHOR_ID ? (
-        <PaulaView flow={data} auth={auth} onChanged={reload} />
+        <PaulaView
+          flow={data}
+          auth={auth}
+          onChanged={reload}
+          onSeatLost={onSeatLost}
+        />
       ) : (
-        <CamilaView flow={data} auth={auth} reportPresence onChanged={reload} />
+        <CamilaView
+          flow={data}
+          auth={auth}
+          reportPresence
+          onChanged={reload}
+          onSeatLost={onSeatLost}
+        />
       )}
     </div>
   );

@@ -31,7 +31,7 @@ const pillar = el(
 const tray = el(
   'E-B-03',
   'eléctricas',
-  makeBox([26.5, 6.45, 2.25], [32, 6.75, 2.35]),
+  makeBox([26, 6.45, 2.25], [32, 6.75, 2.35]),
 );
 const collector = el('B2', 'sanitarias', makeBox([5, 6.4, 2.2], [7, 6.6, 2.3]));
 const ceiling = el(
@@ -101,12 +101,12 @@ describe('detectClashes', () => {
     const touching = el(
       't',
       'sanitarias',
-      makeBox([26.5, 6.75, 2.25], [32, 7, 2.35]),
+      makeBox([26, 6.75, 2.25], [32, 7, 2.35]),
     );
     const inside = el(
       'i',
       'sanitarias',
-      makeBox([26.5, 6.7, 2.25], [32, 7, 2.35]),
+      makeBox([26, 6.7, 2.25], [32, 7, 2.35]),
     );
     expect(detectClashes([tray, touching], RULES, 'y')).toEqual([]);
     expect(detectClashes([tray, inside], RULES, 'y')).toHaveLength(1);
@@ -131,7 +131,7 @@ describe('proposeFix', () => {
     expect(fix?.delta).toEqual({ dx: 0, dy: 0.4, dz: 0 });
     expect(fix?.box.min[1]).toBe(6.85);
     expect(fix?.box.max[1]).toBe(7.15);
-    expect(fix?.box.min[0]).toBe(26.5);
+    expect(fix?.box.min[0]).toBe(26);
     expect(fix?.box.max[0]).toBe(32);
     expect(fix?.clearanceAfter).toBe(0.15);
     expect(fix?.checks.map((check) => check.ok)).toEqual([true, true, true]);
@@ -164,7 +164,7 @@ describe('proposeFix', () => {
   it('también funciona hacia el sur', () => {
     const south = {
       ...base,
-      moving: { ...tray, box: makeBox([26.5, 5.65, 2.25], [32, 5.95, 2.35]) },
+      moving: { ...tray, box: makeBox([26, 5.65, 2.25], [32, 5.95, 2.35]) },
       sign: -1 as const,
     };
     const fix = proposeFix({ ...south, cause: pillar, others: [pillar] });

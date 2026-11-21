@@ -12,7 +12,7 @@ export const PARTICIPANTS = [AUTHOR_ID, AFFECTED_ID] as const;
 export const MOVE_REASON =
   'Alinear con el muro de corte M-6 y bajar la torsión';
 
-export const SEGMENT = { fromX: 26.5, toX: 32 } as const;
+export const SEGMENT = { fromX: 26, toX: 32 } as const;
 
 export interface CaseElement {
   readonly id: string;

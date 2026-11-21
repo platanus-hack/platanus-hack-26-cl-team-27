@@ -13,9 +13,9 @@ import {
   clearanceFor,
 } from './clash.ts';
 
-export const FIX_STEP = 0.05;
+const FIX_STEP = 0.05;
 
-export const FIX_LIMIT = 1.0;
+const FIX_LIMIT = 1.0;
 
 export interface FixInput {
   readonly moving: SpatialElement;

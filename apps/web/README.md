@@ -97,7 +97,8 @@ Todo el acceso a `/api/flow` vive en `lib/flow-api.ts` (tipos y llamadas: `getFl
 - `lib/case-plan.ts`: geometría pura del plano (metros a coordenadas SVG, con el norte arriba, 100 unidades por metro), choque entre cajas y desplazamiento de la bandeja.
 - `lib/case-view.ts`: textos y formatos del caso (`describeMove`, `formatCostLine`, la línea de tiempo de Paula).
 - `components/caso/CasePlan.tsx`: el plano en SVG con `viewBox`. Dibuja los ejes 5, 6 y B, P-12 (con su posición anterior punteada), la bandeja E-B-03, el colector B2, el choque achurado en rojo y el arreglo propuesto como fantasma verde. Al aceptarse la propuesta, el tramo de la bandeja se desliza a su nueva posición.
-- `CamilaView` avisa su presencia (`viewing: 'propuesta'` mientras la tarjeta está a la vista, `'plano'` si no) cada 8 s y al volver a la pestaña. Solo con asiento propio; la vista del presentador no la envía.
+- `CamilaView` avisa su presencia (`viewing: 'propuesta'` mientras la tarjeta está a la vista, `'plano'` si no) cada 8 s y al volver a la pestaña. Solo con asiento propio; la vista del presentador no la envía y muestra la presencia de Camila a partir de `flow.presence`. El paso 3 de la línea de tiempo de Paula requiere el asiento real de Camila abierto en su dispositivo.
+- Si el token de un asiento deja de valer (401 al actuar o al avisar presencia), `CaseScreen` lo borra y vuelve a tomar el asiento solo. «Reiniciar caso» deja el hilo del presentador en el último `flow.reset`.
 - El caso no muestra bots.
 
 ## Tiempo real

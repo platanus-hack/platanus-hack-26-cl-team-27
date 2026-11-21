@@ -1,4 +1,4 @@
-export const FLOW_PROPOSAL_STATUSES = [
+const FLOW_PROPOSAL_STATUSES = [
   'propuesta',
   'aceptada',
   'aplicada',
@@ -22,9 +22,3 @@ export const canAdvance = (
   from: FlowProposalStatus,
   to: FlowProposalStatus,
 ): boolean => NEXT[from].includes(to);
-
-export const isDecided = (status: FlowProposalStatus): boolean =>
-  status !== 'propuesta';
-
-export const isClosed = (status: FlowProposalStatus): boolean =>
-  NEXT[status].length === 0;

@@ -19,9 +19,9 @@ Edificio Los Aromos, nivel 3, eje B-6. Ejes numéricos del 1 al 6, de oeste a es
 | Elemento                                                      | Dueña       | Caja antes (min / max)                  | Caja después               |
 | ------------------------------------------------------------- | ----------- | --------------------------------------- | -------------------------- |
 | `P-12`, pilar de 40 x 60 cm, H30, en B-6 (centro 30,00; 6,00) | Paula Rojas | x 29,80–30,20, y 5,70–6,30, z 0–2,55    | y 6,10–6,70                |
-| `E-B-03`, bandeja escalerilla de 300 x 100 mm, tramo movible  | Camila Vera | x 26,50–32,00, y 6,45–6,75, z 2,25–2,35 | y 6,85–7,15 (tras aceptar) |
+| `E-B-03`, bandeja escalerilla de 300 x 100 mm, tramo movible  | Camila Vera | x 26,00–32,00, y 6,45–6,75, z 2,25–2,35 | y 6,85–7,15 (tras aceptar) |
 
-La bandeja sale del shaft S1 en B-2 (x = 6) hacia el este y llega al tablero TDA-N3 (x = 32); corre 0,60 m al norte del eje B. Solo el tramo de x 26,50 a 32,00 puede moverse. El índice incluye además el colector B2 (sanitarias, x 5,00–7,00, y 6,40–6,60, z 2,20–2,30, de Javier Muñoz) y el cielo falso del nivel 3 (arquitectura, plano z = 2,40, de Fernanda Lagos). Las losas son soporte y no chocan.
+La bandeja sale del shaft S1 en B-2 (x = 6) hacia el este y llega al tablero TDA-N3 (x = 32); corre 0,60 m al norte del eje B. Solo el tramo de x 26,00 a 32,00 puede moverse. El índice incluye además el colector B2 (sanitarias, x 5,00–7,00, y 6,40–6,60, z 2,20–2,30, de Javier Muñoz) y el cielo falso del nivel 3 (arquitectura, plano z = 2,40, de Fernanda Lagos). Las losas son soporte y no chocan.
 
 Reglas de holgura, criterio de proyecto (las normas que las respaldan están «a verificar»): estructura a eléctricas, 0,15 m; eléctricas a arquitectura (cielo falso), 0,05 m; estructura a arquitectura, exenta.
 
@@ -61,7 +61,7 @@ sequenceDiagram
 
 **Pantalla A, Paula (`/caso/paula-rojas`).** Plano en SVG con P-12 y su posición anterior. El botón «Mover P-12 40 cm al norte» emite la minuta (con Revit, la emitiría el add-in). Debajo, la línea de tiempo: «Cambio enviado: P-12 se movió 40 cm al norte (Nivel 3, eje B-6). Vigente encontró 1 equipo afectado: Instalaciones eléctricas (Camila Vera).», «Esperando a Camila…», «Camila está revisando tu cambio» (con su presencia) y «Resuelto por Camila Vera a las HH:MM».
 
-**Pantalla B, Camila (`/caso/camila-vera`).** El plano marca el choque achurado en rojo y la propuesta como fantasma verde. La tarjeta, en este orden: título («El pilar P-12 se corrió 40 cm al norte y pisa tu bandeja del eje B»), el porqué (quién, cuándo, y que el pilar atraviesa la bandeja 25 cm), la propuesta («correr 40 cm al norte el tramo de 6 m de la bandeja E-B-03, entre x = 26,5 y 32,0 m, con dos quiebres de 45°; queda a 15 cm del pilar»), los chequeos (P-12 a 15 cm, colector B2, cielo falso), el costo y el plazo, y los botones «Aceptar propuesta» y «Tengo un problema» (con motivo). Pie: «Vigente propone; tú decides. No se cambia nada hasta que aceptes.» Al aceptar, el tramo se desliza a su nueva posición y la tarjeta queda con «Aplicado en tu plano a las HH:MM».
+**Pantalla B, Camila (`/caso/camila-vera`).** El plano marca el choque achurado en rojo y la propuesta como fantasma verde. La tarjeta, en este orden: título («El pilar P-12 se corrió 40 cm al norte y pisa tu bandeja del eje B»), el porqué (quién, cuándo, y que el pilar atraviesa la bandeja 25 cm), la propuesta («correr 40 cm al norte el tramo de 6 m de la bandeja E-B-03, entre x = 26,0 y 32,0 m, con dos quiebres de 45°; queda a 15 cm del pilar»), los chequeos (P-12 a 15 cm, colector B2, cielo falso), el costo y el plazo, y los botones «Aceptar propuesta» y «Tengo un problema» (con motivo). Pie: «Vigente propone; tú decides. No se cambia nada hasta que aceptes.» Al aceptar, el tramo se desliza a su nueva posición y la tarjeta queda con «Aplicado en tu plano a las HH:MM».
 
 **Presentador (`/caso`).** Pide la clave de presentador. Las dos pantallas lado a lado como componentes (no iframes, que tomarían los asientos reales), el hilo de eventos `flow.*` y el botón «Reiniciar caso».
 
@@ -100,7 +100,7 @@ Es el `proposal` del `FlowState` que entrega `GET /api/flow`. La API es `/api/fl
   "elementId": "E-B-03",
   "ownerId": "camila-vera",
   "delta": { "dx": 0, "dy": 0.4, "dz": 0 },
-  "segment": { "fromX": 26.5, "toX": 32 },
+  "segment": { "fromX": 26, "toX": 32 },
   "clearanceAfter": 0.15,
   "checks": [
     { "label": "P-12 (15 cm)", "ok": true },

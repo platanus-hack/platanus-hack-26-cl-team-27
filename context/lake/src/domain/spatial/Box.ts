@@ -42,12 +42,6 @@ export const overlapOn = (a: Box, b: Box, axis: Axis): number => {
 export const gapBetween = (a: Box, b: Box): number =>
   round(Math.max(...AXES.map((axis) => -overlapOn(a, b, axis))));
 
-export const clipX = (box: Box, fromX: number, toX: number): Box =>
-  makeBox(
-    [Math.max(box.min[0], fromX), box.min[1], box.min[2]],
-    [Math.min(box.max[0], toX), box.max[1], box.max[2]],
-  );
-
 export const centerOn = (box: Box, axis: Axis): number => {
   const i = INDEX[axis];
   return round((box.min[i] + box.max[i]) / 2);
