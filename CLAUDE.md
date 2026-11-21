@@ -49,8 +49,10 @@ pnpm format
 - El `README.md`, `platanus-hack-project.jsonc`, `project-description.md` y `project-logo.png` de la raíz son la entrega de la hackatón y tienen sus propias reglas: léelas antes de editarlos. Prettier no los toca.
 - Un paquete nuevo del workspace que use la web va también en `transpilePackages` (`apps/web/next.config.ts`). Turbopack no resuelve `./x.js` hacia `x.ts`.
 - `next build` necesita los `.d.ts` de sus dependencias (project references). Corre el build por Nx (`pnpm nx run @team27/web:build`), que primero hace el `typecheck` de las dependencias. Si aparece `TS6305`, es eso.
+- Si borras o mueves una ruta y el build de la web falla con `TS2307` en `.next/dev/types/validator.ts`, son tipos viejos de un `next dev` anterior: borra `apps/web/.next`.
 - Después de agregar o quitar una dependencia entre proyectos, corre `pnpm nx sync`.
-- `/api/*` de la web se reenvía a la API (`rewrites` en `apps/web/next.config.ts`), salvo `/api/health`, que responde la propia web.
+- Todo `/api/*` de la web se reenvía a la API (`rewrites` en `apps/web/next.config.ts`): no crees rutas en `apps/web/src/app/api/`, porque le ganan al reenvío. El `rewrite` fija `API_URL` al compilar la web.
+- La CI (`.github/workflows/check.yml`) corre `pnpm install --frozen-lockfile` y `pnpm check` en cada push a `main` y cada PR: si cambias dependencias, commitea el `pnpm-lock.yaml`.
 - Nx carga el `.env` de la raíz en cada tarea, y `data/main/prisma.config.ts` también lo lee. La API no lee archivos: toma el entorno y no arranca si una variable no cumple su schema.
 - Si `pnpm db:up` falla en WSL con «docker could not be found», activa la integración con WSL en Docker Desktop, o apunta `DATABASE_URL` a otro Postgres.
 - En WSL, el shell puede traer un Node viejo: `nvm use` antes de `pnpm`.

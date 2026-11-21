@@ -13,10 +13,10 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "skipLibCheck": true,
     "strict": true,
-    "target": "es2022",
-    "customConditions": ["@team27/source"]
+    "target": "es2022"
   }
 }

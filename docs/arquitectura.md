@@ -82,16 +82,16 @@ pnpm nx g @nx/js:lib context/<ctx> --name=@team27/context-<ctx> --bundler=none \
 - La web habla con la API por HTTP:
   - Desde el servidor (server components, server actions), con `fetch` a `API_URL`, como `src/lib/api.ts`.
   - Desde el navegador, a `/api/*` del mismo origen: `next.config.ts` lo reenvía a `API_URL` con un `rewrite`. No hace falta CORS.
-- `/api/health` de la web lo responde la propia web (salud del sitio): las rutas de Next se resuelven antes que el `rewrite`. El resto de `/api/*` llega a la API.
+- Todo `/api/*` llega a la API. La web no define rutas bajo `app/api/`: las rutas de Next se resuelven antes que el `rewrite` y le quitarían esa ruta a la API.
 - La API corre con el prefijo global `/api`. Valida la entrada con el schema que declara cada `@Body`, `@Query` o `@Param` (`StandardSchemaValidationPipe`, con zod).
 
-| Variable             | Defecto                                                | Quién la usa   | Qué es                                                                              |
-| -------------------- | ------------------------------------------------------ | -------------- | ----------------------------------------------------------------------------------- |
-| `DATABASE_URL`       | `postgresql://postgres:postgres@localhost:5427/team27` | API, Prisma    | La base (el Postgres de compose en dev)                                             |
-| `API_PORT`           | `3001`                                                 | API            | Puerto de la API                                                                    |
-| `CORS_ALLOW_ORIGINS` | `http://localhost:3000`                                | API            | Orígenes permitidos, separados por coma. `*` no se acepta con `NODE_ENV=production` |
-| `API_URL`            | `http://localhost:3001`                                | Web            | Dónde está la API, para `fetch` y el `rewrite`                                      |
-| `POSTGRES_*`         | ver `.env.example`                                     | docker compose | Usuario, clave, base y puerto del Postgres local                                    |
+| Variable             | Defecto                                                | Quién la usa   | Qué es                                                                                                                                                               |
+| -------------------- | ------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`       | `postgresql://postgres:postgres@localhost:5427/team27` | API, Prisma    | La base (el Postgres de compose en dev)                                                                                                                              |
+| `API_PORT`           | `3001`                                                 | API            | Puerto de la API                                                                                                                                                     |
+| `CORS_ALLOW_ORIGINS` | `http://localhost:3000`                                | API            | Orígenes permitidos, separados por coma. `*` no se acepta con `NODE_ENV=production`                                                                                  |
+| `API_URL`            | `http://localhost:3001`                                | Web            | Dónde está la API. El `rewrite` la fija al compilar la web (queda en `routes-manifest.json`); `fetch` la lee en cada request. En un deploy, defínela antes del build |
+| `POSTGRES_*`         | ver `.env.example`                                     | docker compose | Usuario, clave, base y puerto del Postgres local                                                                                                                     |
 
 Nx carga el `.env` de la raíz en cada tarea (plantilla: `.env.example`). La API no lee archivos: toma el entorno, y si una variable no cumple su schema (`apps/api/src/config/env.ts`), no arranca.
 
@@ -113,15 +113,19 @@ Nx carga el `.env` de la raíz en cada tarea (plantilla: `.env.example`). La API
 
 ## Tareas de Nx
 
-| Tarea       | Proyecto        | Qué hace                                                                                            |
-| ----------- | --------------- | --------------------------------------------------------------------------------------------------- |
-| `dev`       | web, api        | `next dev` en `:3000`; `nest start --watch` en `:3001` (primero genera el cliente de Prisma)        |
-| `build`     | web, api        | `next build`; `nest build` a `apps/api/dist`                                                        |
-| `start`     | web, api        | Sirve el build: `next start`; `node dist/main.js`                                                   |
-| `generate`  | data-main       | `prisma generate`, con caché; lo corren antes `dev`, `build`, `test` y `typecheck` de quien depende |
-| `lint`      | todos           | `eslint .`                                                                                          |
-| `test`      | api y contextos | Vitest                                                                                              |
-| `typecheck` | paquetes y api  | `tsc --build`                                                                                       |
+| Tarea       | Proyecto             | Qué hace                                                                                            |
+| ----------- | -------------------- | --------------------------------------------------------------------------------------------------- |
+| `dev`       | web, api             | `next dev` en `:3000`; `nest start --watch` en `:3001` (primero genera el cliente de Prisma)        |
+| `build`     | web, api             | `next build`; `nest build` a `apps/api/dist`                                                        |
+| `start`     | web, api             | Sirve el build: `next start`; `node dist/main.js`                                                   |
+| `generate`  | data-main            | `prisma generate`, con caché; lo corren antes `dev`, `build`, `test` y `typecheck` de quien depende |
+| `lint`      | todos                | `eslint .`                                                                                          |
+| `test`      | api, web y contextos | Vitest                                                                                              |
+| `typecheck` | paquetes y api       | `tsc --build`                                                                                       |
 
-- `pnpm check` corre `lint`, `test`, `typecheck` y `build` en todo. `pnpm affected` corre lo mismo, solo en lo que cambió respecto de `main`.
+- `pnpm check` corre `lint`, `test`, `typecheck` y `build` en todo; es lo mismo que corre la [CI](#ci). `pnpm affected` corre lo mismo, solo en lo que cambió respecto de `main`.
 - `pnpm nx graph` dibuja el grafo de proyectos.
+
+## CI
+
+[`.github/workflows/check.yml`](../.github/workflows/check.yml) corre `pnpm install --frozen-lockfile` y `pnpm check` en cada push a `main` y en cada pull request, con el Node de `.nvmrc` y el pnpm de `packageManager`. No necesita base de datos: el cliente de Prisma se genera sin conectarse.

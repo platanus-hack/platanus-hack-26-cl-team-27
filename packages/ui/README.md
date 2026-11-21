@@ -35,8 +35,7 @@ En `next.config.ts`, agrega `'@team27/ui'` a `transpilePackages`.
 | `Card`, `PageHeader` | Tarjeta con título, descripción y acciones; encabezado de página |
 | `Field`, `Input`, `Select` | Campos de formulario con etiqueta |
 | `Notice` | Aviso `info`, `success` o `error` |
-| `StatTile`, `formatCount` | Un número con su etiqueta (compacta desde 10.000) |
 | `StatusBadge` | Estado con ícono y texto |
-| `SplitBar` | Un total repartido en hasta 3 partes, con la lista de nombres, cifras y porcentajes |
-| `ColumnChart` | Columnas de una serie, con tooltip al pasar o enfocar, etiqueta del máximo y del último, y la tabla equivalente |
 | `cx` | Une clases condicionales |
+
+Todavía no hay gráficos: los tokens `series-*`, `grid` y `axis` quedan listos para cuando haya datos que mostrar.

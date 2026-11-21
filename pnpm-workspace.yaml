@@ -8,7 +8,6 @@ autoInstallPeers: true
 onlyBuiltDependencies:
   - '@nestjs/core'
   - '@prisma/engines'
-  - '@swc/core'
   - esbuild
   - nx
   - prisma
