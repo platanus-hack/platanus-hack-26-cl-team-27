@@ -62,6 +62,26 @@ export const fakeLake = (catalog: Record<string, ClaimDraft[]> = {}) => {
       revisions.length = 0;
       return Promise.resolve();
     }),
+    deleteByDocuments: vi.fn<RevisionRepository['deleteByDocuments']>(
+      (documentIds) => {
+        const gone = new Set(
+          revisions
+            .filter((r) => documentIds.includes(r.documentId))
+            .map((r) => r.id),
+        );
+        const keep = <T extends { revisionId: string }>(list: T[]) => {
+          const kept = list.filter((item) => !gone.has(item.revisionId));
+          list.length = 0;
+          list.push(...kept);
+        };
+        keep(chunks);
+        keep(claims);
+        const kept = revisions.filter((r) => !gone.has(r.id));
+        revisions.length = 0;
+        revisions.push(...kept);
+        return Promise.resolve();
+      },
+    ),
   } satisfies RevisionRepository;
 
   const claimRepo = {
@@ -173,6 +193,17 @@ export const fakeLake = (catalog: Record<string, ClaimDraft[]> = {}) => {
       history.length = 0;
       return Promise.resolve();
     }),
+    deleteBySubjectPrefix: vi.fn<BaselineRepository['deleteBySubjectPrefix']>(
+      (prefix) => {
+        for (const [k, entry] of [...baseline]) {
+          if (entry.subject.startsWith(prefix)) baseline.delete(k);
+        }
+        const kept = history.filter((h) => !h.subject.startsWith(prefix));
+        history.length = 0;
+        history.push(...kept);
+        return Promise.resolve();
+      },
+    ),
   } satisfies BaselineRepository;
 
   const proposalRepo = {
@@ -223,6 +254,16 @@ export const fakeLake = (catalog: Record<string, ClaimDraft[]> = {}) => {
       proposals.length = 0;
       return Promise.resolve();
     }),
+    deleteByDocuments: vi.fn<ProposalRepository['deleteByDocuments']>(
+      (documentIds) => {
+        const kept = proposals.filter(
+          (p) => !documentIds.includes(p.documentId),
+        );
+        proposals.length = 0;
+        proposals.push(...kept);
+        return Promise.resolve();
+      },
+    ),
   } satisfies ProposalRepository;
 
   const discrepancyRepo = {

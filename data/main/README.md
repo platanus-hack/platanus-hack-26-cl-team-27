@@ -57,3 +57,5 @@ pnpm nx run @team27/data-main:generate    # el cliente; lo corren solas las tare
 - Una migración aplicada no se edita: se escribe otra.
 - El `typecheck` de este paquete usa todo su directorio como input, schema incluido. El cliente generado no se versiona y Nx no lo ve, así que, sin el schema, la caché podría devolver los tipos de un cliente viejo.
 - Lo que Prisma no modela (CHECK, triggers, roles) va en el SQL de la migración.
+
+El caso de 4 pasos de la muestra (`/api/flow`) usa las tablas del lago tal como están (sujetos `caso.*`, documentos `losaromos-*`): no necesitó ninguna migración.

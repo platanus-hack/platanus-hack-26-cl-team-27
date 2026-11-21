@@ -125,6 +125,15 @@ export class PrismaProposalRepository implements ProposalRepository {
     return rows.map(toProposal);
   }
 
+  async deleteByDocuments(documentIds: readonly string[]): Promise<void> {
+    await this.prisma.proposal.deleteMany({
+      where: {
+        projectId: this.projectId,
+        documentId: { in: [...documentIds] },
+      },
+    });
+  }
+
   async clear(): Promise<void> {
     await this.prisma.proposal.deleteMany({
       where: { projectId: this.projectId },

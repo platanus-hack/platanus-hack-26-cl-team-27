@@ -69,6 +69,11 @@ export class FlowController {
     return this.flow.state();
   }
 
+  @Get('history')
+  history() {
+    return this.flow.history();
+  }
+
   @Post('minutes')
   minute(
     @Body({ schema: minuteBody }) body: MinuteBody,

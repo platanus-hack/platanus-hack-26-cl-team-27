@@ -100,6 +100,7 @@ Todo el acceso a `/api/flow` vive en `lib/flow-api.ts` (tipos y llamadas: `getFl
 - `CamilaView` avisa su presencia (`viewing: 'propuesta'` mientras la tarjeta está a la vista, `'plano'` si no) cada 8 s y al volver a la pestaña. Solo con asiento propio; la vista del presentador no la envía y muestra la presencia de Camila a partir de `flow.presence`. El paso 3 de la línea de tiempo de Paula requiere el asiento real de Camila abierto en su dispositivo.
 - Si el token de un asiento deja de valer (401 al actuar o al avisar presencia), `CaseScreen` lo borra y vuelve a tomar el asiento solo. «Reiniciar caso» deja el hilo del presentador en el último `flow.reset`.
 - El caso no muestra bots.
+- **Historia**: `components/caso/HistoryPanel.tsx` muestra, para P-12 y E-B-03, cada valor vigente con hora, autor, documento o minuta y quién lo aprobó, la propuesta pendiente o rechazada en una entrada punteada y el enlace «Ver procedencia» a `/valor/[subjectId]/ubicacion_m`. Va bajo la línea de tiempo en la pantalla de Paula, bajo el plano o la propuesta en la de Camila y a todo el ancho en `/caso`. Lee `GET /api/flow/history` con `hooks/use-flow-history.ts`, que vuelve a pedirla cuando cambian la época, el estado de la propuesta o la minuta (`historyKey` en `lib/flow-history.ts`). Si la historia no carga, el panel no se muestra y el flujo sigue.
 
 ## Tiempo real
 

@@ -7,6 +7,7 @@ import { Icon } from '@/components/common/Icon';
 import { StatusChip } from '@/components/common/StatusChip';
 import {
   acceptProposal,
+  AFFECTED_ID,
   postPresence,
   rejectProposal,
   type FlowProposal,
@@ -16,6 +17,7 @@ import {
 import { ApiError, describeError, type Auth } from '@/lib/http';
 
 import { CasePlan } from './CasePlan';
+import { CaseHistory } from './HistoryPanel';
 
 function ProposalCard({
   proposal,
@@ -228,6 +230,7 @@ export function CamilaView({
           </div>
         </Card>
       )}
+      <CaseHistory flow={flow} focus="E-B-03" viewerId={AFFECTED_ID} />
     </div>
   );
 }

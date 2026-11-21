@@ -79,7 +79,7 @@ Errores de negocio:
 
 ## El flujo del caso P-12
 
-`modules/flow` es el flujo de cuatro pasos del pitch: una persona cambia un elemento, Vigente detecta el choque y propone un arreglo, y la dueña del elemento afectado decide. El estado vive en memoria (se resiembra solo si cambia la época de la sala) y la lógica espacial es pura, de [`@team27/context-lake`](../../context/lake/README.md#dominio-espacial). El caso (elementos, reglas de holgura, partida de costo y textos) está en `src/scenario/caso-p12.ts`: Paula Rojas mueve el pilar P-12 40 cm al norte y pisa la bandeja E-B-03 de Camila Vera.
+`modules/flow` es el flujo de cuatro pasos del pitch: una persona cambia un elemento, Vigente detecta el choque y propone un arreglo, y la dueña del elemento afectado decide. Cada hecho del caso vive en el lago: la API lo escribe con los casos de uso del lago y `GET /flow` es una proyección de lo que hay en la base, así que un reinicio de la API no pierde nada. La lógica espacial es pura, de [`@team27/context-lake`](../../context/lake/README.md#dominio-espacial). El caso (elementos, reglas de holgura, partida de costo y textos) está en `src/scenario/caso-p12.ts`: Paula Rojas mueve el pilar P-12 40 cm al norte y pisa la bandeja E-B-03 de Camila Vera.
 
 Los actores salen de `SeatsService`: token de asiento, o `x-presenter-key` más `x-act-as`. Los eventos `flow.*` van a la tabla de eventos de la sala y los entrega `GET /events`.
 
@@ -90,9 +90,24 @@ Los actores salen de `SeatsService`: token de asiento, o `x-presenter-key` más 
 | `POST /flow/proposals/:id/accept` | 200 `FlowState`. Solo la dueña de la propuesta (403 `not_owner`). Aplica el arreglo, vuelve a detectar y deja la propuesta `resuelta` con `decidedBy`. Idempotente; 409 si ya se rechazó |
 | `POST /flow/proposals/:id/reject` | 200 `FlowState`. `{ reason }`. Solo la dueña. Deja la propuesta `rechazada` con su motivo |
 | `POST /flow/presence` | 200 `FlowState`. `{ viewing: 'plano' \| 'propuesta' \| null }`. Registra qué mira la persona; el primer `propuesta` de la dueña emite `flow.presence` |
-| `POST /flow/reset` | 200 `FlowState`. Resiembra el caso y emite `flow.reset`. Con `x-presenter-key` |
+| `GET /flow/history` | 200, público y de solo lectura: la historia de `P-12` y `E-B-03` (ver abajo) |
+| `POST /flow/reset` | 200 `FlowState`. Borra los registros del caso, lo resiembra y emite `flow.reset`. Con `x-presenter-key` |
 
-La frontera es deliberada: el lago aporta la geometría pura (`detectClashes`, `proposeFix`, `canAdvance`) y `flow-engine.ts` orquesta el estado en memoria del caso, la idempotencia por `minuteId`, la dueña de cada acción y los textos; el caso vive en la API y no en un contexto porque es un solo caso fijo y no se persiste.
+La frontera es deliberada: el lago aporta la geometría pura (`detectClashes`, `proposeFix`, `canAdvance`) y los casos de uso de persistencia; `flow-engine.ts` es el motor puro sobre un `FlowStore` (transiciones, dueña de cada acción y textos) y `flow-lake.ts` traduce entre el `FlowStore` y el lago.
+
+**Cómo se guarda el caso.** El caso usa el mismo proyecto de Los Aromos y se distingue por nombre:
+
+- **Sujetos `caso.*`** (`caso.P-12`, `caso.E-B-03`, `caso.B2`, `caso.cielo-n3`) con un solo atributo, `ubicacion_m`, cuyo valor es la caja en texto canónico (`x 29.8..30.2 · y 5.7..6.3 · z 0..2.55`, 4 decimales; `encodeBox` y `decodeBox` del lago). Es lo vigente de cada elemento.
+- **Documentos** `losaromos-est` (`LosAromos_EST`), `losaromos-elec` (`LosAromos_ELEC`), `losaromos-sani` y `losaromos-arq`, con una revisión `base` cada uno (la semilla del caso).
+- **La minuta de Paula** es una revisión inmutable de `LosAromos_EST`, autor `paula-rojas`, con el `minuteId` como etiqueta (única por documento: es la clave de idempotencia, también tras reiniciar), un fragmento con el cambio y su hecho. No toca lo vigente.
+- **El arreglo de Vigente** es una revisión de `LosAromos_ELEC` con autor `vigente` y etiqueta `propuesta-<minuteId>`.
+- **El PR del caso** es una propuesta del lago con dos hunks (`P-12`, el cambio, y `E-B-03`, el arreglo) y revisora Camila (la dueña del elemento afectado). Hasta que acepta no es vigente. Aceptar registra su revisión y fusiona la propuesta en lo vigente, con historia y procedencia (qué minuta de Paula, a qué hora, que Vigente propuso el arreglo y que Camila lo aprobó); rechazar registra la disputa con su motivo y deja lo vigente igual. Sin choque, la propuesta no tiene revisores y se fusiona sola.
+- **El caso se siembra a demanda**: la primera lectura o escritura de `/flow` corre `EnsureBaseline` (idempotente), así que la API arranca sobre una base sin el caso, y no hace falta migración.
+- **`GET /flow` se lee del lago** en cada pedido (lo vigente, la última propuesta del caso y la presencia, que sí vive en memoria). Los ids de `change`, `clash` y `proposal` salen de las revisiones y la propuesta del lago.
+- **Reinicios.** `POST /flow/reset` borra solo las revisiones, propuestas y valores `caso.*` del caso y lo resiembra, sin tocar el resto del lago. `POST /room/reset` vacía todo el lago y el caso se resiembra en el siguiente pedido. `POST /lake/seed` (el ETL) ignora los documentos del caso al revisar que el lago esté vacío.
+- Las vistas generales del lago (`/baseline`, `/proposals`, la sala) no muestran los registros del caso; `GET /baseline/caso.P-12/ubicacion_m/provenance` sí.
+
+**`GET /flow/history`** responde `{ epoch, elements: [P-12, E-B-03] }`. Cada elemento trae `elementId`, `subjectId`, `attribute` (`ubicacion_m`), `name`, `link` (`/valor/<subjectId>/ubicacion_m`), `pending` y `entries` (la más nueva primero). Cada entrada: `current`, `kind` (`base`, `minuta` o `arreglo`), `value` (la caja en texto), `unit`, `at`, `until` (solo las anteriores), `by { id, name }` (`Vigente` para el arreglo), `document` (`LosAromos_EST minuta-001`), `source` (`sala`, `revit` o `null`), `minuteId`, `reason`, `text`, `approvedBy [{ id, name, at }]` y `proposalId`. `pending` es `null` o `{ value, by, at, status: 'propuesta' \| 'rechazada', awaiting, reason, text }`: la propuesta abierta o rechazada que aún no es vigente. Las horas van en ISO UTC; `text` usa la hora de Santiago.
 
 Estados de la propuesta: `propuesta`, `aceptada`, `aplicada`, `resuelta` y `rechazada`. El choque lleva `status` `detectada` o `resuelta`, y `noAutoFix: true` si ningún candidato de hasta 1,0 m sirve (entonces no hay `proposal`). `change` trae `summary` (el texto de la pantalla de quien cambia) y `waiting`; `proposal` trae `texts` (`title`, `why`, `proposal`, `cost`, `footer`), `appliedText` y `resolvedText` (nulos hasta que ocurren).
 
@@ -117,7 +132,7 @@ src/
     ├── impact/                   adapters y casos de uso de context-impact: el grafo (sale de la definición del proyecto), el `ClaimReader` (Claude o respuestas fijas, con caché de archivos), el vocabulario del proyecto y `ExtractClaims`
     ├── notification/             adapters y casos de uso de context-notification
     ├── coordination/             orquesta la cadena y expone las rutas de datos; `revision-body.ts` valida la ingesta genérica y la carga inicial, `chunk-reader.ts` lee los fragmentos de texto libre, `revit-minute.ts` valida la minuta de Revit y la convierte en hechos, y `integrations.controller.ts` la recibe
-    ├── flow/                     el flujo de 4 pasos del caso P-12: flow-engine (estado en memoria, transiciones, idempotencia, dueñas y textos), controller, service y módulo
+    ├── flow/                     el flujo de 4 pasos del caso P-12: flow-engine (motor puro: transiciones, dueñas y textos), flow-lake (traduce entre el motor y el lago), flow-history (la historia de P-12 y E-B-03), controller, service y módulo
     ├── room/                     asientos, eventos, reinicio (módulo de la API, no un contexto)
     └── aps/                      Autodesk Platform Services (módulo de la API, no un contexto): ApsAuth (token 2-legged cacheado por scopes), ModelsCatalog (los modelos traducidos del bucket) y las rutas del visor
 tests/                            replica src/: Vitest, sin base de datos

@@ -25,6 +25,7 @@ import {
   type ProposalDraft,
   type RevisionDraft,
 } from '@team27/context-lake';
+import { CASE_DOCUMENT_IDS } from '../../scenario/caso-p12.ts';
 import { ActionLog } from './action-log.ts';
 import { ChunkReader } from './chunk-reader.ts';
 import { elementsFromBaseline } from './elements-from-baseline.ts';
@@ -222,7 +223,10 @@ export class CoordinationService {
     }
     const seeded = await this.uow.run(async (db) => {
       const lake = buildLake(db, this.project);
-      if ((await lake.ports.revisions.list()).length > 0) {
+      const loaded = (await lake.ports.revisions.list()).filter(
+        (revision) => !CASE_DOCUMENT_IDS.includes(revision.documentId),
+      );
+      if (loaded.length > 0) {
         throw fail(
           HttpStatus.CONFLICT,
           'lake_not_empty',

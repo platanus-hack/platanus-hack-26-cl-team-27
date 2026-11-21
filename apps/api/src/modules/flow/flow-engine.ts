@@ -13,6 +13,7 @@ import {
   detectClashes,
   gapBetween,
   proposeFix,
+  roundBox,
   translate,
 } from '@team27/context-lake';
 
@@ -63,7 +64,7 @@ export interface MinuteInput {
   }[];
 }
 
-interface ChangeRecord {
+export interface ChangeRecord {
   readonly id: string;
   readonly minuteId: string;
   readonly elementId: string;
@@ -77,7 +78,7 @@ interface ChangeRecord {
   readonly summary: string;
 }
 
-interface ClashRecord {
+export interface ClashRecord {
   readonly id: string;
   readonly a: string;
   readonly b: string;
@@ -87,7 +88,7 @@ interface ClashRecord {
   noAutoFix: boolean;
 }
 
-interface ProposalRecord {
+export interface ProposalRecord {
   readonly id: string;
   readonly clashId: string;
   readonly elementId: string;
@@ -134,7 +135,7 @@ export const seedStore = (epoch: number, cast: CastNames): FlowStore => ({
   presence: new Map(),
 });
 
-const toSpatial = (element: CaseElement): SpatialElement => ({
+export const toSpatial = (element: CaseElement): SpatialElement => ({
   id: element.id,
   discipline: element.discipline,
   box: element.box,
@@ -154,7 +155,7 @@ const rules = CLEARANCE_RULES.map((rule) => ({ ...rule }));
 
 const AXIS_INDEX = { x: 0, y: 1, z: 2 } as const;
 
-const dominant = (
+export const dominant = (
   delta: Delta,
 ): { axis: Axis; sign: 1 | -1; distance: number } => {
   const entries: [Axis, number][] = [
@@ -222,7 +223,7 @@ export const submitMinute = (
   }
   const { axis, sign, distance } = dominant(change.delta);
   const before = target.box;
-  replaceBox(store, target.id, translate(before, change.delta));
+  replaceBox(store, target.id, roundBox(translate(before, change.delta)));
   const moved = byId(store, target.id) as CaseElement;
   const text = {
     authorName: store.cast.castName(actor),
@@ -423,12 +424,7 @@ export const acceptProposal = (
     message: `Aplicado en el plano de ${name} a las ${time}.`,
     refs: { proposalId: proposal.id, elementId: proposal.elementId },
   });
-  const remaining = detectClashes(
-    store.elements.map(toSpatial),
-    rules,
-    store.clash?.axis ?? 'y',
-  ).filter((clash) => involves(clash, store.change?.elementId));
-  if (remaining.length === 0) {
+  if (!hasRemainingClash(store)) {
     advance(proposal, 'resuelta');
     if (store.clash) store.clash.status = 'resuelta';
     proposal.resolvedText = `Resuelto por ${name} a las ${time}`;
@@ -443,6 +439,13 @@ export const acceptProposal = (
 
 const involves = (clash: Clash, id: string | undefined): boolean =>
   id !== undefined && (clash.a === id || clash.b === id);
+
+export const hasRemainingClash = (store: FlowStore): boolean =>
+  detectClashes(
+    store.elements.map(toSpatial),
+    rules,
+    store.clash?.axis ?? 'y',
+  ).some((clash) => involves(clash, store.change?.elementId));
 
 export const rejectProposal = (
   store: FlowStore,

@@ -6,4 +6,5 @@ export interface RevisionRepository {
   findById(id: string): Promise<Revision | null>;
   list(): Promise<Revision[]>;
   clear(): Promise<void>;
+  deleteByDocuments(documentIds: readonly string[]): Promise<void>;
 }

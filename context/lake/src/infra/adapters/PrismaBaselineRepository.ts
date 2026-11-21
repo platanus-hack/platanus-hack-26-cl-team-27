@@ -137,6 +137,15 @@ export class PrismaBaselineRepository implements BaselineRepository {
     return rows.map(toHistory);
   }
 
+  async deleteBySubjectPrefix(prefix: string): Promise<void> {
+    await this.prisma.baselineEntry.deleteMany({
+      where: { projectId: this.projectId, subject: { startsWith: prefix } },
+    });
+    await this.prisma.baselineHistory.deleteMany({
+      where: { projectId: this.projectId, subject: { startsWith: prefix } },
+    });
+  }
+
   async clear(): Promise<void> {
     await this.prisma.baselineEntry.deleteMany({
       where: { projectId: this.projectId },

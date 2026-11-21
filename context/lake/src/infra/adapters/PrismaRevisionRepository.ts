@@ -74,6 +74,15 @@ export class PrismaRevisionRepository implements RevisionRepository {
     return rows.map(toRevision);
   }
 
+  async deleteByDocuments(documentIds: readonly string[]): Promise<void> {
+    await this.prisma.revision.deleteMany({
+      where: {
+        projectId: this.projectId,
+        documentId: { in: [...documentIds] },
+      },
+    });
+  }
+
   async clear(): Promise<void> {
     await this.prisma.revision.deleteMany({
       where: { projectId: this.projectId },

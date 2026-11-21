@@ -14,6 +14,7 @@ import { AFFECTED_ID, AUTHOR_ID, resetFlow } from '@/lib/flow-api';
 import { ApiError, describeError } from '@/lib/http';
 
 import { CamilaView } from './CamilaView';
+import { CaseHistory } from './HistoryPanel';
 import { PaulaView } from './PaulaView';
 
 const REJECTED = 'La clave no es correcta.';
@@ -122,6 +123,7 @@ function Connected({
           )}
         </aside>
       </div>
+      <CaseHistory flow={data} wide />
     </div>
   );
 }
