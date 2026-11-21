@@ -2,113 +2,213 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
+  HttpStatus,
   Inject,
-  NotFoundException,
   Param,
   Post,
   Query,
 } from '@nestjs/common';
-import { MAX_CHANGES, type Snapshot } from '@team27/context-capture';
+import { MAX_CHANGES } from '@team27/context-capture';
+import { MAX_NOTE_LENGTH, RESPONSE_KINDS } from '@team27/context-notification';
 import { z } from 'zod';
 
-import { LOS_AROMOS, type Scenario } from '../../scenario/los-aromos.ts';
-import {
-  CoordinationService,
-  type PublishResult,
-} from './coordination.service.ts';
-import type { FeedChange } from './feed.ts';
+import { CoordinationService } from './coordination.service.ts';
+import { fail } from './http-errors.ts';
+import { castMember } from './lookup.ts';
+import { type ProposalFilter, QueryService } from './query.service.ts';
 
-const integrationId = z.literal(LOS_AROMOS.integration.id);
+const uuid = z.uuid();
 
-const changeId = z.uuid();
+const castId = z.string().min(1).max(64);
 
-const feedQuery = z.object({
+const spaceId = z.string().min(1).max(64);
+
+const subjectPart = z.string().min(1).max(64);
+
+const section = z.enum([
+  'estructura',
+  'instalaciones',
+  'fachada',
+  'costos',
+  'plazo',
+]);
+
+const baselineQuery = z.object({ section: section.optional() });
+
+const proposalsQuery = z.object({
+  status: z
+    .enum(['open', 'disputed', 'merged', 'withdrawn', 'replaced', 'active'])
+    .optional(),
+});
+
+const changesQuery = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_CHANGES).default(20),
 });
 
-const property = z.object({
-  key: z.string().min(1).max(64),
-  label: z.string().min(1).max(80),
-  value: z.union([z.number().finite(), z.string().max(120)]),
-  unit: z.string().max(16).nullable(),
-  editable: z.boolean(),
+const dropBody = z.object({ fixtureId: z.string().min(1).max(64) });
+
+const responseBody = z.object({
+  kind: z.enum(RESPONSE_KINDS),
+  note: z.string().max(MAX_NOTE_LENGTH).nullish(),
 });
 
-const element = z.object({
-  id: z.string().min(1).max(64),
-  name: z.string().min(1).max(120),
-  category: z.string().min(1).max(32),
-  level: z.number().int().nullable(),
-  properties: z.array(property).max(50),
-});
+const dismissBody = z
+  .object({ note: z.string().max(MAX_NOTE_LENGTH).nullish() })
+  .default({});
 
-const publishBody = z.object({
-  elements: z
-    .array(element)
-    .min(1)
-    .max(500)
-    .refine(
-      (elements) => new Set(elements.map((e) => e.id)).size === elements.length,
-      {
-        message: 'Cada elemento debe tener un id único',
-      },
-    ),
+const acknowledgeBody = z.object({
+  revisionId: uuid,
+  note: z.string().trim().min(1).max(MAX_NOTE_LENGTH),
 });
-
-export type DemoInfo = Omit<Scenario, 'model' | 'graph'>;
 
 @Controller()
 export class CoordinationController {
   private readonly coordination: CoordinationService;
+  private readonly queries: QueryService;
 
-  constructor(@Inject(CoordinationService) coordination: CoordinationService) {
+  constructor(
+    @Inject(CoordinationService) coordination: CoordinationService,
+    @Inject(QueryService) queries: QueryService,
+  ) {
     this.coordination = coordination;
+    this.queries = queries;
   }
 
-  @Get('demo')
-  demo(): DemoInfo {
-    const { project, integration, stakeholders, presets } = LOS_AROMOS;
-    return { project, integration, stakeholders, presets };
-  }
-
-  @Post('demo/reset')
-  @HttpCode(204)
+  @Post('room/reset')
+  @HttpCode(HttpStatus.NO_CONTENT)
   async reset(): Promise<void> {
     await this.coordination.reset();
   }
 
-  @Get('integrations/:integrationId/model')
-  async model(
-    @Param('integrationId', { schema: integrationId }) id: string,
-  ): Promise<Snapshot> {
-    const snapshot = await this.coordination.latestModel(id);
-    if (!snapshot)
-      throw new NotFoundException('Todavía no hay una versión publicada');
-    return snapshot;
+  @Get('room')
+  room() {
+    return this.queries.room();
   }
 
-  @Post('integrations/:integrationId/versions')
-  publish(
-    @Param('integrationId', { schema: integrationId }) id: string,
-    @Body({ schema: publishBody }) body: z.output<typeof publishBody>,
-  ): Promise<PublishResult> {
-    return this.coordination.publish(id, body.elements);
+  @Get('spaces')
+  spaces() {
+    return this.queries.spaces();
+  }
+
+  @Get('baseline')
+  baseline(
+    @Query({ schema: baselineQuery }) query: z.output<typeof baselineQuery>,
+  ) {
+    return this.queries.baselineView(query.section);
+  }
+
+  @Get('baseline/:subjectId/:attribute/provenance')
+  provenance(
+    @Param('subjectId', { schema: subjectPart }) subjectId: string,
+    @Param('attribute', { schema: subjectPart }) attribute: string,
+  ) {
+    return this.queries.provenance(subjectId, attribute);
+  }
+
+  @Get('seats/:castId/tray')
+  tray(@Param('castId', { schema: castId }) id: string) {
+    if (!castMember(id)) {
+      throw fail(
+        HttpStatus.NOT_FOUND,
+        'not_found',
+        `No existe el asiento ${id}`,
+      );
+    }
+    return this.queries.tray(id);
+  }
+
+  @Post('spaces/:spaceId/drops')
+  drop(
+    @Param('spaceId', { schema: spaceId }) space: string,
+    @Body({ schema: dropBody }) body: z.output<typeof dropBody>,
+    @Headers('x-seat') seat: string | undefined,
+    @Headers('x-action-id') actionId: string | undefined,
+  ) {
+    return this.coordination.drop({
+      seat,
+      spaceId: space,
+      fixtureId: body.fixtureId,
+      actionId,
+    });
+  }
+
+  @Get('proposals')
+  proposals(
+    @Query({ schema: proposalsQuery }) query: z.output<typeof proposalsQuery>,
+  ) {
+    const status: ProposalFilter | undefined = query.status;
+    return this.queries.proposalList(status);
+  }
+
+  @Post('notifications/:id/response')
+  respond(
+    @Param('id', { schema: uuid }) id: string,
+    @Body({ schema: responseBody }) body: z.output<typeof responseBody>,
+    @Headers('x-seat') seat: string | undefined,
+    @Headers('x-action-id') actionId: string | undefined,
+  ) {
+    return this.coordination.vote({
+      seat,
+      notificationId: id,
+      vote: body,
+      actionId,
+    });
+  }
+
+  @Post('proposals/:id/reopen')
+  reopen(
+    @Param('id', { schema: uuid }) id: string,
+    @Headers('x-seat') seat: string | undefined,
+  ) {
+    return this.coordination.reopen({ seat, proposalId: id });
+  }
+
+  @Post('proposals/:id/withdraw')
+  withdraw(
+    @Param('id', { schema: uuid }) id: string,
+    @Headers('x-seat') seat: string | undefined,
+  ) {
+    return this.coordination.withdraw({ seat, proposalId: id });
+  }
+
+  @Post('discrepancies/:id/dismiss')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async dismiss(
+    @Param('id', { schema: uuid }) id: string,
+    @Body({ schema: dismissBody }) body: z.output<typeof dismissBody>,
+    @Headers('x-seat') seat: string | undefined,
+  ): Promise<void> {
+    await this.coordination.dismiss({
+      seat,
+      discrepancyId: id,
+      note: body.note,
+    });
+  }
+
+  @Post('stale/acknowledge')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async acknowledge(
+    @Body({ schema: acknowledgeBody }) body: z.output<typeof acknowledgeBody>,
+    @Headers('x-seat') seat: string | undefined,
+  ): Promise<void> {
+    await this.coordination.acknowledge({
+      seat,
+      revisionId: body.revisionId,
+      note: body.note,
+    });
   }
 
   @Get('changes')
-  feed(
-    @Query({ schema: feedQuery }) query: z.output<typeof feedQuery>,
-  ): Promise<FeedChange[]> {
-    return this.coordination.feed(query.limit);
+  changes(
+    @Query({ schema: changesQuery }) query: z.output<typeof changesQuery>,
+  ) {
+    return this.queries.changes(query.limit);
   }
 
   @Get('changes/:id')
-  async change(
-    @Param('id', { schema: changeId }) id: string,
-  ): Promise<FeedChange> {
-    const change = await this.coordination.change(id);
-    if (!change) throw new NotFoundException(`No existe el cambio ${id}`);
-    return change;
+  change(@Param('id', { schema: uuid }) id: string) {
+    return this.queries.change(id);
   }
 }

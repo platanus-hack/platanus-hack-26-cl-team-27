@@ -92,6 +92,9 @@ export class SeedLake {
       }
     }
     for (const entry of entries.values()) await this.baseline.upsert(entry);
-    return { revisions: input.revisions.length, baseline: [...entries.values()] };
+    return {
+      revisions: input.revisions.length,
+      baseline: [...entries.values()],
+    };
   }
 }

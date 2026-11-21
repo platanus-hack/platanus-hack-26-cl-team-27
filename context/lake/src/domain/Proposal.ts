@@ -1,11 +1,7 @@
 import type { ClaimValue } from './Claim.ts';
 
 export type ProposalStatus =
-  | 'open'
-  | 'merged'
-  | 'disputed'
-  | 'withdrawn'
-  | 'superseded';
+  'open' | 'merged' | 'disputed' | 'withdrawn' | 'superseded';
 
 export type Decision = 'approve' | 'dispute';
 
@@ -76,7 +72,9 @@ export const applyReview = (
 ): Proposal => ({
   ...proposal,
   reviews: proposal.reviews.map((review) =>
-    review.reviewerId === reviewerId ? { reviewerId, decision, note, at } : review,
+    review.reviewerId === reviewerId
+      ? { reviewerId, decision, note, at }
+      : review,
   ),
 });
 
@@ -86,11 +84,10 @@ export const reopenFor = (
   const reopened = proposal.reviews
     .filter((review) => review.decision === 'dispute')
     .map((review) => review.reviewerId);
-  const reviews = proposal.reviews.map(
-    (review): Review =>
-      review.decision === 'dispute'
-        ? { reviewerId: review.reviewerId, decision: null, note: null, at: null }
-        : review,
+  const reviews = proposal.reviews.map((review): Review =>
+    review.decision === 'dispute'
+      ? { reviewerId: review.reviewerId, decision: null, note: null, at: null }
+      : review,
   );
   return {
     proposal: { ...proposal, reviews, status: decideProposal({ reviews }) },

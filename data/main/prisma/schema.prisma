@@ -9,32 +9,21 @@ datasource db {
   provider = "postgresql"
 }
 
-model Snapshot {
-  id            String   @id @default(uuid()) @db.Uuid
-  integrationId String   @map("integration_id")
-  version       Int
-  elements      Json
-  publishedAt   DateTime @default(now()) @map("published_at")
-
-  @@unique([integrationId, version])
-  @@map("snapshots")
-}
-
 model Change {
-  id            String   @id @default(uuid()) @db.Uuid
-  integrationId String   @map("integration_id")
-  version       Int
-  elementId     String   @map("element_id")
-  elementName   String   @map("element_name")
-  category      String
-  kind          String
-  summary       String
-  diffs         Json
-  before        Json
-  after         Json
-  detectedAt    DateTime @default(now()) @map("detected_at")
+  id          String   @id @default(uuid()) @db.Uuid
+  sourceId    String   @map("source_id")
+  elementId   String   @map("element_id")
+  elementName String   @map("element_name")
+  category    String
+  kind        String
+  summary     String
+  diffs       Json
+  before      Json
+  after       Json
+  detectedAt  DateTime @default(now()) @map("detected_at")
 
   @@index([detectedAt])
+  @@index([sourceId])
   @@map("changes")
 }
 
@@ -64,4 +53,137 @@ model Notification {
   @@index([changeId])
   @@index([stakeholderId])
   @@map("notifications")
+}
+
+model Revision {
+  id            String   @id @default(uuid()) @db.Uuid
+  documentId    String   @map("document_id")
+  documentName  String   @map("document_name")
+  label         String
+  kind          String
+  spaceId       String   @map("space_id")
+  authorId      String   @map("author_id")
+  contentHash   String   @map("content_hash")
+  sourcePointer String   @map("source_pointer")
+  ingestOrder   Int      @unique @default(autoincrement()) @map("ingest_order")
+  ingestedAt    DateTime @default(now()) @map("ingested_at")
+  claims        Claim[]
+
+  @@unique([documentId, label])
+  @@map("revisions")
+}
+
+model Claim {
+  id         String   @id @default(uuid()) @db.Uuid
+  revisionId String   @map("revision_id") @db.Uuid
+  subject    String
+  attribute  String
+  value      Json
+  unit       String?
+  role       String
+  locator    String
+  revision   Revision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+
+  @@index([revisionId])
+  @@index([subject, attribute])
+  @@map("claims")
+}
+
+model BaselineEntry {
+  subject    String
+  attribute  String
+  value      Json
+  unit       String?
+  claimId    String?           @map("claim_id")
+  revisionId String            @map("revision_id")
+  proposalId String?           @map("proposal_id")
+  since      DateTime          @default(now())
+  version    Int               @default(1)
+  history    BaselineHistory[]
+
+  @@id([subject, attribute])
+  @@map("baseline_entries")
+}
+
+model BaselineHistory {
+  id         String        @id @default(uuid()) @db.Uuid
+  subject    String
+  attribute  String
+  value      Json
+  unit       String?
+  claimId    String?       @map("claim_id")
+  revisionId String        @map("revision_id")
+  proposalId String?       @map("proposal_id")
+  since      DateTime
+  until      DateTime
+  entry      BaselineEntry @relation(fields: [subject, attribute], references: [subject, attribute], onDelete: Cascade)
+
+  @@index([subject, attribute])
+  @@map("baseline_history")
+}
+
+model Proposal {
+  id               String    @id @default(uuid()) @db.Uuid
+  changeId         String?   @map("change_id")
+  subject          String
+  sourceRevisionId String    @map("source_revision_id")
+  authorId         String    @map("author_id")
+  changes          Json
+  filtered         Json
+  status           String
+  openedAt         DateTime  @default(now()) @map("opened_at")
+  resolvedAt       DateTime? @map("resolved_at")
+  supersededById   String?   @map("superseded_by_id")
+  reviews          Review[]
+
+  @@index([status])
+  @@index([subject])
+  @@map("proposals")
+}
+
+model Review {
+  id         String    @id @default(uuid()) @db.Uuid
+  proposalId String    @map("proposal_id") @db.Uuid
+  reviewerId String    @map("reviewer_id")
+  decision   String?
+  note       String?
+  at         DateTime?
+  proposal   Proposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, reviewerId])
+  @@map("reviews")
+}
+
+model Discrepancy {
+  id                 String    @id @default(uuid()) @db.Uuid
+  subject            String
+  attribute          String
+  value              Json
+  baselineValue      Json      @map("baseline_value")
+  unit               String?
+  documentId         String    @map("document_id")
+  revisionId         String    @map("revision_id")
+  claimId            String?   @map("claim_id")
+  ownerId            String    @map("owner_id")
+  status             String    @default("open")
+  backedByRevisionId String?   @map("backed_by_revision_id")
+  note               String?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  resolvedAt         DateTime? @map("resolved_at")
+
+  @@index([status])
+  @@map("discrepancies")
+}
+
+model Acknowledgement {
+  id         String   @id @default(uuid()) @db.Uuid
+  documentId String   @map("document_id")
+  revisionId String   @map("revision_id")
+  signature  String
+  ownerId    String   @map("owner_id")
+  note       String
+  at         DateTime @default(now())
+
+  @@index([documentId])
+  @@map("acknowledgements")
 }

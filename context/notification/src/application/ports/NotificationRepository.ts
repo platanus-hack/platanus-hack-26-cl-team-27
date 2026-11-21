@@ -16,4 +16,6 @@ export interface NotificationRepository {
     id: string,
     response: NotificationResponse,
   ): Promise<Notification | null>;
+  clearResponse(id: string): Promise<Notification | null>;
+  findById(id: string): Promise<Notification | null>;
 }

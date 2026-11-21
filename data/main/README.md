@@ -6,10 +6,17 @@ Prisma 7 sobre PostgreSQL 18. Contiene el schema (`prisma/schema.prisma`), las m
 
 | Modelo (tabla)                  | Contexto       | Qué guarda                                                                          |
 | ------------------------------- | -------------- | ----------------------------------------------------------------------------------- |
-| `Snapshot` (`snapshots`)        | `capture`      | Cada versión publicada del modelo, con sus elementos en JSON. Única por integración y número |
-| `Change` (`changes`)            | `capture`      | Un cambio por elemento entre dos versiones: tipo, resumen, diferencias, antes y después |
+| `Change` (`changes`)            | `capture`      | Un cambio por elemento entre una base y un siguiente: la revisión de origen (`source_id`), tipo, resumen, diferencias, antes y después |
 | `Impact` (`impacts`)            | `impact`       | El impacto de un cambio: costo y atraso en columnas, el resto del detalle en JSON   |
 | `Notification` (`notifications`) | `notification` | Un aviso por afectado y cambio, con sus hallazgos en JSON y la respuesta del afectado |
+| `Revision` (`revisions`) | `lake` | Cada versión de un documento, inmutable: espacio, autor, tipo, hash, puntero al origen y orden de ingesta. Única por documento y etiqueta |
+| `Claim` (`claims`) | `lake` | Un hecho de una revisión: sujeto, atributo, valor en JSON, unidad, rol (`afirma` o `usa`) y localizador |
+| `BaselineEntry` (`baseline_entries`) | `lake` | Lo vigente de cada sujeto y atributo, con el hecho, la revisión y la propuesta que lo respaldan. Clave compuesta |
+| `BaselineHistory` (`baseline_history`) | `lake` | Los valores vigentes anteriores, con desde cuándo y hasta cuándo rigieron |
+| `Proposal` (`proposals`) | `lake` | Una propuesta por elemento: cambios en JSON, el cambio de `capture` que la originó, los filtrados y su estado |
+| `Review` (`reviews`) | `lake` | El voto de cada revisor de una propuesta: aprobar, disputar o pendiente, con nota y hora |
+| `Discrepancy` (`discrepancies`) | `lake` | Un hecho sin autoridad que difiere de lo vigente, con su dueño y su estado (abierta, respaldada o descartada) |
+| `Acknowledgement` (`acknowledgements`) | `lake` | La confirmación sin cambio de un documento desfasado, con su nota y la firma del desfase |
 
 - Cada tabla es de un solo contexto. No hay llaves foráneas entre tablas de contextos distintos: los ids viajan como valores.
 - Las tablas y columnas van en `snake_case` con `@@map` y `@map`; los modelos y campos, en `camelCase`.

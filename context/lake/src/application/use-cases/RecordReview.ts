@@ -1,4 +1,8 @@
-import { applyReview, decideProposal, isActive } from '../../domain/Proposal.ts';
+import {
+  applyReview,
+  decideProposal,
+  isActive,
+} from '../../domain/Proposal.ts';
 import type { Decision, Proposal } from '../../domain/Proposal.ts';
 import { ValidationError } from '../errors.ts';
 import { mergeProposal } from '../mergeProposal.ts';

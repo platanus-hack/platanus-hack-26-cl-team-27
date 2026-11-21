@@ -1,5 +1,9 @@
 import { latestPerDocument } from '../../domain/Revision.ts';
-import { sourcesOf, touchingProposals, valueStatus } from '../../domain/Baseline.ts';
+import {
+  sourcesOf,
+  touchingProposals,
+  valueStatus,
+} from '../../domain/Baseline.ts';
 import type { BaselineEntry, ValueStatus } from '../../domain/Baseline.ts';
 import type { BaselineRepository } from '../ports/BaselineRepository.ts';
 import type { ClaimRepository } from '../ports/ClaimRepository.ts';

@@ -1,6 +1,8 @@
+export { GetNotification } from './GetNotification.ts';
 export { ListNotifications } from './ListNotifications.ts';
 export { ListStakeholders } from './ListStakeholders.ts';
 export { NotifyStakeholders } from './NotifyStakeholders.ts';
+export { ReopenResponse } from './ReopenResponse.ts';
 export {
   RespondToNotification,
   type ResponseInput,

@@ -45,7 +45,13 @@ export class GetConsensus {
   }
 
   async execute(): Promise<Consensus> {
-    const state = await loadLakeState(this);
+    const state = await loadLakeState({
+      revisions: this.revisions,
+      claims: this.claims,
+      baseline: this.baseline,
+      proposals: this.proposals,
+      acknowledgements: this.acknowledgements,
+    });
     const discrepancies = await this.discrepancies.list();
     const index = consensusIndex({
       revisions: state.revisions,

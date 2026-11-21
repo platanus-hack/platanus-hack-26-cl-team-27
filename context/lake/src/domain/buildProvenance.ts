@@ -62,7 +62,9 @@ export const buildProvenance = (input: ProvenanceInput): Provenance => {
   const revisionOf = (id: string): Revision | null =>
     input.revisions.find((revision) => revision.id === id) ?? null;
   const claimOf = (id: string | null): Claim | null =>
-    id === null ? null : (input.claims.find((claim) => claim.id === id) ?? null);
+    id === null
+      ? null
+      : (input.claims.find((claim) => claim.id === id) ?? null);
 
   const current = new Set(
     latestPerDocument(input.revisions).map((revision) => revision.id),
@@ -70,8 +72,9 @@ export const buildProvenance = (input: ProvenanceInput): Provenance => {
   const proposal =
     entry.proposalId === null
       ? null
-      : (input.proposals.find((candidate) => candidate.id === entry.proposalId) ??
-        null);
+      : (input.proposals.find(
+          (candidate) => candidate.id === entry.proposalId,
+        ) ?? null);
 
   return {
     subject: entry.subject,

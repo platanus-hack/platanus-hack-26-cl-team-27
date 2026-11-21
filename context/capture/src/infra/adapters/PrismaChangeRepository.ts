@@ -16,8 +16,7 @@ const toJson = (value: unknown): Prisma.InputJsonValue =>
 
 const toChange = (row: ChangeRow): Change => ({
   id: row.id,
-  integrationId: row.integrationId,
-  version: row.version,
+  sourceId: row.sourceId,
   element: { id: row.elementId, name: row.elementName, category: row.category },
   kind: row.kind as ChangeKind,
   summary: row.summary,
@@ -39,8 +38,7 @@ export class PrismaChangeRepository implements ChangeRepository {
       drafts.map((draft) =>
         this.prisma.change.create({
           data: {
-            integrationId: draft.integrationId,
-            version: draft.version,
+            sourceId: draft.sourceId,
             elementId: draft.element.id,
             elementName: draft.element.name,
             category: draft.element.category,

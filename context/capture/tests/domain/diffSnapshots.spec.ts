@@ -37,7 +37,7 @@ const shaft: ModelElement = {
 describe('diffSnapshots', () => {
   it('no ve cambios entre dos versiones iguales', () => {
     expect(
-      diffSnapshots([slab(15), shaft], [slab(15), shaft], 'bim', 2),
+      diffSnapshots([slab(15), shaft], [slab(15), shaft], 'rev-1'),
     ).toEqual([]);
   });
 
@@ -45,14 +45,12 @@ describe('diffSnapshots', () => {
     const [change, ...rest] = diffSnapshots(
       [slab(15), shaft],
       [slab(20), shaft],
-      'bim',
-      2,
+      'rev-1',
     );
 
     expect(rest).toEqual([]);
     expect(change).toMatchObject({
-      integrationId: 'bim',
-      version: 2,
+      sourceId: 'rev-1',
       kind: 'modified',
       element: { id: 'losa-n3', name: 'Losa nivel 3', category: 'losa' },
       summary: 'Espesor: 15 cm → 20 cm',
@@ -71,7 +69,7 @@ describe('diffSnapshots', () => {
   });
 
   it('marca los elementos nuevos y los eliminados', () => {
-    const changes = diffSnapshots([slab(15)], [shaft], 'bim', 2);
+    const changes = diffSnapshots([slab(15)], [shaft], 'rev-1');
 
     expect(
       changes.map((change) => [change.element.id, change.kind, change.summary]),

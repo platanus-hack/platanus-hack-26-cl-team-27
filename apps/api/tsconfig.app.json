@@ -24,6 +24,9 @@
       "path": "../../context/notification/tsconfig.lib.json"
     },
     {
+      "path": "../../context/lake/tsconfig.lib.json"
+    },
+    {
       "path": "../../context/impact/tsconfig.lib.json"
     },
     {

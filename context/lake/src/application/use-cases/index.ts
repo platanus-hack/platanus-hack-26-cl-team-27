@@ -23,10 +23,6 @@ export type {
   ReopenProposalInput,
 } from './ReopenProposal.ts';
 export { SeedLake } from './SeedLake.ts';
-export type {
-  SeededLake,
-  SeedLakeInput,
-  SeedRevision,
-} from './SeedLake.ts';
+export type { SeededLake, SeedLakeInput, SeedRevision } from './SeedLake.ts';
 export { WithdrawProposal } from './WithdrawProposal.ts';
 export type { WithdrawProposalInput } from './WithdrawProposal.ts';

@@ -4,13 +4,13 @@ Monorepo con Nx 24 y workspaces de pnpm 10. Cada proyecto es un paquete (`packag
 
 ## Estructura
 
-| Carpeta                                   | Proyecto                | Tags                           | Qué es                                                             |
-| ----------------------------------------- | ----------------------- | ------------------------------ | ------------------------------------------------------------------ |
-| [`apps/web`](../apps/web/README.md)       | `@team27/web`           | `type:app`                     | Next.js 16 (App Router, Turbopack): el panel, en `:3000`           |
-| [`apps/api`](../apps/api/README.md)       | `@team27/api`           | `type:app`                     | NestJS 12: la API HTTP, en `:3001/api`                             |
-| [`context/<ctx>`](../context/README.md)   | `@team27/context-<ctx>` | `type:context`, `scope:<ctx>`  | Un bounded context hexagonal: `capture`, `impact` y `notification` |
-| [`data/main`](../data/main/README.md)     | `@team27/data-main`     | `type:data`                    | Prisma 7 sobre PostgreSQL: schema, migraciones y cliente           |
-| [`packages/ui`](../packages/ui/README.md) | `@team27/ui`            | `type:package`, `scope:shared` | Tema (tokens claro y oscuro) y componentes de React                |
+| Carpeta                                   | Proyecto                | Tags                           | Qué es                                                                     |
+| ----------------------------------------- | ----------------------- | ------------------------------ | -------------------------------------------------------------------------- |
+| [`apps/web`](../apps/web/README.md)       | `@team27/web`           | `type:app`                     | Next.js 16 (App Router, Turbopack): el panel, en `:3000`                   |
+| [`apps/api`](../apps/api/README.md)       | `@team27/api`           | `type:app`                     | NestJS 12: la API HTTP, en `:3001/api`                                     |
+| [`context/<ctx>`](../context/README.md)   | `@team27/context-<ctx>` | `type:context`, `scope:<ctx>`  | Un bounded context hexagonal: `lake`, `capture`, `impact` y `notification` |
+| [`data/main`](../data/main/README.md)     | `@team27/data-main`     | `type:data`                    | Prisma 7 sobre PostgreSQL: schema, migraciones y cliente                   |
+| [`packages/ui`](../packages/ui/README.md) | `@team27/ui`            | `type:package`, `scope:shared` | Tema (tokens claro y oscuro) y componentes de React                        |
 
 ```mermaid
 flowchart LR
@@ -79,42 +79,45 @@ pnpm nx g @nx/js:lib context/<ctx> --name=@team27/context-<ctx> --bundler=none \
 
 ## Coordinación de un cambio
 
-Tres contextos, uno por etapa del [flujo](negocio.md#flujo). Ninguno conoce a los otros. El módulo `coordination` de la API los encadena y traduce lo que sale de uno a lo que entra al siguiente.
+Cuatro contextos, uno por etapa del [flujo](negocio.md#flujo) más el lago de hechos. Ninguno conoce a los otros. El módulo `coordination` de la API los encadena y traduce lo que sale de uno a lo que entra al siguiente. El diseño completo de la sala está en [multijugador](multijugador.md).
 
-| Contexto                                            | Qué hace                                                                                 | Dominio                                                              | Puertos → adapters                                                     |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| [`capture`](../context/capture/README.md)           | Guarda cada versión del modelo y la compara con la anterior: un cambio por elemento      | `Snapshot`, `ModelElement`, `Change`, `diffSnapshots`                | `SnapshotRepository`, `ChangeRepository` → Prisma                      |
-| [`impact`](../context/impact/README.md)             | Recorre el grafo del proyecto desde lo que cambió: dependencias, partidas y ruta crítica | `ProjectGraph`, `Impact`, `Finding`, `analyzeChange`, `criticalPath` | `ProjectGraphRepository` → en memoria; `ImpactRepository` → Prisma     |
-| [`notification`](../context/notification/README.md) | Junta los hallazgos de cada afectado en un aviso, en su canal, y guarda su respuesta     | `Stakeholder`, `Notification`, `draftNotifications`                  | `StakeholderDirectory` → en memoria; `NotificationRepository` → Prisma |
+| Contexto                                            | Qué hace                                                                                                         | Dominio                                                                                               | Puertos → adapters                                                            |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [`lake`](../context/lake/README.md)                 | Ingiere revisiones como hechos, los compara con lo vigente, abre propuestas y discrepancias, y lleva el consenso | `Revision`, `Claim`, `BaselineEntry`, `Proposal`, `Discrepancy`, `classifyClaims`, `computeStaleness` | un repositorio por agregado → Prisma; `FactExtractor` → fixtures del catálogo |
+| [`capture`](../context/capture/README.md)           | Compara una base con un siguiente estado de un elemento: un cambio por elemento, con su revisión de origen       | `ModelElement`, `Change`, `diffSnapshots`                                                             | `ChangeRepository` → Prisma                                                   |
+| [`impact`](../context/impact/README.md)             | Recorre el grafo del proyecto desde lo que cambió: dependencias, partidas y ruta crítica                         | `ProjectGraph`, `Impact`, `Finding`, `analyzeChange`, `criticalPath`                                  | `ProjectGraphRepository` → en memoria; `ImpactRepository` → Prisma            |
+| [`notification`](../context/notification/README.md) | Junta los hallazgos de cada afectado en un aviso, en su canal, y guarda su respuesta, que es el voto             | `Stakeholder`, `Notification`, `draftNotifications`                                                   | `StakeholderDirectory` → en memoria; `NotificationRepository` → Prisma        |
 
 ```mermaid
 sequenceDiagram
-  participant O as Software de origen
+  participant S as Asiento
   participant A as API · coordination
+  participant L as lake
   participant C as capture
   participant I as impact
   participant N as notification
-  participant W as Web
-  O->>A: POST /api/integrations/:id/versions
-  A->>C: PublishVersion
-  C-->>A: versión y cambios
-  loop por cada cambio
+  S->>A: POST /api/spaces/:id/drops
+  A->>L: IngestRevision
+  L-->>A: resultados por hecho y borradores de propuesta
+  loop por cada borrador
+    A->>C: DetectChanges (base y siguiente desde lo vigente)
+    C-->>A: cambio
     A->>I: AnalyzeChange
-    I-->>A: impacto y hallazgos por afectado
+    I-->>A: impacto, hallazgos y filtrados
     A->>N: NotifyStakeholders
+    A->>L: OpenProposal (revisores y filtrados)
   end
-  W->>A: GET /api/changes
-  A->>C: ListChanges
-  A->>I: GetImpacts
-  A->>N: ListNotifications
-  A-->>W: cambios con su impacto y sus avisos
-  W->>A: POST /api/notifications/:id/response
+  S->>A: POST /api/notifications/:id/response
+  A->>L: RecordReview
   A->>N: RespondToNotification
+  L-->>A: fusionada, y lo vigente cambia
+  A->>L: GetConsensus (desfases y sello)
 ```
 
-- **La cadena es sincrónica.** Cuando `POST /api/integrations/:id/versions` responde, los cambios ya tienen su impacto y sus avisos guardados.
-- **El proyecto, el elenco y su grafo son el guion de la muestra** ([`apps/api/src/scenario/los-aromos.ts`](../apps/api/src/scenario/los-aromos.ts)). La API se los pasa a los adapters en memoria `InMemoryProjectGraph` e `InMemoryStakeholderDirectory`. Lo que cambia durante la muestra (versiones, cambios, impactos, avisos y respuestas) se guarda en Postgres.
-- **Al arrancar, si no hay ninguna versión, la API publica el modelo base del guion.** `POST /api/demo/reset` borra las cuatro tablas y lo vuelve a publicar.
+- **La cadena es sincrónica y transaccional.** Cuando el drop responde, la revisión, el cambio, el impacto, los avisos y la propuesta ya están guardados; si algo falla, nada queda a medias. Cada acción de escritura toma un advisory lock de Postgres y el voto bloquea además la fila de la propuesta.
+- **El lago se enchufa por el API.** `modules/lake` registra los adapters por token y los casos de uso con `provideUseCase`. `lake` no importa `capture`, `impact` ni `notification`: los revisores de una propuesta son los afectados que `impact` devuelve y `notification` avisa, y es `coordination` quien se los pasa a `OpenProposal`. Los ids de revisor son los de los afectados, valores opacos para el lago.
+- **El proyecto, el elenco, el grafo y el catálogo de documentos son el guion de la muestra** ([`los-aromos.ts`](../apps/api/src/scenario/los-aromos.ts) y [`documents.ts`](../apps/api/src/scenario/documents.ts)). La API los pasa a los adapters en memoria `InMemoryProjectGraph`, `InMemoryStakeholderDirectory` y `FixtureFactExtractor`. Lo que cambia durante la muestra (revisiones, hechos, lo vigente, propuestas, votos, cambios, impactos y avisos) se guarda en Postgres.
+- **Al arrancar, si lo vigente está vacío, la API siembra el catálogo.** `POST /api/room/reset` borra todas las tablas en una transacción y lo siembra de nuevo.
 - **Los canales son simulados.** Un aviso guardado es un aviso entregado: la web lo muestra en la maqueta de su canal. Un canal real sería un puerto nuevo en `notification`, con un adapter por proveedor. Por qué es así: [espacio controlado](muestra.md#espacio-controlado).
 
 ## Web y API
@@ -140,6 +143,7 @@ Nx carga el `.env` de la raíz en cada tarea (plantilla: `.env.example`). La API
 - [`data/main`](../data/main/README.md) tiene el schema (`prisma/schema.prisma`), las migraciones (`prisma/migrations`) y `createPrismaClient(url)`, que usa el driver adapter de `pg`. El cliente se genera en `data/main/generated/`, que no se versiona.
 - `prisma.config.ts` lee el `.env` de la raíz, así que los comandos de Prisma funcionan desde cualquier carpeta.
 - La API crea un solo `PrismaClient` (`DatabaseModule`, token `PRISMA_CLIENT`), lo inyecta donde se pide y lo cierra al apagarse.
+- Una acción de escritura corre en `UnitOfWork.run`: una transacción interactiva con un advisory lock, cuyo cliente reciben los adapters de todos los contextos para que queden en la misma transacción.
 
 ## TypeScript
 

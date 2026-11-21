@@ -48,7 +48,6 @@ export const consensusIndex = (input: ConsensusInput): ConsensusIndex => {
     openDiscrepancies: open.length,
     staleDocuments,
     acknowledgedDocuments: input.stale.length - staleDocuments,
-    sealed:
-      openProposals === 0 && open.length === 0 && staleDocuments === 0,
+    sealed: openProposals === 0 && open.length === 0 && staleDocuments === 0,
   };
 };

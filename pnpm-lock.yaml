@@ -98,6 +98,9 @@ importers:
       '@team27/context-impact':
         specifier: workspace:*
         version: link:../../context/impact
+      '@team27/context-lake':
+        specifier: workspace:*
+        version: link:../../context/lake
       '@team27/context-notification':
         specifier: workspace:*
         version: link:../../context/notification
@@ -171,6 +174,12 @@ importers:
         version: link:../../data/main
 
   context/impact:
+    dependencies:
+      '@team27/data-main':
+        specifier: workspace:*
+        version: link:../../data/main
+
+  context/lake:
     dependencies:
       '@team27/data-main':
         specifier: workspace:*

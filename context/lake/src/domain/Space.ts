@@ -1,9 +1,5 @@
 export type SpaceKind =
-  | 'drive'
-  | 'sharepoint'
-  | 'email'
-  | 'whatsapp'
-  | 'libro_obra';
+  'drive' | 'sharepoint' | 'email' | 'whatsapp' | 'libro_obra';
 
 export interface Space {
   readonly id: string;

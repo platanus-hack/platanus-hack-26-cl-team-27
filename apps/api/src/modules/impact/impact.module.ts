@@ -13,6 +13,15 @@ import { PRISMA_CLIENT } from '../database/database.module.ts';
 export const PROJECT_GRAPH = 'PROJECT_GRAPH';
 export const IMPACT_REPOSITORY = 'IMPACT_REPOSITORY';
 
+export const buildImpact = (db: PrismaClient) => {
+  const graph = new InMemoryProjectGraph(LOS_AROMOS.graph);
+  const impacts = new PrismaImpactRepository(db);
+  return {
+    analyzeChange: new AnalyzeChange(graph, impacts),
+    getImpacts: new GetImpacts(impacts),
+  };
+};
+
 @Module({
   providers: [
     {

@@ -17,8 +17,7 @@ export interface ChangedElement {
 }
 
 export interface ChangeDraft {
-  readonly integrationId: string;
-  readonly version: number;
+  readonly sourceId: string;
   readonly element: ChangedElement;
   readonly kind: ChangeKind;
   readonly summary: string;

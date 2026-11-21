@@ -8,8 +8,10 @@ import { ConfigService } from '@nestjs/config';
 import { createPrismaClient, type PrismaClient } from '@team27/data-main';
 
 import type { Env } from '../../config/index.ts';
+import { PRISMA_CLIENT } from './prisma-token.ts';
+import { UnitOfWork } from './unit-of-work.ts';
 
-export const PRISMA_CLIENT = 'PRISMA_CLIENT';
+export { PRISMA_CLIENT };
 
 @Global()
 @Module({
@@ -20,8 +22,9 @@ export const PRISMA_CLIENT = 'PRISMA_CLIENT';
       useFactory: (config: ConfigService<Env, true>) =>
         createPrismaClient(config.get('DATABASE_URL', { infer: true })),
     },
+    UnitOfWork,
   ],
-  exports: [PRISMA_CLIENT],
+  exports: [PRISMA_CLIENT, UnitOfWork],
 })
 export class DatabaseModule implements OnApplicationShutdown {
   private readonly prisma: PrismaClient;

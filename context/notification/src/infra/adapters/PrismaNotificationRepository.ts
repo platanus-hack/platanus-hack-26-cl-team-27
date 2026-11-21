@@ -92,4 +92,18 @@ export class PrismaNotificationRepository implements NotificationRepository {
     const row = await this.prisma.notification.findUnique({ where: { id } });
     return row ? toNotification(row) : null;
   }
+
+  async clearResponse(id: string): Promise<Notification | null> {
+    const { count } = await this.prisma.notification.updateMany({
+      where: { id },
+      data: { response: null, responseNote: null, respondedAt: null },
+    });
+    if (count === 0) return null;
+    return this.findById(id);
+  }
+
+  async findById(id: string): Promise<Notification | null> {
+    const row = await this.prisma.notification.findUnique({ where: { id } });
+    return row ? toNotification(row) : null;
+  }
 }

@@ -2,14 +2,7 @@ import type { ModelElement } from '@team27/context-capture';
 import type { ProjectGraph, Task } from '@team27/context-impact';
 import type { Stakeholder } from '@team27/context-notification';
 
-export interface Preset {
-  readonly id: string;
-  readonly label: string;
-  readonly hint: string;
-  readonly elementId: string;
-  readonly key: string;
-  readonly value: number;
-}
+export type CastMember = Stakeholder;
 
 const SLABS = [
   { id: 'losa-n2', name: 'Losa nivel 2', level: 2 },
@@ -347,32 +340,15 @@ const STAKEHOLDERS: readonly Stakeholder[] = [
   },
 ];
 
-const PRESETS: readonly Preset[] = [
-  {
-    id: 'losa',
-    label: 'Engrosar la losa del nivel 3',
-    hint: 'Espesor 15 → 20 cm',
-    elementId: 'losa-n3',
-    key: 'espesor_cm',
-    value: 20,
-  },
-  {
-    id: 'shaft',
-    label: 'Mover el shaft S1',
-    hint: 'A 8,5 m del eje A',
-    elementId: 'shaft-s1',
-    key: 'posicion_m',
-    value: 8.5,
-  },
-  {
-    id: 'ventanas',
-    label: 'Ensanchar las ventanas norte',
-    hint: 'Ancho 120 → 150 cm',
-    elementId: 'ventanas-norte',
-    key: 'ancho_cm',
-    value: 150,
-  },
-];
+const AUTHOR: CastMember = {
+  id: 'fernanda-lagos',
+  name: 'Fernanda Lagos',
+  role: 'Arquitecta',
+  channel: 'email',
+  handle: 'fernanda.lagos@arquitectura.example',
+};
+
+const CAST: readonly CastMember[] = [AUTHOR, ...STAKEHOLDERS];
 
 export const LOS_AROMOS = {
   project: {
@@ -380,16 +356,11 @@ export const LOS_AROMOS = {
     location: 'Ñuñoa, Santiago',
     description: '5 pisos y 20 departamentos, en obra gruesa.',
   },
-  integration: {
-    id: 'modelo-arquitectura',
-    name: 'Modelo de arquitectura',
-    software: 'Software BIM',
-    author: { name: 'Fernanda Lagos', role: 'Arquitecta' },
-  },
+  author: AUTHOR,
+  cast: CAST,
   model: MODEL,
   graph: GRAPH,
   stakeholders: STAKEHOLDERS,
-  presets: PRESETS,
 } as const;
 
 export type Scenario = typeof LOS_AROMOS;

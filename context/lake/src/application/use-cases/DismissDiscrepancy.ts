@@ -19,7 +19,9 @@ export class DismissDiscrepancy {
     const discrepancy = await this.discrepancies.findById(input.discrepancyId);
     if (!discrepancy) throw new ValidationError('La discrepancia no existe');
     if (input.actorId !== undefined && input.actorId !== discrepancy.ownerId) {
-      throw new ValidationError('Solo el dueño del valor descarta la discrepancia');
+      throw new ValidationError(
+        'Solo el dueño del valor descarta la discrepancia',
+      );
     }
     if (discrepancy.status === 'dismissed') return discrepancy;
     if (discrepancy.status !== 'open') {

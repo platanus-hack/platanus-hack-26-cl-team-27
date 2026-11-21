@@ -15,10 +15,3 @@ export interface ModelElement {
   readonly level: number | null;
   readonly properties: readonly ModelProperty[];
 }
-
-export interface Snapshot {
-  readonly integrationId: string;
-  readonly version: number;
-  readonly publishedAt: Date;
-  readonly elements: readonly ModelElement[];
-}

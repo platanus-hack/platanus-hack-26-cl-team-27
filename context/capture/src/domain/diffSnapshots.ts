@@ -67,8 +67,7 @@ const diffProperties = (
 export const diffSnapshots = (
   previous: readonly ModelElement[],
   next: readonly ModelElement[],
-  integrationId: string,
-  version: number,
+  sourceId: string,
 ): ChangeDraft[] => {
   const previousById = new Map(
     previous.map((element) => [element.id, element]),
@@ -90,8 +89,7 @@ export const diffSnapshots = (
     if (kind === 'modified' && diffs.length === 0) return [];
     return [
       {
-        integrationId,
-        version,
+        sourceId,
         element: {
           id: element.id,
           name: element.name,

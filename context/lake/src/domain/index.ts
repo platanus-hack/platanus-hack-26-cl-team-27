@@ -1,4 +1,7 @@
-export type { Acknowledgement, AcknowledgementDraft } from './Acknowledgement.ts';
+export type {
+  Acknowledgement,
+  AcknowledgementDraft,
+} from './Acknowledgement.ts';
 export { AUTHORITY, hasAuthority } from './Authority.ts';
 export type { AuthorityTable } from './Authority.ts';
 export {

@@ -31,7 +31,10 @@ export const groupBySubject = (
   }
 
   const byKey = new Map(
-    baseline.map((entry) => [baselineKey(entry.subject, entry.attribute), entry]),
+    baseline.map((entry) => [
+      baselineKey(entry.subject, entry.attribute),
+      entry,
+    ]),
   );
   return [...changes.entries()].map(([subject, subjectChanges]) => {
     const before: Record<string, ClaimValue> = {};

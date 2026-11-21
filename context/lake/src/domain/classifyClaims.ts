@@ -66,7 +66,10 @@ export const classifyClaims = (input: ClassifyInput): ClaimOutcome[] => {
       claim,
       kind,
       baselineValue,
-      proposalId: kind === 'corroborates' || kind === 'uses_proposed' ? (proposal?.id ?? null) : null,
+      proposalId:
+        kind === 'corroborates' || kind === 'uses_proposed'
+          ? (proposal?.id ?? null)
+          : null,
       backsDiscrepancyIds,
     });
 

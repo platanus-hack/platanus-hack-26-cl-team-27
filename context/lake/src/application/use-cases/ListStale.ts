@@ -28,6 +28,14 @@ export class ListStale {
   }
 
   async execute(): Promise<StaleDocument[]> {
-    return (await loadLakeState(this)).stale;
+    return (
+      await loadLakeState({
+        revisions: this.revisions,
+        claims: this.claims,
+        baseline: this.baseline,
+        proposals: this.proposals,
+        acknowledgements: this.acknowledgements,
+      })
+    ).stale;
   }
 }

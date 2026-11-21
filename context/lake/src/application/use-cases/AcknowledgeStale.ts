@@ -39,7 +39,13 @@ export class AcknowledgeStale {
     if (!note) {
       throw new ValidationError('Confirmar sin cambio exige una nota');
     }
-    const state = await loadLakeState(this);
+    const state = await loadLakeState({
+      revisions: this.revisions,
+      claims: this.claims,
+      baseline: this.baseline,
+      proposals: this.proposals,
+      acknowledgements: this.acknowledgements,
+    });
     const document = state.stale.find(
       (candidate) => candidate.documentId === input.documentId,
     );
