@@ -13,28 +13,21 @@ import {
   VIEWER_SCOPES,
   type ApsToken,
 } from './aps-auth.ts';
-import { APS_AUTH, MODELS_CATALOG_READER } from './aps.tokens.ts';
-import type { CatalogModel, ModelsCatalog } from './models-catalog.ts';
-
-export interface ViewerModel {
-  readonly file: string;
-  readonly discipline: CatalogModel['discipline'];
-  readonly urn: string;
-}
+import { APS_AUTH, MODELS_CATALOG } from './aps.tokens.ts';
+import type { ModelsCatalog, ViewerModel } from './models-catalog.ts';
 
 @Controller('aps')
 export class ApsController {
   private readonly logger = new Logger(ApsController.name);
   private readonly auth: ApsAuth | null;
-  private readonly readCatalog: () => Promise<ModelsCatalog | null>;
+  private readonly catalog: Pick<ModelsCatalog, 'list'> | null;
 
   constructor(
     @Inject(APS_AUTH) auth: ApsAuth | null,
-    @Inject(MODELS_CATALOG_READER)
-    readCatalog: () => Promise<ModelsCatalog | null>,
+    @Inject(MODELS_CATALOG) catalog: Pick<ModelsCatalog, 'list'> | null,
   ) {
     this.auth = auth;
-    this.readCatalog = readCatalog;
+    this.catalog = catalog;
   }
 
   @Get('viewer-token')
@@ -60,12 +53,23 @@ export class ApsController {
   }
 
   @Get('models')
-  async models(): Promise<{ models: ViewerModel[] }> {
-    const catalog = await this.readCatalog();
-    return {
-      models: (catalog?.models ?? [])
-        .filter((model) => model.status === 'success')
-        .map(({ file, discipline, urn }) => ({ file, discipline, urn })),
-    };
+  async models(): Promise<{ models: readonly ViewerModel[] }> {
+    if (!this.catalog) {
+      throw new ServiceUnavailableException({
+        code: 'aps_not_configured',
+        message: 'Faltan APS_CLIENT_ID, APS_CLIENT_SECRET o APS_BUCKET_KEY',
+      });
+    }
+    try {
+      return { models: await this.catalog.list() };
+    } catch (error) {
+      this.logger.error(
+        `APS no entregó la lista de modelos (HTTP ${apsErrorStatus(error) ?? '?'})`,
+      );
+      throw new ServiceUnavailableException({
+        code: 'aps_unavailable',
+        message: 'APS no entregó la lista de modelos',
+      });
+    }
   }
 }

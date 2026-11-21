@@ -11,6 +11,7 @@ La vista completa, con DevOps y el flujo de datos de un cambio, está en los [di
 | [`apps/web`](../apps/web/README.md)                       | `@team27/web`           | `type:app`                     | Next.js 16 (App Router, Turbopack): el panel, en `:3000`                                                                                                                                                                                 |
 | [`apps/api`](../apps/api/README.md)                       | `@team27/api`           | `type:app`                     | NestJS 12: la API HTTP, en `:3001/api`                                                                                                                                                                                                   |
 | [`apps/etl`](../apps/etl/README.md)                       | `@team27/etl`           | `type:app`, `scope:etl`        | El ETL de la muestra: lee el lago ficticio de archivos, extrae hechos con parsers deterministas, los carga a la API por HTTP y juega a las personas que no tomaron su asiento. Corre con `pnpm etl`, sin servidor ni dependencias nuevas |
+| [`apps/aps`](../apps/aps/README.md)                       | `@team27/aps`           | `type:app`, `scope:aps`        | La CLI de Autodesk Platform Services: sube los modelos de Revit a un bucket de OSS y los traduce a SVF2 para el visor. Corre con `pnpm aps:check` y `pnpm aps:models`                                                                    |
 | [`context/<ctx>`](../context/README.md)                   | `@team27/context-<ctx>` | `type:context`, `scope:<ctx>`  | Un bounded context hexagonal: `lake`, `impact` y `notification`                                                                                                                                                                          |
 | [`data/main`](../data/main/README.md)                     | `@team27/data-main`     | `type:data`                    | Prisma 7 sobre PostgreSQL: schema, migraciones y cliente                                                                                                                                                                                 |
 | [`packages/ui`](../packages/ui/README.md)                 | `@team27/ui`            | `type:package`, `scope:shared` | Tema (tokens claro y oscuro) y componentes de React                                                                                                                                                                                      |
@@ -25,13 +26,15 @@ flowchart LR
   api --> data["data/main<br/>Prisma 7"]
   ctx -->|adapters| data
   data --> pg[("PostgreSQL 18")]
+  apscli["apps/aps<br/>CLI de APS"] -->|sube y traduce| autodesk[("Autodesk<br/>Platform Services")]
+  api -->|lista los modelos y el token del visor| autodesk
 
   classDef app fill:#E7F5FF,stroke:#1C7ED6,color:#0B3D6B
   classDef domain fill:#E6FCF5,stroke:#12B886,color:#0B3D2E
   classDef shared fill:#F3F0FF,stroke:#7048E8,color:#2E1A6B
-  class web,api,etl app
+  class web,api,etl,apscli app
   class ctx domain
-  class ui,data,pg shared
+  class ui,data,pg,autodesk shared
 ```
 
 ## Fronteras
@@ -129,6 +132,7 @@ sequenceDiagram
 - **La sala es un módulo de la API, no un contexto.** `modules/room` lleva asientos y eventos, y llama al orquestador `coordination`, nunca a los contextos. Es infraestructura de la muestra.
   - **Asientos.** Un celular toma un asiento con `POST /api/seats/:castId/claim` y recibe un token que se guarda hasheado (SHA-256) y viaja en `x-seat-token`. La presentadora actúa como Fernanda con `x-presenter-key`.
   - **Tiempo real.** Sondeo corto con cursor en `GET /api/events`: cada transición del orquestador inserta filas de `room_events` en su misma transacción. La petición con `x-seat-token` es el latido; un asiento sin latido por 20 s queda libre.
+- **APS es un módulo de la API, no un contexto.** `modules/aps` entrega el token del visor y la lista de modelos traducidos, que le pide en vivo al bucket de APS (`APS_BUCKET_KEY`): la API no guarda un catálogo. Quien sube y traduce los modelos es la CLI `apps/aps`, que no importa nada de la API.
 - **Los canales son simulados.** Un aviso guardado es un aviso entregado: la web lo muestra en la maqueta de su canal. Un canal real sería un puerto nuevo en `notification`, con un adapter por proveedor. Por qué es así: [espacio controlado](muestra.md#espacio-controlado).
 
 ## Web y API
@@ -139,16 +143,17 @@ sequenceDiagram
 - Todo `/api/*` llega a la API. La web no define rutas bajo `app/api/`: las rutas de Next se resuelven antes que el `rewrite` y le quitarían esa ruta a la API.
 - La API corre con el prefijo global `/api`. Valida la entrada con el schema que declara cada `@Body`, `@Query` o `@Param` (`StandardSchemaValidationPipe`, con zod).
 
-| Variable                             | Defecto                                                            | Quién la usa      | Qué es                                                                                                                                                                                              |
-| ------------------------------------ | ------------------------------------------------------------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                       | `postgresql://postgres:postgres@localhost:5427/team27`             | API, Prisma       | La base (el Postgres de compose en dev)                                                                                                                                                             |
-| `API_PORT`                           | `3001`                                                             | API               | Puerto de la API                                                                                                                                                                                    |
-| `CORS_ALLOW_ORIGINS`                 | `http://localhost:3000`                                            | API               | Orígenes permitidos, separados por coma. `*` no se acepta con `NODE_ENV=production`                                                                                                                 |
-| `ANTHROPIC_API_KEY`                  | vacía (opcional)                                                   | API               | Clave de Claude para leer los fragmentos de texto libre. Sin clave, la lectura de texto libre es determinista (respuestas fijas y grabadas) y no sale nada a la red. Va en `.env.example` sin valor |
-| `PRESENTER_KEY`                      | `sala-los-aromos` fuera de producción; obligatoria en `production` | API               | Clave del presentador (`x-presenter-key`): reinicio, carga inicial, soltar asientos, y actuar como Fernanda o, con `x-act-as`, como otro asiento. También la usa el ETL. Mínimo 8 caracteres        |
-| `API_URL`                            | `http://localhost:3001`                                            | Web               | Dónde está la API. El `rewrite` la fija al compilar la web (queda en `routes-manifest.json`); `fetch` la lee en cada request. En un deploy, defínela antes del build                                |
-| `APS_CLIENT_ID`, `APS_CLIENT_SECRET` | vacías                                                             | API, `pnpm aps:*` | Credenciales de la app de Autodesk Platform Services. Sin ellas la API arranca igual y `/api/aps/viewer-token` responde 503. Nunca llegan al navegador                                              |
-| `POSTGRES_*`                         | ver `.env.example`                                                 | docker compose    | Usuario, clave, base y puerto del Postgres local                                                                                                                                                    |
+| Variable                             | Defecto                                                            | Quién la usa    | Qué es                                                                                                                                                                                              |
+| ------------------------------------ | ------------------------------------------------------------------ | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                       | `postgresql://postgres:postgres@localhost:5427/team27`             | API, Prisma     | La base (el Postgres de compose en dev)                                                                                                                                                             |
+| `API_PORT`                           | `3001`                                                             | API             | Puerto de la API                                                                                                                                                                                    |
+| `CORS_ALLOW_ORIGINS`                 | `http://localhost:3000`                                            | API             | Orígenes permitidos, separados por coma. `*` no se acepta con `NODE_ENV=production`                                                                                                                 |
+| `ANTHROPIC_API_KEY`                  | vacía (opcional)                                                   | API             | Clave de Claude para leer los fragmentos de texto libre. Sin clave, la lectura de texto libre es determinista (respuestas fijas y grabadas) y no sale nada a la red. Va en `.env.example` sin valor |
+| `PRESENTER_KEY`                      | `sala-los-aromos` fuera de producción; obligatoria en `production` | API             | Clave del presentador (`x-presenter-key`): reinicio, carga inicial, soltar asientos, y actuar como Fernanda o, con `x-act-as`, como otro asiento. También la usa el ETL. Mínimo 8 caracteres        |
+| `API_URL`                            | `http://localhost:3001`                                            | Web             | Dónde está la API. El `rewrite` la fija al compilar la web (queda en `routes-manifest.json`); `fetch` la lee en cada request. En un deploy, defínela antes del build                                |
+| `APS_CLIENT_ID`, `APS_CLIENT_SECRET` | vacías                                                             | API, `apps/aps` | Credenciales de la app de Autodesk Platform Services. Sin ellas la API arranca igual y las rutas de `/api/aps` responden 503. Nunca llegan al navegador                                             |
+| `APS_BUCKET_KEY`                     | el bucket del equipo en `.env.example`                             | API, `apps/aps` | El bucket de OSS con los modelos: la CLI los sube ahí y la API lista los traducidos. Es de la app de APS que lo creó, así que va con sus credenciales                                               |
+| `POSTGRES_*`                         | ver `.env.example`                                                 | docker compose  | Usuario, clave, base y puerto del Postgres local                                                                                                                                                    |
 
 Nx carga el `.env` de la raíz en cada tarea (plantilla: `.env.example`). La API no lee archivos: toma el entorno, y si una variable no cumple su schema (`apps/api/src/config/env.ts`), no arranca.
 

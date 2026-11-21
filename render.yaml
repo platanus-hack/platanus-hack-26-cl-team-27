@@ -12,6 +12,7 @@ services:
       ignoredPaths:
         - apps/web/**
         - apps/etl/**
+        - apps/aps/**
         - packages/**
         - docs/**
         - tool-use-case/**
@@ -32,6 +33,8 @@ services:
       - key: APS_CLIENT_ID
         sync: false
       - key: APS_CLIENT_SECRET
+        sync: false
+      - key: APS_BUCKET_KEY
         sync: false
 
 databases:

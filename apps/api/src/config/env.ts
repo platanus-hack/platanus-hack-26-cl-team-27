@@ -35,6 +35,7 @@ export const envSchema = z
       .transform((value) => (value && value.trim() !== '' ? value : undefined)),
     APS_CLIENT_ID: optionalText,
     APS_CLIENT_SECRET: optionalText,
+    APS_BUCKET_KEY: optionalText,
   })
   .refine(
     (env) => env.NODE_ENV !== 'production' || env.CORS_ALLOW_ORIGINS !== true,

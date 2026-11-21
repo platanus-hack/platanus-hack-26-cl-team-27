@@ -23,6 +23,7 @@ Antes de tocar un área, lee su doc. Si cambias un comportamiento, actualiza el 
 | La web                                                                                                               | [apps/web/README.md](apps/web/README.md)                                                      |
 | La API                                                                                                               | [apps/api/README.md](apps/api/README.md)                                                      |
 | El ETL de la muestra: lago de archivos, parsers, guion, jugadores simulados y CLI                                    | [apps/etl/README.md](apps/etl/README.md)                                                      |
+| La CLI de APS: subir los modelos de Revit al bucket y traducirlos a SVF2 para el visor                               | [apps/aps/README.md](apps/aps/README.md)                                                      |
 | Base de datos y migraciones                                                                                          | [data/main/README.md](data/main/README.md)                                                    |
 | El add-in de Revit: la minuta de cambios al guardar, compilar, instalar y preparar el modelo                         | [tool-use-case/revit/README.md](tool-use-case/revit/README.md)                                |
 | Tema y componentes                                                                                                   | [packages/ui/README.md](packages/ui/README.md)                                                |
@@ -40,8 +41,8 @@ pnpm dev                            # API en http://localhost:3001/api y web en 
 pnpm dev:api | pnpm dev:web
 pnpm etl                            # carga y juega la muestra: Enter = paso siguiente (ver apps/etl/README.md)
 pnpm etl auto [--velocidad 1|2|4] | reiniciar | paso <id> | estado
-pnpm aps:check                      # prueba las credenciales de APS (solo éxito o fallo y HTTP)
-pnpm aps:models [--force]           # sube y traduce apps/api/models/*.rvt a SVF2 y escribe su models.json
+pnpm aps:check                      # prueba las credenciales y el bucket de APS (solo éxito o fallo y HTTP)
+pnpm aps:models [--force] [--carpeta <ruta>]  # sube a APS y traduce a SVF2 los .rvt de apps/aps/models
 pnpm db:studio                      # Prisma Studio
 pnpm check                          # lint, test, typecheck y build de todo
 pnpm affected                       # lo mismo, solo lo que cambió respecto de main
