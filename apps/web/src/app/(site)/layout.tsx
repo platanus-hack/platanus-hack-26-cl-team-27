@@ -1,7 +1,8 @@
+import { BrandMark, BrandWordmark } from '@team27/ui';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { APP_NAME, APP_TAGLINE } from '@/lib/brand';
+import { APP_TAGLINE } from '@/lib/brand';
 
 export default function SiteLayout({
   children,
@@ -13,16 +14,9 @@ export default function SiteLayout({
       <header className="border-b border-hairline bg-surface">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-8">
           <Link href="/" className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="grid size-8 place-items-center rounded-lg bg-accent text-sm font-semibold text-on-accent"
-            >
-              27
-            </span>
-            <span>
-              <span className="block text-sm font-semibold text-ink">
-                {APP_NAME}
-              </span>
+            <BrandMark className="size-8 text-accent-text" />
+            <span className="flex flex-col gap-1">
+              <BrandWordmark className="h-5 w-auto text-ink" />
               <span className="block text-xs text-ink-2">{APP_TAGLINE}</span>
             </span>
           </Link>
