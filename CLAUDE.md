@@ -12,6 +12,7 @@ Antes de tocar un área, lee su doc. Si cambias un comportamiento, actualiza el 
 | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | Problema, propuesta, actores, historias de usuario, glosario del dominio                                             | [docs/negocio.md](docs/negocio.md)             |
 | La muestra: espacio controlado, proyecto, elenco, guion y segmentos                                                  | [docs/muestra.md](docs/muestra.md)             |
+| La sala de la obra: el lago de hechos, el consenso multijugador, asientos, bots, API y web de la muestra             | [docs/multijugador.md](docs/multijugador.md)   |
 | Monorepo, fronteras, contextos hexagonales (y cómo crear uno), web ↔ API, variables, datos, TypeScript, tareas de Nx | [docs/arquitectura.md](docs/arquitectura.md)   |
 | Despliegue (espejo a un repo personal)                                                                               | [docs/despliegue.md](docs/despliegue.md)       |
 | La web                                                                                                               | [apps/web/README.md](apps/web/README.md)       |
