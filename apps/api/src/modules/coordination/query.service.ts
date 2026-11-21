@@ -3,11 +3,15 @@ import { GetChange, ListChanges } from '@team27/context-capture';
 import { GetImpacts, type Impact } from '@team27/context-impact';
 import {
   type BaselineRepository,
+  type ChunkRepository,
   type ClaimRepository,
   type DiscrepancyRepository,
   GetConsensus,
   GetProvenance,
+  ListOverlaps,
   ListProposals,
+  type OverlapRepository,
+  type OverlapStatus,
   type ProposalRepository,
   type ProposalStatus,
   type RevisionRepository,
@@ -17,17 +21,21 @@ import { ListNotifications } from '@team27/context-notification';
 import type { SectionId } from '../../scenario/documents.ts';
 import {
   BASELINE_REPOSITORY,
+  CHUNK_REPOSITORY,
   CLAIM_REPOSITORY,
   DISCREPANCY_REPOSITORY,
+  OVERLAP_REPOSITORY,
   PROPOSAL_REPOSITORY,
   REVISION_REPOSITORY,
 } from '../lake/lake.module.ts';
 import { fail } from './http-errors.ts';
 import {
+  areasResponse,
   baselineResponse,
   changeView,
   inboxResponse,
   type LakeSnapshot,
+  overlapView,
   proposalView,
   provenanceResponse,
   type RoomExtras,
@@ -35,18 +43,23 @@ import {
   spacesResponse,
 } from './views.ts';
 
+export type OverlapFilter = OverlapStatus | 'activo';
+
 export type ProposalFilter = ProposalStatus | 'active' | 'replaced';
 
 @Injectable()
 export class QueryService {
   private readonly revisions: RevisionRepository;
+  private readonly chunks: ChunkRepository;
   private readonly claims: ClaimRepository;
   private readonly baseline: BaselineRepository;
   private readonly proposals: ProposalRepository;
   private readonly discrepancies: DiscrepancyRepository;
+  private readonly overlaps: OverlapRepository;
   private readonly getConsensus: GetConsensus;
   private readonly getProvenance: GetProvenance;
   private readonly listProposals: ListProposals;
+  private readonly listOverlaps: ListOverlaps;
   private readonly getImpacts: GetImpacts;
   private readonly listNotifications: ListNotifications;
   private readonly listChanges: ListChanges;
@@ -54,26 +67,32 @@ export class QueryService {
 
   constructor(
     @Inject(REVISION_REPOSITORY) revisions: RevisionRepository,
+    @Inject(CHUNK_REPOSITORY) chunks: ChunkRepository,
     @Inject(CLAIM_REPOSITORY) claims: ClaimRepository,
     @Inject(BASELINE_REPOSITORY) baseline: BaselineRepository,
     @Inject(PROPOSAL_REPOSITORY) proposals: ProposalRepository,
     @Inject(DISCREPANCY_REPOSITORY) discrepancies: DiscrepancyRepository,
+    @Inject(OVERLAP_REPOSITORY) overlaps: OverlapRepository,
     @Inject(GetConsensus) getConsensus: GetConsensus,
     @Inject(GetProvenance) getProvenance: GetProvenance,
     @Inject(ListProposals) listProposals: ListProposals,
+    @Inject(ListOverlaps) listOverlaps: ListOverlaps,
     @Inject(GetImpacts) getImpacts: GetImpacts,
     @Inject(ListNotifications) listNotifications: ListNotifications,
     @Inject(ListChanges) listChanges: ListChanges,
     @Inject(GetChange) getChange: GetChange,
   ) {
     this.revisions = revisions;
+    this.chunks = chunks;
     this.claims = claims;
     this.baseline = baseline;
     this.proposals = proposals;
     this.discrepancies = discrepancies;
+    this.overlaps = overlaps;
     this.getConsensus = getConsensus;
     this.getProvenance = getProvenance;
     this.listProposals = listProposals;
+    this.listOverlaps = listOverlaps;
     this.getImpacts = getImpacts;
     this.listNotifications = listNotifications;
     this.listChanges = listChanges;
@@ -81,28 +100,40 @@ export class QueryService {
   }
 
   async snapshot(): Promise<LakeSnapshot> {
-    const [revisions, claims, baseline, proposals, discrepancies, consensus] =
-      await Promise.all([
-        this.revisions.list(),
-        this.claims.list(),
-        this.baseline.list(),
-        this.proposals.list(),
-        this.discrepancies.list(),
-        this.getConsensus.execute(),
-      ]);
-    const changeIds = proposals.flatMap((proposal) =>
-      proposal.changeId ? [proposal.changeId] : [],
-    );
+    const [
+      revisions,
+      chunks,
+      claims,
+      baseline,
+      proposals,
+      discrepancies,
+      overlaps,
+      consensus,
+    ] = await Promise.all([
+      this.revisions.list(),
+      this.chunks.list(),
+      this.claims.list(),
+      this.baseline.list(),
+      this.proposals.list(),
+      this.discrepancies.list(),
+      this.overlaps.list(),
+      this.getConsensus.execute(),
+    ]);
+    const changeIds = [
+      ...new Set(proposals.flatMap((proposal) => proposal.changeIds)),
+    ];
     const [impacts, notifications] = await Promise.all([
       this.getImpacts.execute(changeIds),
       this.listNotifications.execute({ changeIds }),
     ]);
     return {
       revisions,
+      chunks,
       claims,
       baseline,
       proposals,
       discrepancies,
+      overlaps,
       consensus,
       impacts: new Map<string, Impact>(
         impacts.map((impact) => [impact.changeId, impact]),
@@ -150,6 +181,31 @@ export class QueryService {
     };
   }
 
+  async overlapList(filter: OverlapFilter | undefined) {
+    const [list, snapshot] = await Promise.all([
+      this.listOverlaps.execute(filter ? { status: filter } : {}),
+      this.snapshot(),
+    ]);
+    return { overlaps: list.map((overlap) => overlapView(snapshot, overlap)) };
+  }
+
+  async overlap(id: string) {
+    const snapshot = await this.snapshot();
+    const found = snapshot.overlaps.find((overlap) => overlap.id === id);
+    if (!found) {
+      throw fail(
+        HttpStatus.NOT_FOUND,
+        'not_found',
+        `No existe el solapamiento ${id}`,
+      );
+    }
+    return overlapView(snapshot, found);
+  }
+
+  async areas() {
+    return areasResponse(await this.snapshot());
+  }
+
   async proposal(id: string) {
     const snapshot = await this.snapshot();
     const proposal = snapshot.proposals.find((item) => item.id === id);
@@ -172,7 +228,9 @@ export class QueryService {
       changeView(
         snapshot,
         change,
-        snapshot.proposals.find((proposal) => proposal.changeId === change.id),
+        snapshot.proposals.find((proposal) =>
+          proposal.changeIds.includes(change.id),
+        ),
       ),
     );
   }
@@ -190,7 +248,9 @@ export class QueryService {
     return changeView(
       snapshot,
       change,
-      snapshot.proposals.find((proposal) => proposal.changeId === change.id),
+      snapshot.proposals.find((proposal) =>
+        proposal.changeIds.includes(change.id),
+      ),
     );
   }
 }

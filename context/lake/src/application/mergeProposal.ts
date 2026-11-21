@@ -7,9 +7,9 @@ export const mergeProposal = async (
   at: Date,
 ): Promise<void> => {
   for (const change of proposal.changes) {
-    const current = await baseline.find(proposal.subject, change.attribute);
+    const current = await baseline.find(change.subject, change.attribute);
     await baseline.upsert({
-      subject: proposal.subject,
+      subject: change.subject,
       attribute: change.attribute,
       value: change.after,
       unit: change.unit,

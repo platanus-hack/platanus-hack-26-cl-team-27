@@ -2,7 +2,12 @@ import type { BaselineEntry } from '../src/domain/Baseline.ts';
 import type { Claim } from '../src/domain/Claim.ts';
 import type { Discrepancy } from '../src/domain/Discrepancy.ts';
 import type { DocumentKind } from '../src/domain/DocumentKind.ts';
-import type { Proposal, Review } from '../src/domain/Proposal.ts';
+import type { Overlap } from '../src/domain/Overlap.ts';
+import type {
+  Proposal,
+  ProposalChange,
+  Review,
+} from '../src/domain/Proposal.ts';
 import type { Revision } from '../src/domain/Revision.ts';
 
 export const at = (minute: number): Date =>
@@ -42,6 +47,8 @@ export const claim = (
   unit: null,
   role,
   locator: `loc-${id}`,
+  chunkId: null,
+  confidence: null,
 });
 
 export const entry = (
@@ -72,24 +79,34 @@ export const review = (
   at: decision ? at(5) : null,
 });
 
+export const hunk = (
+  subject: string,
+  attribute: string,
+  before: ProposalChange['before'],
+  after: ProposalChange['after'],
+  unit: string | null = null,
+): ProposalChange => ({
+  subject,
+  attribute,
+  unit,
+  before,
+  after,
+  claimId: null,
+  locator: `${subject}.${attribute}`,
+});
+
 export const proposal = (
   id: string,
   overrides: Partial<Proposal> = {},
 ): Proposal => ({
   id,
   changeId: null,
-  subject: 'losa-n3',
+  changeIds: [],
+  documentId: 'e102',
   sourceRevisionId: 'r-new',
   authorId: 'fernanda',
-  changes: [
-    {
-      attribute: 'espesor_cm',
-      unit: 'cm',
-      before: 15,
-      after: 20,
-      claimId: null,
-    },
-  ],
+  changes: [hunk('losa-n3', 'espesor_cm', 15, 20, 'cm')],
+  context: [],
   status: 'open',
   reviews: [review('paula'), review('javier')],
   filtered: [],
@@ -117,6 +134,30 @@ export const discrepancy = (
   backedByRevisionId: null,
   note: null,
   createdAt: at(2),
+  resolvedAt: null,
+  ...overrides,
+});
+
+export const overlapOf = (
+  id: string,
+  overrides: Partial<Overlap> = {},
+): Overlap => ({
+  id,
+  proposalId: 'p1',
+  otherProposalId: null,
+  revisionId: 'r-new',
+  chunkLocator: 'cota',
+  kind: 'misma-area',
+  area: { nivel: 'n3', celda: 'C-D/3', sistemas: ['sanitarias'] },
+  relation: 'cruce_trazado',
+  subjectId: 'shaft-s1',
+  otherSubjectId: 'colector-b2',
+  otherBacking: { documentId: 'is301', label: 'rev A', ownerId: 'javier' },
+  validators: ['fernanda', 'javier'],
+  status: 'abierto',
+  votes: [],
+  resolution: null,
+  createdAt: at(1),
   resolvedAt: null,
   ...overrides,
 });

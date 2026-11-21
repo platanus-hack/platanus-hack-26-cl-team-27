@@ -13,6 +13,7 @@ Antes de tocar un área, lee su doc. Si cambias un comportamiento, actualiza el 
 | Problema, propuesta, actores, historias de usuario, glosario del dominio                                             | [docs/negocio.md](docs/negocio.md)                             |
 | La muestra: espacio controlado, proyecto, elenco, guion y segmentos                                                  | [docs/muestra.md](docs/muestra.md)                             |
 | La sala de la obra: el lago de hechos, el consenso multijugador, asientos, bots, API y web de la muestra             | [docs/multijugador.md](docs/multijugador.md)                   |
+| Solapamientos: cada documento como un PR contra la fuente única, áreas, fragmentos, detección y validación conjunta  | [docs/solapamientos.md](docs/solapamientos.md)                 |
 | Monorepo, fronteras, contextos hexagonales (y cómo crear uno), web ↔ API, variables, datos, TypeScript, tareas de Nx | [docs/arquitectura.md](docs/arquitectura.md)                   |
 | Diagramas de arquitectura, DevOps y flujo de datos                                                                   | [docs/diagramas/README.md](docs/diagramas/README.md)           |
 | Auditoría de la idea: debate adversarial, la idea purificada (Mano alzada), soporte del producto y plan              | [docs/auditoria.md](docs/auditoria.md)                         |
@@ -58,6 +59,7 @@ pnpm format
 ## Gotchas
 
 - El `README.md`, `platanus-hack-project.jsonc`, `project-description.md` y `project-logo.png` de la raíz son la entrega de la hackatón y tienen sus propias reglas: léelas antes de editarlos. Prettier no los toca.
+- `ANTHROPIC_API_KEY` va vacía en `.env.example`. Así, la API lee el texto libre (WhatsApp, folios, actas) en modo determinista, con las respuestas fijas y grabadas de `inference`, y sin red. Con la clave en tu `.env`, lee Claude. Nunca commitees la clave: el `.env` no se versiona.
 - Un paquete nuevo del workspace que use la web va también en `transpilePackages` (`apps/web/next.config.ts`). Turbopack no resuelve `./x.js` hacia `x.ts`.
 - `next build` necesita los `.d.ts` de sus dependencias (project references). Corre el build por Nx (`pnpm nx run @team27/web:build`), que primero hace el `typecheck` de las dependencias. Si aparece `TS6305`, es eso.
 - Si el build de la web falla en `.next/dev/types/validator.ts` (`TS2307` tras borrar o mover una ruta, o `TS6133`/`TS6196` por imports sin usar), son tipos viejos de un `next dev` anterior: borra `apps/web/.next`.

@@ -1,8 +1,10 @@
 import type { AcknowledgementRepository } from '../src/application/ports/AcknowledgementRepository.ts';
 import type { BaselineRepository } from '../src/application/ports/BaselineRepository.ts';
+import type { ChunkRepository } from '../src/application/ports/ChunkRepository.ts';
 import type { ClaimRepository } from '../src/application/ports/ClaimRepository.ts';
 import type { DiscrepancyRepository } from '../src/application/ports/DiscrepancyRepository.ts';
 import type { FactExtractor } from '../src/application/ports/FactExtractor.ts';
+import type { OverlapRepository } from '../src/application/ports/OverlapRepository.ts';
 import type { ProposalRepository } from '../src/application/ports/ProposalRepository.ts';
 import type { RevisionRepository } from '../src/application/ports/RevisionRepository.ts';
 import type { Acknowledgement } from '../src/domain/Acknowledgement.ts';
@@ -10,14 +12,19 @@ import type {
   BaselineEntry,
   BaselineHistoryItem,
 } from '../src/domain/Baseline.ts';
+import { chunksFromClaims } from '../src/domain/Chunk.ts';
+import type { Chunk } from '../src/domain/Chunk.ts';
 import type { Claim, ClaimDraft } from '../src/domain/Claim.ts';
 import type { Discrepancy } from '../src/domain/Discrepancy.ts';
+import type { Overlap } from '../src/domain/Overlap.ts';
 import type { Proposal } from '../src/domain/Proposal.ts';
 import type { Revision } from '../src/domain/Revision.ts';
 
 export const fakeLake = (catalog: Record<string, ClaimDraft[]> = {}) => {
   const revisions: Revision[] = [];
+  const chunks: Chunk[] = [];
   const claims: Claim[] = [];
+  const overlaps: Overlap[] = [];
   const baseline = new Map<string, BaselineEntry>();
   const history: BaselineHistoryItem[] = [];
   const proposals: Proposal[] = [];
@@ -59,10 +66,11 @@ export const fakeLake = (catalog: Record<string, ClaimDraft[]> = {}) => {
 
   const claimRepo = {
     saveMany: vi.fn<ClaimRepository['saveMany']>((revisionId, drafts) => {
-      const saved = drafts.map((draft) => ({
+      const saved: Claim[] = drafts.map((draft) => ({
         ...draft,
         id: nextId('claim'),
         revisionId,
+        confidence: draft.confidence ?? null,
       }));
       claims.push(...saved);
       return Promise.resolve(saved);
@@ -80,6 +88,65 @@ export const fakeLake = (catalog: Record<string, ClaimDraft[]> = {}) => {
       return Promise.resolve();
     }),
   } satisfies ClaimRepository;
+
+  const chunkRepo = {
+    saveMany: vi.fn<ChunkRepository['saveMany']>((revisionId, drafts) => {
+      const saved: Chunk[] = drafts.map((draft, position) => ({
+        id: nextId('chunk'),
+        revisionId,
+        position,
+        locator: draft.locator,
+        kind: draft.kind,
+        text: draft.text,
+        rejected: draft.rejected,
+      }));
+      chunks.push(...saved);
+      return Promise.resolve(saved);
+    }),
+    list: vi.fn<ChunkRepository['list']>(() => Promise.resolve([...chunks])),
+    clear: vi.fn<ChunkRepository['clear']>(() => {
+      chunks.length = 0;
+      return Promise.resolve();
+    }),
+  } satisfies ChunkRepository;
+
+  const overlapRepo = {
+    create: vi.fn<OverlapRepository['create']>((draft) => {
+      const saved: Overlap = {
+        ...draft,
+        id: nextId('overlap'),
+        status: 'abierto',
+        votes: [],
+        resolution: null,
+        createdAt: new Date(),
+        resolvedAt: null,
+      };
+      overlaps.push(saved);
+      return Promise.resolve(saved);
+    }),
+    save: vi.fn<OverlapRepository['save']>((next) => {
+      const index = overlaps.findIndex((o) => o.id === next.id);
+      overlaps[index] = next;
+      return Promise.resolve();
+    }),
+    findById: vi.fn<OverlapRepository['findById']>((id) =>
+      Promise.resolve(overlaps.find((o) => o.id === id) ?? null),
+    ),
+    list: vi.fn<OverlapRepository['list']>(() =>
+      Promise.resolve([...overlaps]),
+    ),
+    listLive: vi.fn<OverlapRepository['listLive']>(() =>
+      Promise.resolve(
+        overlaps.filter(
+          (o) => o.status === 'abierto' || o.status === 'confirmado',
+        ),
+      ),
+    ),
+    clear: vi.fn<OverlapRepository['clear']>(() => {
+      overlaps.length = 0;
+      return Promise.resolve();
+    }),
+  } satisfies OverlapRepository;
 
   const baselineRepo = {
     list: vi.fn<BaselineRepository['list']>(() =>
@@ -113,10 +180,12 @@ export const fakeLake = (catalog: Record<string, ClaimDraft[]> = {}) => {
       const saved: Proposal = {
         id: nextId('proposal'),
         changeId: draft.changeId,
-        subject: draft.subject,
+        changeIds: draft.changeIds,
+        documentId: draft.documentId,
         sourceRevisionId: draft.sourceRevisionId,
         authorId: draft.authorId,
         changes: draft.changes,
+        context: draft.context,
         status: 'open',
         reviews: draft.reviewerIds.map((reviewerId) => ({
           reviewerId,
@@ -212,13 +281,17 @@ export const fakeLake = (catalog: Record<string, ClaimDraft[]> = {}) => {
 
   const extractor = {
     extract: vi.fn<FactExtractor['extract']>((draft) =>
-      Promise.resolve(catalog[`${draft.documentId}@${draft.label}`] ?? []),
+      Promise.resolve(
+        chunksFromClaims(catalog[`${draft.documentId}@${draft.label}`] ?? []),
+      ),
     ),
   } satisfies FactExtractor;
 
   return {
     revisions: revisionRepo,
+    chunks: chunkRepo,
     claims: claimRepo,
+    overlaps: overlapRepo,
     baseline: baselineRepo,
     proposals: proposalRepo,
     discrepancies: discrepancyRepo,

@@ -67,15 +67,33 @@ model Revision {
   sourcePointer String   @map("source_pointer")
   ingestOrder   Int      @unique @default(autoincrement()) @map("ingest_order")
   ingestedAt    DateTime @default(now()) @map("ingested_at")
+  chunks        Chunk[]
   claims        Claim[]
 
   @@unique([documentId, label])
   @@map("revisions")
 }
 
+model Chunk {
+  id         String   @id @default(uuid()) @db.Uuid
+  revisionId String   @map("revision_id") @db.Uuid
+  position   Int
+  locator    String
+  kind       String
+  text       String?
+  rejected   Json     @default("[]")
+  revision   Revision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  claims     Claim[]
+
+  @@index([revisionId])
+  @@map("chunks")
+}
+
 model Claim {
   id         String   @id @default(uuid()) @db.Uuid
   revisionId String   @map("revision_id") @db.Uuid
+  chunkId    String?  @map("chunk_id") @db.Uuid
+  confidence Float?
   subject    String
   attribute  String
   value      Json
@@ -83,8 +101,10 @@ model Claim {
   role       String
   locator    String
   revision   Revision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  chunk      Chunk?   @relation(fields: [chunkId], references: [id], onDelete: Cascade)
 
   @@index([revisionId])
+  @@index([chunkId])
   @@index([subject, attribute])
   @@map("claims")
 }
@@ -125,10 +145,12 @@ model BaselineHistory {
 model Proposal {
   id               String    @id @default(uuid()) @db.Uuid
   changeId         String?   @map("change_id")
-  subject          String
+  changeIds        Json      @default("[]") @map("change_ids")
+  documentId       String    @map("document_id")
   sourceRevisionId String    @map("source_revision_id")
   authorId         String    @map("author_id")
   changes          Json
+  context          Json      @default("[]")
   filtered         Json
   status           String
   openedAt         DateTime  @default(now()) @map("opened_at")
@@ -137,7 +159,7 @@ model Proposal {
   reviews          Review[]
 
   @@index([status])
-  @@index([subject])
+  @@index([documentId])
   @@map("proposals")
 }
 
@@ -186,6 +208,45 @@ model Acknowledgement {
 
   @@index([documentId])
   @@map("acknowledgements")
+}
+
+model Overlap {
+  id              String        @id @default(uuid()) @db.Uuid
+  proposalId      String?       @map("proposal_id")
+  otherProposalId String?       @map("other_proposal_id")
+  revisionId      String        @map("revision_id")
+  chunkLocator    String        @map("chunk_locator")
+  kind            String
+  nivel           String?
+  celda           String?
+  sistemas        Json
+  relation        String?
+  subjectId       String        @map("subject_id")
+  otherSubjectId  String        @map("other_subject_id")
+  otherBacking    Json          @map("other_backing")
+  validators      Json
+  status          String        @default("abierto")
+  resolution      String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+  resolvedAt      DateTime?     @map("resolved_at")
+  votes           OverlapVote[]
+
+  @@index([status])
+  @@index([proposalId])
+  @@map("overlaps")
+}
+
+model OverlapVote {
+  id          String   @id @default(uuid()) @db.Uuid
+  overlapId   String   @map("overlap_id") @db.Uuid
+  validatorId String   @map("validator_id")
+  kind        String
+  note        String?
+  at          DateTime @default(now())
+  overlap     Overlap  @relation(fields: [overlapId], references: [id], onDelete: Cascade)
+
+  @@unique([overlapId, validatorId])
+  @@map("overlap_votes")
 }
 
 model Seat {

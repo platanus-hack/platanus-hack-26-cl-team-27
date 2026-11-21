@@ -24,6 +24,7 @@ describe('consensusIndex', () => {
       stale,
       discrepancies: [],
       proposals: [],
+      overlaps: [],
     });
     expect(index).toMatchObject({
       upToDate: 3,
@@ -39,6 +40,7 @@ describe('consensusIndex', () => {
       stale: [],
       discrepancies: [discrepancy('d1', { documentId: 'wa' })],
       proposals: [],
+      overlaps: [],
     });
     expect(index).toMatchObject({
       upToDate: 3,
@@ -53,6 +55,7 @@ describe('consensusIndex', () => {
       stale: [],
       discrepancies: [],
       proposals: [proposal('p1')],
+      overlaps: [],
     });
     expect(index).toMatchObject({
       upToDate: 4,
@@ -79,6 +82,7 @@ describe('consensusIndex', () => {
       stale: acknowledged,
       discrepancies: [discrepancy('d1', { status: 'backed' })],
       proposals: [proposal('p1', { status: 'merged' })],
+      overlaps: [],
     });
     expect(index).toMatchObject({
       upToDate: 4,

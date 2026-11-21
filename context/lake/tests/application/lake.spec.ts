@@ -6,6 +6,7 @@ import { WithdrawProposal } from '../../src/application/use-cases/WithdrawPropos
 import { DismissDiscrepancy } from '../../src/application/use-cases/DismissDiscrepancy.ts';
 import { ListProposals } from '../../src/application/use-cases/ListProposals.ts';
 import type { ProposalDraft } from '../../src/domain/Proposal.ts';
+import { chunksFromClaims } from '../../src/domain/Chunk.ts';
 import { afirma, buildLake, draftOf, usa } from '../scenario.ts';
 
 const catalog = {
@@ -31,30 +32,30 @@ const seedInput = {
   revisions: [
     {
       revision: draftOf('e102', 'rev B', 'plano'),
-      claims: [afirma('losa-n3', 'espesor_cm', 15)],
+      chunks: chunksFromClaims([afirma('losa-n3', 'espesor_cm', 15)]),
     },
     {
       revision: draftOf('a201', 'rev B', 'plano'),
-      claims: [
+      chunks: chunksFromClaims([
         afirma('ventanas-norte', 'ancho_cm', 120),
         afirma('shaft-s1', 'posicion_m', 6),
-      ],
+      ]),
     },
     {
       revision: draftOf('eett', 'rev A', 'eett', 'paula'),
-      claims: [afirma('losa-n3', 'espesor_cm', 15)],
+      chunks: chunksFromClaims([afirma('losa-n3', 'espesor_cm', 15)]),
     },
     {
       revision: draftOf('presupuesto', 'v2', 'presupuesto', 'daniela'),
-      claims: [
+      chunks: chunksFromClaims([
         afirma('partida-07.01', 'precio_unitario', 100),
         usa('losa-n3', 'espesor_cm', 15),
         usa('ventanas-norte', 'ancho_cm', 120),
-      ],
+      ]),
     },
     {
       revision: draftOf('wa', 'base', 'mensaje', 'marcos'),
-      claims: [],
+      chunks: chunksFromClaims([]),
     },
   ],
 };
@@ -67,7 +68,7 @@ const setup = async () => {
 
 const slabDraft = async (ctx: Awaited<ReturnType<typeof setup>>) => {
   const ingested = await ctx.ingest.execute(draftOf('e102', 'rev C', 'plano'));
-  return ingested.drafts[0] as ProposalDraft;
+  return ingested.draft as ProposalDraft;
 };
 
 describe('SeedLake', () => {
@@ -99,11 +100,11 @@ describe('SeedLake', () => {
         revisions: [
           {
             revision: draftOf('a', '1', 'plano'),
-            claims: [afirma('s', 'espesor_cm', 1)],
+            chunks: chunksFromClaims([afirma('s', 'espesor_cm', 1)]),
           },
           {
             revision: draftOf('b', '1', 'eett'),
-            claims: [afirma('s', 'espesor_cm', 2)],
+            chunks: chunksFromClaims([afirma('s', 'espesor_cm', 2)]),
           },
         ],
       }),
@@ -122,18 +123,25 @@ describe('SeedLake', () => {
 });
 
 describe('IngestRevision', () => {
-  it('devuelve un borrador por sujeto con antes y después, sin conocer a nadie más', async () => {
+  it('devuelve un solo borrador por revisión, con antes y después, sin conocer a nadie más', async () => {
     const ctx = await setup();
     const result = await ctx.ingest.execute(draftOf('e102', 'rev C', 'plano'));
     expect(result.alreadyIngested).toBe(false);
     expect(result.outcomes.map((o) => o.kind)).toEqual(['change']);
-    expect(result.drafts).toEqual([
+    expect(result.draft).toEqual(
       expect.objectContaining({
-        subject: 'losa-n3',
-        before: { espesor_cm: 15 },
-        after: { espesor_cm: 20 },
+        documentId: 'e102',
+        before: { 'losa-n3': { espesor_cm: 15 } },
+        after: { 'losa-n3': { espesor_cm: 20 } },
         authorId: 'fernanda',
         sourceRevisionId: result.revision.id,
+      }),
+    );
+    expect(result.draft?.changes).toEqual([
+      expect.objectContaining({
+        subject: 'losa-n3',
+        attribute: 'espesor_cm',
+        locator: 'losa-n3.espesor_cm',
       }),
     ]);
     expect(await ctx.lake.proposals.list()).toEqual([]);
@@ -145,7 +153,7 @@ describe('IngestRevision', () => {
     const second = await ctx.ingest.execute(draftOf('e102', 'rev C', 'plano'));
     expect(second).toMatchObject({
       alreadyIngested: true,
-      drafts: [],
+      draft: null,
       outcomes: [],
     });
     expect(second.revision.id).toBe(first.revision.id);
@@ -159,7 +167,7 @@ describe('IngestRevision', () => {
     const message = await ctx.ingest.execute(
       draftOf('wa', 'msg 1', 'mensaje', 'marcos'),
     );
-    expect(message.drafts).toEqual([]);
+    expect(message.draft).toBeNull();
     expect(message.openedDiscrepancies).toEqual([
       expect.objectContaining({
         subject: 'ventanas-norte',
@@ -173,7 +181,7 @@ describe('IngestRevision', () => {
     expect((await ctx.consensus.execute()).index.openDiscrepancies).toBe(1);
 
     const plan = await ctx.ingest.execute(draftOf('a201', 'rev C', 'plano'));
-    expect(plan.drafts).toHaveLength(1);
+    expect(plan.draft?.changes).toHaveLength(1);
     expect(plan.backedDiscrepancies).toEqual([
       expect.objectContaining({
         status: 'backed',
@@ -545,7 +553,7 @@ describe('desfase y confirmación sin cambio', () => {
     await ctx.ingest.execute(draftOf('wa', 'msg 1', 'mensaje', 'marcos'));
     const plan = await ctx.ingest.execute(draftOf('a201', 'rev C', 'plano'));
     await mergeSlab(ctx);
-    for (const draft of plan.drafts) {
+    for (const draft of plan.draft ? [plan.draft] : []) {
       await ctx.open.execute({
         draft,
         changeId: null,

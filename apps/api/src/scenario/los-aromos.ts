@@ -75,6 +75,21 @@ const MODEL: readonly ModelElement[] = [
     ],
   },
   {
+    id: 'colector-b2',
+    name: 'Colector sanitario B2',
+    category: 'colector',
+    level: 3,
+    properties: [
+      {
+        key: 'posicion_m',
+        label: 'Distancia al eje A',
+        value: 10,
+        unit: 'm',
+        editable: true,
+      },
+    ],
+  },
+  {
     id: 'ventanas-norte',
     name: 'Ventanas fachada norte',
     category: 'ventana',

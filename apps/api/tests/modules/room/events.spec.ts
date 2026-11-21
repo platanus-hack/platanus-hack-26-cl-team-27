@@ -4,6 +4,7 @@ const observed = (overrides: Partial<Observed>): Observed => ({
   sealed: false,
   version: 1,
   proposals: new Map(),
+  overlaps: new Map(),
   stale: new Map(),
   ...overrides,
 });
@@ -62,5 +63,47 @@ describe('diffEvents', () => {
       'proposal.replaced',
       'proposal.withdrawn',
     ]);
+  });
+
+  it('emite el solapamiento nuevo con quienes validan y sus cambios de estado', () => {
+    const overlap = (
+      status: 'abierto' | 'confirmado' | 'descartado' | 'resuelto',
+    ) => ({
+      status,
+      title: 'Shaft S1 y Colector B2 · nivel 3 · C-D/3 · sanitarias',
+      validators: ['fernanda-lagos', 'javier-munoz'],
+    });
+    const none = observed({});
+    const detected = observed({
+      overlaps: new Map([['o1', overlap('abierto')]]),
+    });
+    const opened = diffEvents(none, detected);
+    expect(opened.map((event) => event.kind)).toEqual(['overlap.detected']);
+    expect(opened[0]?.message).toContain('nivel 3 · C-D/3 · sanitarias');
+    expect(opened[0]?.message).toContain('Fernanda Lagos y Javier Muñoz');
+    expect(opened[0]?.refs).toEqual({
+      overlapId: 'o1',
+      castIds: ['fernanda-lagos', 'javier-munoz'],
+    });
+
+    const next = (status: 'confirmado' | 'descartado' | 'resuelto') =>
+      diffEvents(
+        detected,
+        observed({ overlaps: new Map([['o1', overlap(status)]]) }),
+      ).map((event) => event.kind);
+    expect(next('confirmado')).toEqual(['overlap.confirmed']);
+    expect(next('descartado')).toEqual(['overlap.cleared']);
+    expect(next('resuelto')).toEqual(['overlap.resolved']);
+
+    const confirmed = observed({
+      overlaps: new Map([['o1', overlap('confirmado')]]),
+    });
+    expect(
+      diffEvents(
+        confirmed,
+        observed({ overlaps: new Map([['o1', overlap('resuelto')]]) }),
+      ).map((event) => event.kind),
+    ).toEqual(['overlap.resolved']);
+    expect(diffEvents(confirmed, confirmed)).toEqual([]);
   });
 });

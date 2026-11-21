@@ -28,6 +28,7 @@ export interface ClaimOutcome {
 
 export interface ClassifyInput {
   readonly kind: DocumentKind;
+  readonly documentId?: string;
   readonly claims: readonly Claim[];
   readonly baseline: readonly BaselineEntry[];
   readonly proposals: readonly Proposal[];
@@ -50,15 +51,18 @@ export const classifyClaims = (input: ClassifyInput): ClaimOutcome[] => {
   return input.claims.map((claim): ClaimOutcome => {
     const entry = entries.get(baselineKey(claim.subject, claim.attribute));
     const baselineValue = entry?.value ?? null;
-    const proposal = active.find(
-      (candidate) =>
-        candidate.subject === claim.subject &&
-        candidate.changes.some(
-          (change) =>
-            change.attribute === claim.attribute &&
-            change.after === claim.value,
-        ),
+    const proposal = active.find((candidate) =>
+      candidate.changes.some(
+        (change) =>
+          change.subject === claim.subject &&
+          change.attribute === claim.attribute &&
+          change.after === claim.value,
+      ),
     );
+    const replaces =
+      proposal !== undefined &&
+      input.documentId !== undefined &&
+      proposal.documentId === input.documentId;
     const outcome = (
       kind: ClaimOutcomeKind,
       backsDiscrepancyIds: readonly string[] = [],
@@ -97,6 +101,7 @@ export const classifyClaims = (input: ClassifyInput): ClaimOutcome[] => {
       : [];
 
     if (claim.value === entry.value) return outcome('same');
+    if (replaces) return outcome('change', backs);
     if (proposal) return outcome('corroborates', backs);
     return authoritative ? outcome('change', backs) : outcome('discrepancy');
   });

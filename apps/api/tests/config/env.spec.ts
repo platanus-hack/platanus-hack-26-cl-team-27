@@ -11,6 +11,19 @@ describe('envSchema', () => {
     });
   });
 
+  it('la clave de Anthropic es opcional: ausente o vacía deja la lectura determinista', () => {
+    expect(envSchema.parse({}).ANTHROPIC_API_KEY).toBeUndefined();
+    expect(
+      envSchema.parse({ ANTHROPIC_API_KEY: '' }).ANTHROPIC_API_KEY,
+    ).toBeUndefined();
+    expect(
+      envSchema.parse({ ANTHROPIC_API_KEY: '   ' }).ANTHROPIC_API_KEY,
+    ).toBeUndefined();
+    expect(
+      envSchema.parse({ ANTHROPIC_API_KEY: 'sk-ant-x' }).ANTHROPIC_API_KEY,
+    ).toBe('sk-ant-x');
+  });
+
   it('convierte el puerto a número y separa los orígenes', () => {
     const env = envSchema.parse({
       API_PORT: '4000',

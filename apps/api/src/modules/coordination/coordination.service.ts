@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { formatValue } from '@team27/context-capture';
+import type { AddressedFinding } from '@team27/context-notification';
 import { InlineFactExtractor } from '@team27/context-lake/adapters';
 import type { PrismaClient } from '@team27/data-main';
 
@@ -22,19 +23,22 @@ import { buildImpact } from '../impact/impact.module.ts';
 import { buildLake } from '../lake/lake.module.ts';
 import { buildNotification } from '../notification/notification.module.ts';
 import type {
-  ClaimDraft,
+  ChunkDraft,
   Decision,
   IngestedRevision,
+  OverlapVoteKind,
   ProposalDraft,
   RevisionDraft,
 } from '@team27/context-lake';
 import { ActionLog } from './action-log.ts';
+import { ChunkReader } from './chunk-reader.ts';
 import { elementsFromBaseline } from './elements-from-baseline.ts';
 import { fail } from './http-errors.ts';
 import {
   checkAuthor,
   checkRevision,
   knownDocument,
+  type RawChunk,
   type RevisionInput,
   type SeedInput,
 } from './revision-body.ts';
@@ -52,9 +56,13 @@ import {
   type RevitMinute,
 } from './revit-minute.ts';
 import {
+  blockedByOverlap,
+  overlapTitle,
+  overlapView,
   progressOf,
   printable,
   proposalTitle,
+  proposalView,
   staleRefs,
   voteProposal,
   projectVersion,
@@ -64,6 +72,11 @@ type Db = PrismaClient;
 
 export interface VoteInput {
   readonly kind: 'reviewed' | 'issue';
+  readonly note?: string | null | undefined;
+}
+
+export interface VoteOverlapInput {
+  readonly kind: OverlapVoteKind;
   readonly note?: string | null | undefined;
 }
 
@@ -150,14 +163,17 @@ const lockProposal = async (db: Db, id: string): Promise<void> => {
 export class CoordinationService {
   private readonly uow: UnitOfWork;
   private readonly queries: QueryService;
+  private readonly reader: ChunkReader;
   private readonly actions = new ActionLog();
 
   constructor(
     @Inject(UnitOfWork) uow: UnitOfWork,
     @Inject(QueryService) queries: QueryService,
+    @Inject(ChunkReader) reader: ChunkReader,
   ) {
     this.uow = uow;
     this.queries = queries;
+    this.reader = reader;
   }
 
   async reset(): Promise<void> {
@@ -181,6 +197,33 @@ export class CoordinationService {
   }
 
   async seed(input: SeedInput) {
+    const keys = new Set<string>();
+    const revisions: { revision: RevisionDraft; chunks: ChunkDraft[] }[] = [];
+    for (const item of input.revisions) {
+      const document = knownDocument(item.documentId);
+      checkAuthor(item.authorId);
+      const raw = checkRevision(item, document);
+      const key = `${item.documentId}\u0000${item.label}`;
+      if (keys.has(key)) {
+        throw fail(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          'duplicate_revision',
+          `La carga repite ${document.name} ${item.label}`,
+        );
+      }
+      keys.add(key);
+      revisions.push({
+        revision: toRevisionDraft(
+          item.documentId,
+          item.label,
+          item.authorId,
+          item.spaceId,
+          item.pointer,
+          item.contentHash,
+        ),
+        chunks: await this.reader.read(document, item.label, raw),
+      });
+    }
     const seeded = await this.uow.run(async (db) => {
       const lake = buildLake(db);
       if ((await lake.ports.revisions.list()).length > 0) {
@@ -190,32 +233,6 @@ export class CoordinationService {
           'La carga inicial solo vale con el lago vacío: reinicia la sala antes',
         );
       }
-      const keys = new Set<string>();
-      const revisions = input.revisions.map((item) => {
-        const document = knownDocument(item.documentId);
-        checkAuthor(item.authorId);
-        const claims = checkRevision(item, document);
-        const key = `${item.documentId}\u0000${item.label}`;
-        if (keys.has(key)) {
-          throw fail(
-            HttpStatus.UNPROCESSABLE_ENTITY,
-            'duplicate_revision',
-            `La carga repite ${document.name} ${item.label}`,
-          );
-        }
-        keys.add(key);
-        return {
-          revision: toRevisionDraft(
-            item.documentId,
-            item.label,
-            item.authorId,
-            item.spaceId,
-            item.pointer,
-            item.contentHash,
-          ),
-          claims,
-        };
-      });
       const result = await lake.seedLake.execute({ revisions });
       await emitEvents(db, [
         {
@@ -257,19 +274,24 @@ export class CoordinationService {
         `${document.name} es de ${castName(document.ownerId)}`,
       );
     }
-    const claims = checkRevision(revision, document);
+    const raw = checkRevision(revision, document);
     return this.actions.once(
       input.actionId,
       `revision:${seat}:${revision.documentId}`,
-      () => this.performIngest(seat, revision, claims),
+      () => this.performIngest(seat, revision, raw),
     );
   }
 
   private async performIngest(
     seat: string,
     revision: RevisionInput,
-    claims: ClaimDraft[],
+    raw: RawChunk[],
   ) {
+    const chunks = await this.reader.read(
+      knownDocument(revision.documentId),
+      revision.label,
+      raw,
+    );
     const draft = toRevisionDraft(
       revision.documentId,
       revision.label,
@@ -278,12 +300,12 @@ export class CoordinationService {
       revision.pointer,
       revision.contentHash,
     );
-    const { ingested, proposals } = await this.uow.run((db) =>
+    const { ingested, proposals, resolved } = await this.uow.run((db) =>
       this.track(db, () =>
         this.ingestRevision(
           db,
           draft,
-          claims,
+          chunks,
           'Ese documento ya está en el repositorio',
           (result) => ({
             kind: 'revision.received',
@@ -298,17 +320,17 @@ export class CoordinationService {
         ),
       ),
     );
-    return this.ingestResponse(ingested, proposals);
+    return this.ingestResponse(ingested, proposals, resolved);
   }
 
   private async ingestRevision(
     db: Db,
     draft: RevisionDraft,
-    claims: ClaimDraft[],
+    chunks: ChunkDraft[],
     conflict: string,
     lead: (result: IngestedRevision) => EventDraft,
   ) {
-    const lake = buildLake(db, new InlineFactExtractor(claims));
+    const lake = buildLake(db, new InlineFactExtractor(chunks));
     const existing = await lake.ports.revisions.findByKey(
       draft.documentId,
       draft.label,
@@ -321,10 +343,18 @@ export class CoordinationService {
   }
 
   private async announce(db: Db, result: IngestedRevision, lead: EventDraft[]) {
+    const lake = buildLake(db);
     const opened: OpenedProposal[] = [];
-    for (const draft of result.drafts) {
-      opened.push(await this.openProposal(db, draft));
-    }
+    if (result.draft) opened.push(await this.openProposal(db, result.draft));
+    const resolved = (await lake.resolveOverlaps.execute()).map(
+      (overlap) => overlap.id,
+    );
+    await lake.openOverlaps.execute({
+      revisionId: result.revision.id,
+      proposalIds: opened.map((proposal) => proposal.id),
+    });
+    const settled = await lake.settleOverlaps.execute();
+    resolved.push(...settled.resolved.map((overlap) => overlap.id));
     const title = revisionTitle(result.revision);
     const events: EventDraft[] = [
       ...lead,
@@ -343,14 +373,17 @@ export class CoordinationService {
       })),
       ...opened.map((proposal): EventDraft => ({
         kind: 'proposal.opened',
-        message: `Nueva propuesta: ${proposal.title}${costSuffix(proposal)}. Avisamos a ${proposal.reviewers.length} de ${LOS_AROMOS.stakeholders.length}.`,
+        message: `Nueva propuesta (el PR de la obra): ${proposal.title}${costSuffix(proposal)}. Avisamos a ${proposal.reviewers.length} de ${LOS_AROMOS.stakeholders.length}.`,
         refs: {
           proposalId: proposal.id,
           castIds: [...proposal.reviewers],
         },
       })),
     ];
-    return { value: { ingested: result, proposals: opened }, events };
+    return {
+      value: { ingested: result, proposals: opened, resolved },
+      events,
+    };
   }
 
   private async openProposal(
@@ -363,23 +396,26 @@ export class CoordinationService {
     const notification = buildNotification(db);
 
     const baseline = await lake.ports.baseline.list();
+    const subjects = new Set(draft.changes.map((change) => change.subject));
     const base = elementsFromBaseline(LOS_AROMOS.model, baseline).filter(
-      (element) => element.id === draft.subject,
+      (element) => subjects.has(element.id),
     );
-    const next = elementsFromBaseline(LOS_AROMOS.model, baseline, {
-      [draft.subject]: draft.after,
-    }).filter((element) => element.id === draft.subject);
-    const [change] = await capture.detectChanges.execute({
+    const next = elementsFromBaseline(
+      LOS_AROMOS.model,
+      baseline,
+      draft.after,
+    ).filter((element) => subjects.has(element.id));
+    const changes = await capture.detectChanges.execute({
       sourceId: draft.sourceRevisionId,
       base,
       next,
     });
 
-    let reviewerIds: string[] = [];
-    let filtered: { id: string; reason: string }[] = [];
+    const findings: AddressedFinding[] = [];
+    const filteredBy = new Map<string, string[]>();
     let costDelta = 0;
     let delayDays = 0;
-    if (change) {
+    for (const change of changes) {
       const analysis = await impact.analyzeChange.execute({
         id: change.id,
         elementId: change.element.id,
@@ -389,32 +425,46 @@ export class CoordinationService {
         before: change.before,
         after: change.after,
       });
+      findings.push(...analysis.findings);
+      for (const item of analysis.filtered) {
+        const reasons = filteredBy.get(item.stakeholderId) ?? [];
+        if (!reasons.includes(item.reason)) reasons.push(item.reason);
+        filteredBy.set(item.stakeholderId, reasons);
+      }
+      costDelta += analysis.costDelta;
+      delayDays += analysis.delayDays;
+    }
+
+    const [primary] = changes;
+    let reviewerIds: string[] = [];
+    if (primary) {
       const notified = await notification.notifyStakeholders.execute({
-        changeId: change.id,
-        title: `${change.element.name} · ${change.summary}`,
-        findings: analysis.findings,
+        changeId: primary.id,
+        title: changes
+          .map((change) => `${change.element.name} · ${change.summary}`)
+          .join(' + '),
+        findings,
       });
       const notifiedIds = new Set(notified.map((item) => item.stakeholderId));
       reviewerIds = [
-        ...new Set(analysis.findings.map((finding) => finding.stakeholderId)),
+        ...new Set(findings.map((finding) => finding.stakeholderId)),
       ].filter((id) => notifiedIds.has(id));
-      filtered = analysis.filtered.map((item) => ({
-        id: item.stakeholderId,
-        reason: item.reason,
-      }));
-      costDelta = analysis.costDelta;
-      delayDays = analysis.delayDays;
     }
+    const filtered = [...filteredBy.entries()]
+      .filter(([id]) => !reviewerIds.includes(id))
+      .map(([id, reasons]) => ({ id, reason: reasons.join(' ') }));
 
     const { proposal } = await lake.openProposal.execute({
       draft,
-      changeId: change?.id ?? null,
+      changeId: primary?.id ?? null,
+      changeIds: changes.map((change) => change.id),
       reviewerIds,
       filtered,
+      deferMerge: true,
     });
     return {
       id: proposal.id,
-      changeId: change?.id ?? null,
+      changeId: primary?.id ?? null,
       title: proposalTitle(proposal),
       costDelta,
       delayDays,
@@ -429,17 +479,63 @@ export class CoordinationService {
   private async ingestResponse(
     ingested: IngestedRevision,
     proposals: readonly OpenedProposal[],
+    resolved: readonly string[],
   ) {
     const snapshot = await this.queries.snapshot();
+    const views = new Map(
+      snapshot.proposals.map((proposal) => [
+        proposal.id,
+        proposalView(snapshot, proposal),
+      ]),
+    );
+    const revisionOverlaps = snapshot.overlaps.filter(
+      (overlap) => overlap.revisionId === ingested.revision.id,
+    );
     return {
       revisionId: ingested.revision.id,
       claims: ingested.outcomes.map((outcome) => ({
         subjectId: outcome.claim.subject,
         attribute: outcome.claim.attribute,
         value: outcome.claim.value,
+        confidence: outcome.claim.confidence,
+        locator: outcome.claim.locator,
         outcome: OUTCOME[outcome.kind],
       })),
-      proposals,
+      chunks: ingested.chunks.map((chunk) => ({
+        locator: chunk.locator,
+        kind: chunk.kind,
+        source: chunk.text === null ? 'estructurado' : 'inferencia',
+        claims: ingested.claims.filter((claim) => claim.chunkId === chunk.id)
+          .length,
+        rejected: chunk.rejected.map((item) => ({
+          subjectId: item.subject,
+          attribute: item.attribute,
+          value: item.value,
+          confidence: item.confidence,
+          reason: item.reason,
+        })),
+      })),
+      proposals: proposals.map((proposal) => {
+        const view = views.get(proposal.id);
+        const stored = snapshot.proposals.find(
+          (item) => item.id === proposal.id,
+        );
+        return {
+          ...proposal,
+          documentId: ingested.revision.documentId,
+          label: ingested.revision.label,
+          authorId: ingested.revision.authorId,
+          status: view?.status ?? 'open',
+          hunks: view?.hunks ?? [],
+          unchangedHunks: view?.unchangedHunks ?? 0,
+          blockedByOverlap: stored ? blockedByOverlap(snapshot, stored) : false,
+          waitingFor: view?.waitingFor ?? null,
+        };
+      }),
+      overlaps: revisionOverlaps.map((overlap) =>
+        overlapView(snapshot, overlap),
+      ),
+      resolvedOverlaps: [...resolved],
       discrepancies: ingested.openedDiscrepancies.map((discrepancy) => ({
         id: discrepancy.id,
         ownerId: discrepancy.ownerId,
@@ -481,10 +577,10 @@ export class CoordinationService {
     minuteId: string,
     mapped: MappedMinute,
   ) {
-    const { ingested, proposals } = await this.uow.run((db) =>
+    const { ingested, proposals, resolved } = await this.uow.run((db) =>
       this.track(db, () => this.ingestMinute(db, seat, minuteId, mapped)),
     );
-    const response = await this.ingestResponse(ingested, proposals);
+    const response = await this.ingestResponse(ingested, proposals, resolved);
     return {
       minuteId,
       revisionId: response.revisionId,
@@ -492,7 +588,7 @@ export class CoordinationService {
       label: ingested.revision.label,
       title: revisionTitle(ingested.revision),
       claims: response.claims,
-      proposals: proposals.map((proposal) => ({
+      proposals: response.proposals.map((proposal) => ({
         id: proposal.id,
         changeId: proposal.changeId,
         title: proposal.title,
@@ -508,7 +604,18 @@ export class CoordinationService {
           reason: item.reason,
         })),
         link: proposal.changeId ? `/cambios/${proposal.changeId}` : null,
+        documentId: proposal.documentId,
+        label: proposal.label,
+        authorId: proposal.authorId,
+        status: proposal.status,
+        hunks: proposal.hunks,
+        unchangedHunks: proposal.unchangedHunks,
+        blockedByOverlap: proposal.blockedByOverlap,
+        waitingFor: proposal.waitingFor,
       })),
+      overlaps: response.overlaps,
+      resolvedOverlaps: response.resolvedOverlaps,
+      chunks: response.chunks,
       discrepancies: response.discrepancies,
       backed: response.backed,
       stale: response.stale,
@@ -527,7 +634,7 @@ export class CoordinationService {
     return this.ingestRevision(
       db,
       mapped.revision,
-      mapped.claims,
+      mapped.chunks,
       `Ya hay una revisión «${label}» del modelo en el repositorio`,
       (result) => ({
         kind: 'minute.received',
@@ -630,6 +737,7 @@ export class CoordinationService {
           note: vote.note ?? null,
         })
       : found;
+    await lake.settleOverlaps.execute();
     const events: EventDraft[] = [];
     if (recorded.changed) {
       const progress = progressOf(recorded.proposal);
@@ -652,6 +760,86 @@ export class CoordinationService {
     return {
       value: { proposalId: target.id, notification: updated ?? found },
       events,
+    };
+  }
+
+  voteOverlap(input: {
+    seat: string;
+    overlapId: string;
+    vote: VoteOverlapInput;
+    actionId: string | undefined;
+  }) {
+    const { seat, overlapId } = input;
+    return this.actions.once(
+      input.actionId,
+      `overlap:${seat}:${overlapId}`,
+      () => this.performOverlapVote(seat, overlapId, input.vote),
+    );
+  }
+
+  private async performOverlapVote(
+    seat: string,
+    overlapId: string,
+    vote: VoteOverlapInput,
+  ) {
+    const proposalId = await this.uow.run((db) =>
+      this.track(db, async () => {
+        const lake = buildLake(db);
+        const found = await lake.ports.overlaps.findById(overlapId);
+        if (!found) {
+          throw fail(
+            HttpStatus.NOT_FOUND,
+            'not_found',
+            `No existe el solapamiento ${overlapId}`,
+          );
+        }
+        if (!found.validators.includes(seat)) {
+          throw fail(
+            HttpStatus.FORBIDDEN,
+            'not_validator',
+            'Solo validan este solapamiento quienes son dueños de los dos lados',
+          );
+        }
+        if (found.proposalId) await lockProposal(db, found.proposalId);
+        const voted = await lake.voteOverlap.execute({
+          overlapId,
+          validatorId: seat,
+          kind: vote.kind,
+          note: vote.note ?? null,
+        });
+        await lake.settleOverlaps.execute();
+        const events: EventDraft[] = [];
+        if (voted.changed) {
+          const title = overlapTitle(
+            voted.overlap,
+            await lake.ports.revisions.list(),
+          );
+          const note = vote.note?.trim();
+          events.push({
+            kind: 'overlap.voted',
+            message: `${castName(seat)} dice que ${vote.kind === 'se_tocan' ? 'se tocan' : 'no se tocan'} ${title}${note ? `: «${note}»` : ''}.`,
+            refs: { overlapId, castId: seat },
+          });
+        }
+        return { value: found.proposalId, events };
+      }),
+    );
+    const snapshot = await this.queries.snapshot();
+    const overlap = snapshot.overlaps.find((item) => item.id === overlapId);
+    const proposal = snapshot.proposals.find((item) => item.id === proposalId);
+    if (!overlap) {
+      throw fail(
+        HttpStatus.NOT_FOUND,
+        'not_found',
+        'El solapamiento ya no existe',
+      );
+    }
+    return {
+      overlap: overlapView(snapshot, overlap),
+      proposal: proposal ? proposalView(snapshot, proposal) : null,
+      merged: proposal?.status === 'merged',
+      stale: staleRefs(snapshot.consensus.stale),
+      projectVersion: projectVersion(snapshot),
     };
   }
 
@@ -705,10 +893,12 @@ export class CoordinationService {
       this.track(db, async () => {
         await this.authorOf(db, input.proposalId, seat);
         await lockProposal(db, input.proposalId);
-        await buildLake(db).withdrawProposal.execute({
+        const lake = buildLake(db);
+        await lake.withdrawProposal.execute({
           proposalId: input.proposalId,
           actorId: seat,
         });
+        await lake.settleOverlaps.execute();
         return { value: undefined, events: [] };
       }),
     );

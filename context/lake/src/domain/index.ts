@@ -24,6 +24,51 @@ export type {
   ProvenanceSource,
 } from './buildProvenance.ts';
 export { sameValue } from './Claim.ts';
+export { NO_FOOTPRINT, sameFootprint, sharedAreas } from './AreaCell.ts';
+export type {
+  AreaCell,
+  Footprint,
+  FootprintModel,
+  OverlapRelation,
+  SharedArea,
+  SpatialKind,
+} from './AreaCell.ts';
+export { CHUNK_KINDS, chunksFromClaims } from './Chunk.ts';
+export type {
+  Chunk,
+  ChunkDraft,
+  ChunkKind,
+  RejectedClaimDraft,
+} from './Chunk.ts';
+export {
+  activeFor,
+  baselineValues,
+  detectOverlaps,
+  finalValues,
+  reassessOverlaps,
+} from './detectOverlaps.ts';
+export type {
+  DetectOverlapsInput,
+  OverlapContext,
+  OverlapResolutionItem,
+} from './detectOverlaps.ts';
+export {
+  applyOverlapVote,
+  blocksProposal,
+  decideOverlap,
+  isLiveOverlap,
+  overlapKey,
+} from './Overlap.ts';
+export type {
+  Overlap,
+  OverlapBacking,
+  OverlapDraft,
+  OverlapKind,
+  OverlapResolution,
+  OverlapStatus,
+  OverlapVote,
+  OverlapVoteKind,
+} from './Overlap.ts';
 export type { Claim, ClaimDraft, ClaimRole, ClaimValue } from './Claim.ts';
 export { classifyClaims } from './classifyClaims.ts';
 export type {
@@ -47,22 +92,26 @@ export type {
 } from './Discrepancy.ts';
 export { DOCUMENT_KINDS } from './DocumentKind.ts';
 export type { DocumentKind } from './DocumentKind.ts';
-export { groupBySubject } from './groupBySubject.ts';
-export type { DraftSource } from './groupBySubject.ts';
+export { buildProposalDraft } from './buildProposalDraft.ts';
+export type { DraftSource } from './buildProposalDraft.ts';
 export {
   applyReview,
   decideProposal,
   isActive,
   reopenFor,
+  subjectsOf,
+  touches,
 } from './Proposal.ts';
 export type {
   Decision,
   FilteredReviewer,
   Proposal,
   ProposalChange,
+  ProposalContext,
   ProposalDraft,
   ProposalStatus,
   Review,
+  SubjectValues,
 } from './Proposal.ts';
 export { latestPerDocument } from './Revision.ts';
 export type { Revision, RevisionDraft } from './Revision.ts';

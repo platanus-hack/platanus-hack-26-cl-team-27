@@ -84,42 +84,48 @@ pnpm nx g @nx/js:lib context/<ctx> --name=@team27/context-<ctx> --bundler=none \
 
 ## Coordinación de un cambio
 
-Cuatro contextos, uno por etapa del [flujo](negocio.md#flujo) más el lago de hechos. Ninguno conoce a los otros. El módulo `coordination` de la API los encadena y traduce lo que sale de uno a lo que entra al siguiente. El diseño completo de la sala está en [multijugador](multijugador.md).
+Cuatro contextos, uno por etapa del [flujo](negocio.md#flujo) más el lago de hechos, y `inference` para leer texto libre. Ninguno conoce a los otros. El módulo `coordination` de la API los encadena y traduce lo que sale de uno a lo que entra al siguiente. El diseño completo de la sala está en [multijugador](multijugador.md), y el de los solapamientos (áreas, fragmentos, detección y validación conjunta), en [solapamientos](solapamientos.md).
 
-| Contexto                                            | Qué hace                                                                                                         | Dominio                                                                                               | Puertos → adapters                                                                                                |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| [`lake`](../context/lake/README.md)                 | Ingiere revisiones como hechos, los compara con lo vigente, abre propuestas y discrepancias, y lleva el consenso | `Revision`, `Claim`, `BaselineEntry`, `Proposal`, `Discrepancy`, `classifyClaims`, `computeStaleness` | un repositorio por agregado → Prisma; `FactExtractor` → `InlineFactExtractor` (los hechos vienen con la revisión) |
-| [`capture`](../context/capture/README.md)           | Compara una base con un siguiente estado de un elemento: un cambio por elemento, con su revisión de origen       | `ModelElement`, `Change`, `diffSnapshots`                                                             | `ChangeRepository` → Prisma                                                                                       |
-| [`impact`](../context/impact/README.md)             | Recorre el grafo del proyecto desde lo que cambió: dependencias, partidas y ruta crítica                         | `ProjectGraph`, `Impact`, `Finding`, `analyzeChange`, `criticalPath`                                  | `ProjectGraphRepository` → en memoria; `ImpactRepository` → Prisma                                                |
-| [`notification`](../context/notification/README.md) | Junta los hallazgos de cada afectado en un aviso, en su canal, y guarda su respuesta, que es el voto             | `Stakeholder`, `Notification`, `draftNotifications`                                                   | `StakeholderDirectory` → en memoria; `NotificationRepository` → Prisma                                            |
+| Contexto                                            | Qué hace                                                                                                                                                               | Dominio                                                                                                                                     | Puertos → adapters                                                                                                    |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| [`lake`](../context/lake/README.md)                 | Ingiere revisiones como fragmentos y hechos, los compara con lo vigente, abre una propuesta (el PR de la obra) por revisión, detecta solapamientos y lleva el consenso | `Revision`, `Chunk`, `Claim`, `BaselineEntry`, `Proposal`, `Discrepancy`, `Overlap`, `classifyClaims`, `detectOverlaps`, `computeStaleness` | un repositorio por agregado → Prisma; `FactExtractor` → `InlineFactExtractor` (los fragmentos vienen con la revisión) |
+| [`capture`](../context/capture/README.md)           | Compara una base con un siguiente estado de un elemento: un cambio por elemento, con su revisión de origen                                                             | `ModelElement`, `Change`, `diffSnapshots`                                                                                                   | `ChangeRepository` → Prisma                                                                                           |
+| [`impact`](../context/impact/README.md)             | Recorre el grafo del proyecto desde lo que cambió: dependencias, partidas y ruta crítica                                                                               | `ProjectGraph`, `Impact`, `Finding`, `analyzeChange`, `criticalPath`                                                                        | `ProjectGraphRepository` → en memoria; `ImpactRepository` → Prisma                                                    |
+| [`notification`](../context/notification/README.md) | Junta los hallazgos de cada afectado en un aviso, en su canal, y guarda su respuesta, que es el voto                                                                   | `Stakeholder`, `Notification`, `draftNotifications`                                                                                         | `StakeholderDirectory` → en memoria; `NotificationRepository` → Prisma                                                |
 
 ```mermaid
 sequenceDiagram
   participant S as Asiento
   participant A as API · coordination
+  participant R as inference
   participant L as lake
   participant C as capture
   participant I as impact
   participant N as notification
-  S->>A: POST /api/revisions
+  S->>A: POST /api/revisions (fragmentos)
+  A->>R: ExtractClaims (solo los fragmentos de texto libre)
+  R-->>A: hechos con confianza y rechazados
   A->>L: IngestRevision
-  L-->>A: resultados por hecho y borradores de propuesta
-  loop por cada borrador
-    A->>C: DetectChanges (base y siguiente desde lo vigente)
-    C-->>A: cambio
+  L-->>A: resultados por hecho y un borrador de propuesta
+  A->>C: DetectChanges (base y siguiente de los elementos que cambian)
+  C-->>A: un cambio por elemento
+  loop por cada cambio
     A->>I: AnalyzeChange
     I-->>A: impacto, hallazgos y filtrados
-    A->>N: NotifyStakeholders
-    A->>L: OpenProposal (revisores y filtrados)
   end
+  A->>N: NotifyStakeholders (un aviso por revisor)
+  A->>L: OpenProposal (revisores y filtrados)
+  A->>L: OpenOverlaps y SettleOverlaps
   S->>A: POST /api/notifications/:id/response
   A->>L: RecordReview
   A->>N: RespondToNotification
+  A->>L: SettleOverlaps (vuelve a detectar y fusiona lo que quedó listo)
   L-->>A: fusionada, y lo vigente cambia
   A->>L: GetConsensus (desfases y sello)
 ```
 
 - **La cadena es sincrónica y transaccional.** Cuando la ingesta responde, la revisión, el cambio, el impacto, los avisos y la propuesta ya están guardados; si algo falla, nada queda a medias. Cada acción de escritura toma un advisory lock de Postgres y el voto bloquea además la fila de la propuesta.
+- **El texto libre se lee en la API, con `inference`.** `modules/inference` compone `ExtractClaims` con un `ClaimReader`: con una `ANTHROPIC_API_KEY` no vacía, `CachedClaimReader(ClaudeClaimReader)`; con la clave vacía o ausente (como en `.env.example`), la lectura es determinista: `CachedClaimReader(FixtureClaimReader)` con las respuestas fijas de la muestra. La caché es un `FileResponseCache` en `apps/api/inference-cache`, versionado en el repo. El vocabulario sale del modelo del proyecto. El modelo de áreas (niveles, grilla, sistemas y la huella de cada elemento) también vive en la API y se le pasa al lago como un `FootprintModel`.
 - **El lago se enchufa por el API.** `modules/lake` registra los adapters por token y los casos de uso con `provideUseCase`. `lake` no importa `capture`, `impact` ni `notification`: los revisores de una propuesta son los afectados que `impact` devuelve y `notification` avisa, y es `coordination` quien se los pasa a `OpenProposal`. Los ids de revisor son los de los afectados, valores opacos para el lago.
 - **La definición del proyecto vive en la API** ([`los-aromos.ts`](../apps/api/src/scenario/los-aromos.ts) y [`documents.ts`](../apps/api/src/scenario/documents.ts)): el elenco, el grafo, los espacios, los sujetos, los atributos y el registro de documentos con su dueño. No trae documentos ni guion: esos son del ETL. La API los pasa a los adapters en memoria `InMemoryProjectGraph`, `InMemoryStakeholderDirectory` y `InlineFactExtractor` (los hechos vienen en la revisión). Lo que cambia durante la muestra (revisiones, hechos, lo vigente, propuestas, votos, cambios, impactos y avisos) se guarda en Postgres.
 - **La API no siembra ni sabe que existe una demo.** Recibe revisiones por `POST /api/revisions` y la carga inicial por `POST /api/lake/seed` (solo con el lago vacío). `POST /api/room/reset` (con `x-presenter-key`) borra todas las tablas en una transacción, suma uno a la época y libera los asientos; el lago queda vacío. Quien carga y juega la muestra es el ETL (`apps/etl`, ver su [README](../apps/etl/README.md)): lee archivos del lago ficticio, extrae hechos con parsers deterministas y los entrega a la API como un cliente más, con la clave del presentador y `x-act-as` para actuar por los asientos que nadie tomó (la API responde 409 `seat_held` si una persona lo tiene).
@@ -136,14 +142,15 @@ sequenceDiagram
 - Todo `/api/*` llega a la API. La web no define rutas bajo `app/api/`: las rutas de Next se resuelven antes que el `rewrite` y le quitarían esa ruta a la API.
 - La API corre con el prefijo global `/api`. Valida la entrada con el schema que declara cada `@Body`, `@Query` o `@Param` (`StandardSchemaValidationPipe`, con zod).
 
-| Variable             | Defecto                                                            | Quién la usa   | Qué es                                                                                                                                                                                       |
-| -------------------- | ------------------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`       | `postgresql://postgres:postgres@localhost:5427/team27`             | API, Prisma    | La base (el Postgres de compose en dev)                                                                                                                                                      |
-| `API_PORT`           | `3001`                                                             | API            | Puerto de la API                                                                                                                                                                             |
-| `CORS_ALLOW_ORIGINS` | `http://localhost:3000`                                            | API            | Orígenes permitidos, separados por coma. `*` no se acepta con `NODE_ENV=production`                                                                                                          |
-| `PRESENTER_KEY`      | `sala-los-aromos` fuera de producción; obligatoria en `production` | API            | Clave del presentador (`x-presenter-key`): reinicio, carga inicial, soltar asientos, y actuar como Fernanda o, con `x-act-as`, como otro asiento. También la usa el ETL. Mínimo 8 caracteres |
-| `API_URL`            | `http://localhost:3001`                                            | Web            | Dónde está la API. El `rewrite` la fija al compilar la web (queda en `routes-manifest.json`); `fetch` la lee en cada request. En un deploy, defínela antes del build                         |
-| `POSTGRES_*`         | ver `.env.example`                                                 | docker compose | Usuario, clave, base y puerto del Postgres local                                                                                                                                             |
+| Variable             | Defecto                                                            | Quién la usa   | Qué es                                                                                                                                                                                              |
+| -------------------- | ------------------------------------------------------------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`       | `postgresql://postgres:postgres@localhost:5427/team27`             | API, Prisma    | La base (el Postgres de compose en dev)                                                                                                                                                             |
+| `API_PORT`           | `3001`                                                             | API            | Puerto de la API                                                                                                                                                                                    |
+| `CORS_ALLOW_ORIGINS` | `http://localhost:3000`                                            | API            | Orígenes permitidos, separados por coma. `*` no se acepta con `NODE_ENV=production`                                                                                                                 |
+| `ANTHROPIC_API_KEY`  | vacía (opcional)                                                   | API            | Clave de Claude para leer los fragmentos de texto libre. Sin clave, la lectura de texto libre es determinista (respuestas fijas y grabadas) y no sale nada a la red. Va en `.env.example` sin valor |
+| `PRESENTER_KEY`      | `sala-los-aromos` fuera de producción; obligatoria en `production` | API            | Clave del presentador (`x-presenter-key`): reinicio, carga inicial, soltar asientos, y actuar como Fernanda o, con `x-act-as`, como otro asiento. También la usa el ETL. Mínimo 8 caracteres        |
+| `API_URL`            | `http://localhost:3001`                                            | Web            | Dónde está la API. El `rewrite` la fija al compilar la web (queda en `routes-manifest.json`); `fetch` la lee en cada request. En un deploy, defínela antes del build                                |
+| `POSTGRES_*`         | ver `.env.example`                                                 | docker compose | Usuario, clave, base y puerto del Postgres local                                                                                                                                                    |
 
 Nx carga el `.env` de la raíz en cada tarea (plantilla: `.env.example`). La API no lee archivos: toma el entorno, y si una variable no cumple su schema (`apps/api/src/config/env.ts`), no arranca.
 

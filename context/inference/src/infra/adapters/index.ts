@@ -18,6 +18,7 @@ export {
   ClaudeClaimReader,
 } from './ClaudeClaimReader.ts';
 export {
+  anthropicClient,
   CLAUDE_MODEL,
   type ClaudeEffort,
   type ClaudeOptions,

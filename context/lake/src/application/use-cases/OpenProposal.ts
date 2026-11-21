@@ -12,6 +12,8 @@ import type { ProposalRepository } from '../ports/ProposalRepository.ts';
 export interface OpenProposalInput {
   readonly draft: ProposalDraft;
   readonly changeId: string | null;
+  readonly changeIds?: readonly string[];
+  readonly deferMerge?: boolean;
   readonly reviewerIds: readonly string[];
   readonly filtered: readonly FilteredReviewer[];
 }
@@ -39,21 +41,20 @@ export class OpenProposal {
       throw new ValidationError('Los revisores no pueden repetirse');
     }
 
-    const attributes = new Set(draft.changes.map((change) => change.attribute));
     const overlapping = (await this.proposals.listActive()).filter(
       (proposal) =>
-        isActive(proposal) &&
-        proposal.subject === draft.subject &&
-        proposal.changes.some((change) => attributes.has(change.attribute)),
+        isActive(proposal) && proposal.documentId === draft.documentId,
     );
 
     const openedAt = new Date();
     let proposal = await this.proposals.create({
       changeId: input.changeId,
-      subject: draft.subject,
+      changeIds: input.changeIds ?? (input.changeId ? [input.changeId] : []),
+      documentId: draft.documentId,
       sourceRevisionId: draft.sourceRevisionId,
       authorId: draft.authorId,
       changes: draft.changes,
+      context: draft.context,
       reviewerIds: input.reviewerIds,
       filtered: input.filtered,
       openedAt,
@@ -71,7 +72,7 @@ export class OpenProposal {
       superseded.push(next);
     }
 
-    if (input.reviewerIds.length === 0) {
+    if (input.reviewerIds.length === 0 && !input.deferMerge) {
       proposal = { ...proposal, status: 'merged', resolvedAt: openedAt };
       await this.proposals.save(proposal);
       await mergeProposal(this.baseline, proposal, openedAt);

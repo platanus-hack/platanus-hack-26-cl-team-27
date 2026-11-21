@@ -98,6 +98,9 @@ importers:
       '@team27/context-impact':
         specifier: workspace:*
         version: link:../../context/impact
+      '@team27/context-inference':
+        specifier: workspace:*
+        version: link:../../context/inference
       '@team27/context-lake':
         specifier: workspace:*
         version: link:../../context/lake

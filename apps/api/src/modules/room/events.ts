@@ -1,8 +1,13 @@
 import type { Prisma, PrismaClient } from '@team27/data-main';
-import type { Proposal, ProposalStatus } from '@team27/context-lake';
+import type {
+  OverlapStatus,
+  Proposal,
+  ProposalStatus,
+} from '@team27/context-lake';
 
 import { buildLake } from '../lake/lake.module.ts';
 import { castName } from '../coordination/lookup.ts';
+import { overlapTitle } from '../coordination/views.ts';
 import { readState } from './state.ts';
 
 export const EVENT_KINDS = [
@@ -18,6 +23,11 @@ export const EVENT_KINDS = [
   'discrepancy.opened',
   'discrepancy.backed',
   'discrepancy.dismissed',
+  'overlap.detected',
+  'overlap.voted',
+  'overlap.cleared',
+  'overlap.confirmed',
+  'overlap.resolved',
   'stale.detected',
   'stale.acknowledged',
   'consensus.sealed',
@@ -60,6 +70,10 @@ export interface Observed {
     string,
     { status: ProposalStatus; title: string }
   >;
+  readonly overlaps: ReadonlyMap<
+    string,
+    { status: OverlapStatus; title: string; validators: readonly string[] }
+  >;
   readonly stale: ReadonlyMap<
     string,
     { title: string; ownerId: string; revisionId: string }
@@ -71,9 +85,11 @@ export const observe = async (
   titleOf: (proposal: Proposal) => string,
 ): Promise<Observed> => {
   const lake = buildLake(db);
-  const [consensus, proposals] = await Promise.all([
+  const [consensus, proposals, overlaps, revisions] = await Promise.all([
     lake.consensus.execute(),
     lake.ports.proposals.list(),
+    lake.ports.overlaps.list(),
+    lake.ports.revisions.list(),
   ]);
   return {
     sealed: consensus.index.sealed,
@@ -82,6 +98,16 @@ export const observe = async (
       proposals.map((item) => [
         item.id,
         { status: item.status, title: titleOf(item) },
+      ]),
+    ),
+    overlaps: new Map(
+      overlaps.map((item) => [
+        item.id,
+        {
+          status: item.status,
+          title: overlapTitle(item, revisions),
+          validators: item.validators,
+        },
       ]),
     ),
     stale: new Map(
@@ -122,6 +148,37 @@ export const diffEvents = (before: Observed, after: Observed): EventDraft[] => {
         kind: 'proposal.withdrawn',
         message: `Se retiró la propuesta: ${now.title}.`,
         refs: { proposalId: id },
+      });
+    }
+  }
+  for (const [id, now] of after.overlaps) {
+    const was = before.overlaps.get(id);
+    if (!was) {
+      events.push({
+        kind: 'overlap.detected',
+        message: `Solapamiento: ${now.title}. Validan ${now.validators.map(castName).join(' y ')}.`,
+        refs: { overlapId: id, castIds: [...now.validators] },
+      });
+    }
+    const wasStatus = was?.status ?? 'abierto';
+    if (now.status === wasStatus) continue;
+    if (now.status === 'resuelto') {
+      events.push({
+        kind: 'overlap.resolved',
+        message: `Se resolvió el solapamiento: ${now.title}. Los elementos ya no comparten área.`,
+        refs: { overlapId: id },
+      });
+    } else if (now.status === 'confirmado') {
+      events.push({
+        kind: 'overlap.confirmed',
+        message: `Se confirmó el solapamiento: ${now.title}. Es un conflicto real.`,
+        refs: { overlapId: id, castIds: [...now.validators] },
+      });
+    } else if (now.status === 'descartado') {
+      events.push({
+        kind: 'overlap.cleared',
+        message: `Se descartó el solapamiento: ${now.title}. Todos dijeron que no se tocan.`,
+        refs: { overlapId: id },
       });
     }
   }

@@ -7,6 +7,9 @@ import type { ProjectVocabulary } from '../../domain/Vocabulary.ts';
 
 export const CLAUDE_MODEL = 'claude-opus-5-5';
 
+export const anthropicClient = (apiKey: string): Anthropic =>
+  new Anthropic({ apiKey });
+
 export type ClaudeEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export interface ClaudeOptions {

@@ -24,6 +24,10 @@ export const envSchema = z
               .filter(Boolean),
       ),
     PRESENTER_KEY: z.string().min(8).optional(),
+    ANTHROPIC_API_KEY: z
+      .string()
+      .optional()
+      .transform((value) => (value && value.trim() !== '' ? value : undefined)),
   })
   .refine(
     (env) => env.NODE_ENV !== 'production' || env.CORS_ALLOW_ORIGINS !== true,

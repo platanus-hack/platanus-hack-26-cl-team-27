@@ -1,10 +1,10 @@
 # La sala de la obra
 
-Una obra no tiene una fuente de verdad. Tiene planos con revisión en Drive, cotizaciones y presupuestos en planillas, una Carta Gantt, EETT, actas, mensajes de WhatsApp y un libro de obra, repartidos en espacios distintos que dicen cosas distintas. Este documento describe cómo el sistema consolida esa información por detrás y cómo la muestra lo convierte en una experiencia multijugador. El problema y la propuesta están en [negocio](negocio.md); la muestra, en [muestra](muestra.md); el sistema, en [arquitectura](arquitectura.md).
+Una obra no tiene una fuente de verdad. Tiene planos con revisión en Drive, cotizaciones y presupuestos en planillas, una Carta Gantt, EETT, actas, mensajes de WhatsApp y un libro de obra, repartidos en espacios distintos que dicen cosas distintas. Este documento describe cómo el sistema consolida esa información por detrás y cómo la muestra lo convierte en una experiencia multijugador. El problema y la propuesta están en [negocio](negocio.md); la muestra, en [muestra](muestra.md); el sistema, en [arquitectura](arquitectura.md); y cómo cada documento es un PR contra una fuente única que además sabe dónde está cada elemento, en [solapamientos](solapamientos.md).
 
 ## La idea
 
-Detrás de los documentos hay un repositorio de cambios, un lago con procedencia. Cada revisión de cada artefacto se lee donde vive, se ingiere como un conjunto de hechos con puntero a su origen y se compara contra **lo vigente**, la versión consolidada y consensuada del proyecto. Una diferencia con autoridad suficiente abre una **propuesta de cambio**, el pull request de la obra: calcula costo y plazo con reglas deterministas y avisa solo a los afectados, en el canal que ya usan. Lo vigente solo cambia cuando todos ellos confirman.
+Detrás de los documentos hay un repositorio de cambios, un lago con procedencia. Cada revisión de cada artefacto se lee donde vive, se ingiere como un conjunto de hechos con puntero a su origen y se compara contra **lo vigente**, la versión consolidada y consensuada del proyecto. Una revisión con autoridad que cambia algo abre una **propuesta de cambio**, el pull request de la obra: calcula costo y plazo con reglas deterministas y avisa solo a los afectados, en el canal que ya usan. Lo vigente solo cambia cuando todos ellos confirman y no queda ningún solapamiento por validar.
 
 Multiplayer es el núcleo, no una función. La verdad del proyecto no la decide nadie en solitario: es el acuerdo de personas con intereses distintos, cada una dueña de un espacio y de sus documentos. Cada documento que suelta una persona deja desfasado o en disputa el de otra, y la verdad solo converge cuando todas actúan. En la muestra, el público toma los asientos del elenco desde su celular; los asientos vacíos los juega el ETL como un cliente más (clave de presentador más `x-act-as`), de modo que una sola persona puede presentar todo. La API no sabe que existe una demo: recibe revisiones de documentos por una puerta genérica, igual que las recibiría de un conector real.
 
@@ -17,7 +17,7 @@ Multiplayer es el núcleo, no una función. La verdad del proyecto no la decide 
 5. **La autoridad es explícita**: el plano y la EETT mandan sobre el diseño, la cotización y el presupuesto sobre el precio, la Carta Gantt y el acta sobre las fechas. Un WhatsApp o el libro de obra proponen, no deciden.
 6. **Una disputa no borra lo vigente.** Toda salida es una acción visible: reabrir, retirar o una revisión nueva.
 7. **Lo desactualizado se ve**, con su dueño. Confirmar sin cambio exige una nota.
-8. **Las cifras salen de reglas.** Un modelo de lenguaje solo es el camino de producción para leer planos y PDFs; la muestra no lo usa.
+8. **Las cifras salen de reglas.** Un modelo de lenguaje solo lee texto libre (con su confianza) y nunca calcula costos ni plazos. Sin `ANTHROPIC_API_KEY`, esa lectura es determinista.
 9. **Espacio controlado.** Todo es ficticio, nada sale de la app, se reinicia en un paso, sin cuentas ni gestión de equipos.
 
 ## El lago y el consenso
@@ -40,15 +40,18 @@ Para el repositorio un espacio es de solo lectura. El conector de la muestra es 
 
 Un **documento** es una identidad estable (A-201 Fachada norte y shaft, E-102 Planta estructural N3, EETT-03 Hormigones, Presupuesto itemizado, Carta Gantt, Cotización Q-118). Una **revisión** es una versión inmutable (rev B, rev C, v2) con espacio, autor, tipo (`plano`, `eett`, `cotizacion`, `presupuesto`, `carta_gantt`, `acta`, `mensaje`, `libro_obra`), hash de contenido, puntero al origen (por ejemplo `Drive/Los Aromos/Estructura/E-102_revC.pdf`) y orden de ingesta. Las revisiones nunca se pisan; la vigente de un documento es la última ingerida. Ingerir dos veces la misma revisión es idempotente.
 
-### Hechos
+### Fragmentos y hechos
 
-Cada revisión produce afirmaciones sobre las propiedades de los elementos del proyecto: sujeto, atributo, valor, unidad, rol y localizador. Los sujetos y atributos son los del grafo del proyecto (`losa-n3` `espesor_cm`, `shaft-s1` `posicion_m`, `ventanas-norte` `ancho_cm`, `partida-07.01` `precio_unitario`, `proyecto` `entrega_dias`).
+Cada revisión llega partida en **fragmentos** (`Chunk`): `{ locator, kind, text?, claims? }`, con `kind` en `fila`, `anotacion`, `acuerdo`, `mensaje`, `parametro` o `texto`. El hecho hereda el localizador de su fragmento. Los fragmentos estructurados (una fila de un cuadro de plano o de una planilla, un parámetro de la minuta de Revit) traen sus hechos ya extraídos por el conector. Los de texto libre (un mensaje de WhatsApp, un folio, un acuerdo de un acta) llegan con `text` y sin `claims`, y los lee la API con `context/inference` ([cómo, en solapamientos](solapamientos.md#fragmentos)).
+
+Cada revisión produce afirmaciones sobre las propiedades de los elementos del proyecto: sujeto, atributo, valor, unidad, rol, localizador y, si las leyó un modelo, confianza. Los sujetos y atributos son los del grafo del proyecto (`losa-n3` `espesor_cm`, `shaft-s1` `posicion_m`, `ventanas-norte` `ancho_cm`, `partida-07.01` `precio_unitario`, `proyecto` `entrega_dias`).
 
 - **Afirma**: el documento declara el valor.
 - **Usa**: el documento se calculó sobre ese valor (el presupuesto usa el espesor de la losa).
-- **Localizador**: celda, página o frase de origen (`Partidas!C14`, `cajetín rev C`, `folio 44`).
+- **Localizador**: el del fragmento (`cuadro de vanos`, `Partidas!C14`, `folio 44`, `mensaje de las 14:32`, `acuerdo 4`).
+- **Confianza**: opcional, de 0 a 1. Los hechos de texto libre la traen; los estructurados, no.
 
-La extracción es determinista y ocurre en el conector, antes de llegar a la API: la revisión trae sus hechos (`InlineFactExtractor`). En la muestra, el ETL ([`apps/etl`](../apps/etl/README.md)) lee los archivos del lago ficticio (planos en JSON, EETT en Markdown, presupuesto, Gantt y cotización en CSV, acta, WhatsApp y folios en texto) con un parser por tipo; un test de oro fija los hechos que produce cada archivo. El add-in de Revit manda los suyos en la minuta. En producción, un lector de planos o un modelo de lenguaje emitiría los mismos hechos, con confianza; la muestra no lo usa.
+La extracción de los fragmentos estructurados es determinista y ocurre en el conector, antes de llegar a la API (`InlineFactExtractor`). En la muestra, el ETL ([`apps/etl`](../apps/etl/README.md)) lee los archivos del lago ficticio (planos en JSON, EETT en Markdown, presupuesto, Gantt y cotización en CSV, acta, WhatsApp y folios en texto) con un parser por tipo, y manda los textos libres como fragmentos de texto sin hechos. El add-in de Revit manda un fragmento por parámetro cambiado. Los fragmentos de texto libre se anclan en la API con `ExtractClaims`: los hechos aceptados entran con su confianza y los rechazados (bajo 0,7, fuera del vocabulario del proyecto) quedan en el fragmento con su razón, visibles y sin efecto. Sin `ANTHROPIC_API_KEY`, esa lectura es **determinista**: respuestas fijas de la muestra y grabadas en `apps/api/inference-cache`, sin red.
 
 ### Lo vigente
 
@@ -78,20 +81,23 @@ Al ingerir una revisión, cada hecho que afirma se compara contra lo vigente, ve
 
 1. **Igual**: corrobora; sube el contador de fuentes.
 2. **Igual al valor de una propuesta abierta**: corrobora esa propuesta.
-3. **Distinto, con autoridad**: es un cambio. Se agrupa por elemento y abre una propuesta.
+3. **Distinto, con autoridad**: es un cambio, un hunk de la propuesta de esa revisión.
 4. **Distinto, sin autoridad**: abre una **discrepancia**. No cambia nada y avisa solo al dueño del valor, que es el autor de la revisión que respalda lo vigente.
+
+Después de este primer anillo, la detección sigue con el **mismo elemento**, la **misma área** y lo **simultáneo**: abren un solapamiento y una validación conjunta ([solapamientos](solapamientos.md#detección-en-anillos)). Los textos de WhatsApp y del libro de obra no mandan, así que no abren propuestas: abren discrepancias.
 
 Un hecho «usa» distinto de lo vigente deja el documento desfasado desde el ingreso. Cuando llega después una revisión con autoridad que afirma el valor de una discrepancia abierta, la discrepancia se cierra como respaldada y queda enlazada en la procedencia: un WhatsApp propone, un plano confirma.
 
 ### Propuesta y consenso
 
-Una propuesta por elemento reutiliza `capture` (el antes y el después) e `impact` (costo, plazo, un hallazgo por afectado y los filtrados con su razón). Los **revisores** son exactamente los afectados notificados; los filtrados se muestran con su razón y no votan.
+Una **propuesta** es el PR de la obra: **una por cada revisión con autoridad que cambia algo**, con un **hunk** por cada fragmento que cambia (`subject`, `attribute`, `before`, `after`, localizador). Los fragmentos que coinciden con lo vigente quedan como contexto sin cambio. Reutiliza `capture` (el antes y el después de cada elemento del modelo) e `impact` (costo, plazo, un hallazgo por afectado y los filtrados con su razón). El costo es la suma de los hunks y el atraso, la suma de los atrasos por elemento. Los **revisores** son la unión de los afectados notificados por cualquier hunk, con un solo aviso por revisor y por propuesta, que lista sus hallazgos; los filtrados se muestran con su razón y no votan.
 
 - Cada revisor aprueba o disputa, con nota opcional (en `notification`, `reviewed` o `issue`).
-- La propuesta se **fusiona** a lo vigente cuando todos los revisores aprobaron. Con cero revisores se fusiona de inmediato.
+- La propuesta se **fusiona** a lo vigente cuando todos los revisores aprobaron y no queda ningún solapamiento abierto o confirmado: es atómica, todos los hunks entran juntos y la versión del proyecto sube en uno. Con cero revisores se fusiona sola apenas no tiene solapamientos. No hay botón de fusionar.
 - Una **disputa** deja la propuesta en disputa y lo vigente no cambia.
+- Un **solapamiento** abierto o confirmado de cualquier hunk bloquea la propuesta entera, aunque todos hayan aprobado. Su vista trae `blockedByOverlap` y dice «Espera la validación del solapamiento».
 - El autor puede **reabrir con la observación**: solo vuelve a pendiente quien disputó, y las aprobaciones se conservan. También puede **retirarla**.
-- Una revisión nueva con autoridad que afirma otro valor para el mismo sujeto y atributo **reemplaza** la propuesta abierta y abre una nueva con votos limpios.
+- Una revisión nueva del mismo documento **reemplaza** la propuesta abierta, como un force-push, y abre una nueva con votos limpios; los hunks que la anterior ya traía y la revisión nueva repite siguen en la nueva.
 
 Las respuestas son idempotentes.
 
@@ -105,7 +111,7 @@ Al tocar un valor vigente se arma su cadena: hecho, revisión, espacio, autor, f
 
 ### Meta compartida
 
-El **índice de consenso** son los documentos al día sobre los documentos totales (al día: sin desfase ni discrepancia abierta). Cuando no queda propuesta abierta, discrepancia ni desfase, la sala muestra el sello **Obra consensuada** con la versión del proyecto y quién cerró qué. El costo total y la ruta crítica son lo vigente más los impactos de las propuestas fusionadas.
+El **índice de consenso** son los documentos al día sobre los documentos totales (al día: sin desfase ni discrepancia abierta). Cuando no queda propuesta abierta, discrepancia, solapamiento abierto o confirmado ni desfase, la sala muestra el sello **Obra consensuada** con la versión del proyecto y quién cerró qué. El costo total y la ruta crítica son lo vigente más los impactos de las propuestas fusionadas.
 
 ## Cómo encajan impacto y avisos
 
@@ -122,20 +128,21 @@ El **índice de consenso** son los documentos al día sobre los documentos total
 
 ## Contextos y capas
 
-| Contexto       | Estado       | Papel                                                                                          |
-| -------------- | ------------ | ---------------------------------------------------------------------------------------------- |
-| `lake`         | nuevo        | Repositorio, lo vigente, autoridad, detección, propuestas, discrepancias, desfase, procedencia |
-| `capture`      | generalizado | Detecta el cambio entre una base y un siguiente (`DetectChanges` sobre `diffSnapshots`)        |
-| `impact`       | sin cambios  | Costo, plazo, afectados y filtrados                                                            |
-| `notification` | extendido    | Un aviso por afectado en su canal; la respuesta es el voto; `ReopenResponse`                   |
+| Contexto       | Estado       | Papel                                                                                                                     |
+| -------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `lake`         | nuevo        | Repositorio, fragmentos, lo vigente, autoridad, detección, solapamientos, propuestas, discrepancias, desfase, procedencia |
+| `inference`    | compuesto    | Lee los fragmentos de texto libre (`ExtractClaims`) con su confianza                                                      |
+| `capture`      | generalizado | Detecta el cambio entre una base y un siguiente (`DetectChanges` sobre `diffSnapshots`)                                   |
+| `impact`       | sin cambios  | Costo, plazo, afectados y filtrados                                                                                       |
+| `notification` | extendido    | Un aviso por afectado en su canal; la respuesta es el voto; `ReopenResponse`                                              |
 
 Los contextos nunca se importan entre sí: la API los compone. La sala (asientos y eventos) es un módulo de la API, infraestructura de la muestra y no un contexto de dominio.
 
 ### `lake`
 
-- **Dominio**: `Space`, `Revision`, `Claim`, `Authority`, `BaselineEntry`, `Proposal`, `Review`, `Discrepancy`, `Acknowledgement`. Funciones puras: `classifyClaims`, `decideProposal`, `reopenFor`, `computeStaleness`, `consensusIndex`, `buildProvenance`.
-- **Puertos**: un repositorio por agregado y `FactExtractor`.
-- **Casos de uso**: `IngestRevision`, `OpenProposal`, `RecordReview`, `ReopenProposal`, `WithdrawProposal`, `DismissDiscrepancy`, `AcknowledgeStale`, `GetBaseline`, `GetProvenance`, `ListStale`, `ListProposals`, `GetConsensus`.
+- **Dominio**: `Space`, `Revision`, `Chunk`, `Claim`, `Authority`, `BaselineEntry`, `Proposal`, `Review`, `Discrepancy`, `Overlap`, `AreaCell`, `Acknowledgement`. Funciones puras: `classifyClaims`, `buildProposalDraft`, `detectOverlaps`, `reassessOverlaps`, `decideProposal`, `decideOverlap`, `reopenFor`, `computeStaleness`, `consensusIndex`, `buildProvenance`. Las huellas (`footprint`) no son del lago: la API le pasa el modelo de áreas como un `FootprintModel`.
+- **Puertos**: un repositorio por agregado (con `ChunkRepository` y `OverlapRepository`) y `FactExtractor`.
+- **Casos de uso**: `IngestRevision`, `OpenProposal`, `RecordReview`, `ReopenProposal`, `WithdrawProposal`, `DismissDiscrepancy`, `OpenOverlaps`, `VoteOverlap`, `ResolveOverlaps`, `SettleOverlaps`, `ListOverlaps`, `AcknowledgeStale`, `GetBaseline`, `GetProvenance`, `ListStale`, `ListProposals`, `GetConsensus`.
 - **Adapters** (subpath `/adapters`): Prisma por repositorio e `InlineFactExtractor` (los hechos vienen en la revisión).
 
 ### `capture`
@@ -148,14 +155,14 @@ Los contextos nunca se importan entre sí: la API los compone. La sala (asientos
 
 ### La API compone
 
-`modules/lake`, `capture`, `impact` y `notification` entran cada uno por su módulo de Nest. `modules/coordination` orquesta una acción completa: ingesta, `DetectChanges`, `analyzeChange`, `NotifyStakeholders`, `OpenProposal`, el voto, la fusión, los totales y la bandeja. `modules/room` lleva asientos y eventos. El adaptador `elementsFromBaseline` arma la base y el siguiente como elementos del modelo del escenario con los valores vigentes y los de la propuesta.
+`modules/lake`, `capture`, `impact`, `inference` y `notification` entran cada uno por su módulo de Nest. `modules/coordination` orquesta una acción completa: lectura de los fragmentos de texto, ingesta, `DetectChanges`, `analyzeChange` por elemento, `NotifyStakeholders`, `OpenProposal`, `OpenOverlaps`, el voto, la fusión, los totales y la bandeja. Después de cada ingreso, voto y retiro corre `SettleOverlaps`: vuelve a detectar, resuelve los solapamientos que ya no se tocan y fusiona las propuestas que quedaron listas. `modules/room` lleva asientos y eventos. El adaptador `elementsFromBaseline` arma la base y el siguiente como elementos del modelo del escenario con los valores vigentes y los de la propuesta.
 
 ## Datos
 
 Prisma, una migración nueva:
 
 - `Change` gana `source_id` y pierde `integration_id` y `version`; `Snapshot` no existe. `Impact` y `Notification` no cambian.
-- `Revision`, `Claim`, `BaselineEntry`, `BaselineHistory`, `Proposal`, `Review`, `Discrepancy`, `Acknowledgement`.
+- `Revision`, `Chunk`, `Claim` (con su fragmento y su confianza), `BaselineEntry`, `BaselineHistory`, `Proposal` (con los hunks, el contexto, el documento y los cambios de `capture`), `Review`, `Discrepancy`, `Overlap`, `OverlapVote`, `Acknowledgement`.
 - `Seat` (token hasheado y último latido), `RoomEvent` (`seq` autoincremental), y `RoomState` (la época). La versión del proyecto se deriva de las propuestas fusionadas.
 - Sin tabla: estado de un valor, fuentes, desfase y totales.
 
@@ -165,25 +172,28 @@ El reinicio borra todo en una transacción, suma uno a la época y libera los as
 
 Todas las rutas cuelgan de `/api`. Las acciones de asiento llevan `x-seat-token`; las del presentador, `x-presenter-key`, que actúa como Fernanda o, con `x-act-as`, como el asiento que se indique (ver Los jugadores); las que escriben, `x-action-id` (idempotencia). El voto es `{ kind: 'reviewed' | 'issue', note? }`. Los eventos llevan `kind` (y `type`, igual), `message`, `refs` y `at`. Los tipos y los detalles de cada ruta están en el [README de la API](../apps/api/README.md).
 
-| Método y ruta                                        | Qué hace                                                                                |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `GET /room`                                          | Snapshot: proyecto, `lake: { empty }`, elenco con ocupante, espacios, contadores y meta |
-| `POST /seats/:castId/claim`, `DELETE /seats/:castId` | Tomar y soltar un asiento (409 si está tomado)                                          |
-| `GET /events?after&epoch&seat`                       | Sondeo con cursor; es el latido                                                         |
-| `GET /baseline?section`                              | Lo vigente con estado, fuentes y totales                                                |
-| `GET /baseline/:subjectId/:attribute/provenance`     | Cadena de procedencia                                                                   |
-| `GET /spaces`                                        | Espacios, documentos, revisiones y estado                                               |
-| `POST /revisions`                                    | Ingesta genérica de una revisión de un documento del proyecto; ejecuta toda la cadena   |
-| `POST /lake/seed`                                    | Carga inicial de lo vigente con el lago vacío (con `x-presenter-key`)                   |
-| `POST /integrations/revit/minutes`                   | Recibe la minuta de cambios del add-in de Revit y ejecuta toda la cadena                |
-| `GET /seats/:castId/inbox`                           | Votos, discrepancias, desfases y filtrados del asiento                                  |
-| `GET /proposals?status`                              | Propuestas con revisores (con `notificationId` y `decision`), filtrados y respaldo      |
-| `POST /notifications/:id/response`                   | Voto `reviewed` o `issue` con nota; fusiona si hay consenso                             |
-| `POST /proposals/:id/reopen`, `/withdraw`            | Reabrir con la observación; retirar                                                     |
-| `POST /discrepancies/:id/dismiss`                    | Descartar una discrepancia                                                              |
-| `POST /stale/acknowledge`                            | Confirmar sin cambio con nota                                                           |
-| `GET /changes`, `GET /changes/:id`                   | Feed y detalle de cambios, con su propuesta                                             |
-| `POST /room/reset`                                   | Reinicio vacío (con `x-presenter-key`); responde `{ epoch }`                            |
+| Método y ruta                                        | Qué hace                                                                                                             |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `GET /room`                                          | Snapshot: proyecto, `lake: { empty }`, elenco con ocupante, espacios, contadores y meta                              |
+| `POST /seats/:castId/claim`, `DELETE /seats/:castId` | Tomar y soltar un asiento (409 si está tomado)                                                                       |
+| `GET /events?after&epoch&seat`                       | Sondeo con cursor; es el latido                                                                                      |
+| `GET /baseline?section`                              | Lo vigente con estado, fuentes y totales                                                                             |
+| `GET /baseline/:subjectId/:attribute/provenance`     | Cadena de procedencia                                                                                                |
+| `GET /spaces`                                        | Espacios, documentos, revisiones y estado                                                                            |
+| `POST /revisions`                                    | Ingesta genérica de una revisión de un documento del proyecto; ejecuta toda la cadena                                |
+| `POST /lake/seed`                                    | Carga inicial de lo vigente con el lago vacío (con `x-presenter-key`)                                                |
+| `POST /integrations/revit/minutes`                   | Recibe la minuta de cambios del add-in de Revit y ejecuta toda la cadena                                             |
+| `GET /areas`                                         | La ocupación vigente: niveles, ejes, sistemas, huella de cada elemento y solapamientos vivos                         |
+| `GET /overlaps?status`                               | Solapamientos (`abierto`, `confirmado`, `descartado`, `resuelto` o `activo`)                                         |
+| `POST /overlaps/:id/vote`                            | Voto de un validador: `se_tocan` o `no_se_tocan`, con nota opcional                                                  |
+| `GET /seats/:castId/inbox`                           | Solapamientos por validar, votos, discrepancias, desfases y filtrados del asiento                                    |
+| `GET /proposals?status`                              | Propuestas (el PR de la obra) con hunks, checks, revisores (con `notificationId` y `decision`), filtrados y respaldo |
+| `POST /notifications/:id/response`                   | Voto `reviewed` o `issue` con nota; fusiona si hay consenso                                                          |
+| `POST /proposals/:id/reopen`, `/withdraw`            | Reabrir con la observación; retirar                                                                                  |
+| `POST /discrepancies/:id/dismiss`                    | Descartar una discrepancia                                                                                           |
+| `POST /stale/acknowledge`                            | Confirmar sin cambio con nota                                                                                        |
+| `GET /changes`, `GET /changes/:id`                   | Feed y detalle de cambios, con su propuesta                                                                          |
+| `POST /room/reset`                                   | Reinicio vacío (con `x-presenter-key`); responde `{ epoch }`                                                         |
 
 Formas principales:
 
@@ -194,20 +204,72 @@ interface IngestResponse {
     subjectId: string;
     attribute: string;
     value: number | string;
+    confidence: number | null;
+    locator: string;
     outcome: 'same' | 'corroborates' | 'change' | 'discrepancy' | 'stale' | 'new';
+  }[];
+  chunks: {
+    locator: string;
+    kind: 'fila' | 'anotacion' | 'acuerdo' | 'mensaje' | 'parametro' | 'texto';
+    source: 'estructurado' | 'inferencia';
+    claims: number;
+    rejected: { subjectId: string; attribute: string; value: number | string | boolean; confidence: number; reason: string }[];
   }[];
   proposals: {
     id: string;
-    changeId: string;
+    changeId: string | null;
+    documentId: string;
+    label: string;
+    authorId: string;
     title: string;
+    status: 'open' | 'disputed' | 'merged' | 'withdrawn' | 'replaced';
     costDelta: number;
     delayDays: number;
     reviewers: string[];
     filtered: { stakeholderId: string; reason: string }[];
+    hunks: { subjectId: string; attribute: string; before: number | string | boolean; after: number | string | boolean; locator: string; changed: boolean }[];
+    unchangedHunks: number;
+    blockedByOverlap: boolean;
+    waitingFor: string | null;
   }[];
+  overlaps: OverlapView[];
+  resolvedOverlaps: string[];
   discrepancies: { id: string; ownerId: string }[];
   backed: string[];
   stale: { revisionId: string; subjectId: string; attribute: string }[];
+}
+
+interface OverlapView {
+  id: string;
+  kind: 'mismo-elemento' | 'misma-area' | 'simultaneo';
+  status: 'abierto' | 'descartado' | 'confirmado' | 'resuelto';
+  relation: 'cruce_trazado' | 'interferencia' | null;
+  title: string;
+  area: { nivel: string; nivelLabel: string; celda: string; sistemas: string[]; label: string } | null;
+  subjectId: string;
+  subjectName: string;
+  otherSubjectId: string;
+  otherSubjectName: string;
+  chunkLocator: string;
+  revisionId: string;
+  revisionTitle: string;
+  otherBacking: { documentId: string; label: string; title: string; ownerId: string; ownerName: string };
+  proposalId: string | null;
+  otherProposalId: string | null;
+  validators: string[];
+  validatorsInfo: { id: string; name: string; role: string }[];
+  votes: { validatorId: string; validatorName: string; kind: 'se_tocan' | 'no_se_tocan'; note: string | null; at: string }[];
+  resolution: 'retirada' | 'reemplazada' | 'sin_area_comun' | 'otra_propuesta_cerrada' | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+interface OverlapVoteResponse {
+  overlap: OverlapView;
+  proposal: ProposalView | null;
+  merged: boolean;
+  stale: { revisionId: string; subjectId: string; attribute: string }[];
+  projectVersion: number;
 }
 
 interface VoteResponse {
@@ -245,11 +307,13 @@ interface ProvenanceResponse {
 }
 ```
 
-**Ingesta.** `POST /revisions` recibe `{ documentId, label, spaceId, pointer, contentHash?, claims: { subject, attribute, value, unit, role, locator }[] }`. El actor es el dueño del documento: token de asiento, o clave más `x-act-as`. Responde `IngestResponse`. `POST /integrations/revit/minutes` comparte el mismo camino interno. La API no exige un orden entre revisiones: ordenar es trabajo de quien ingiere.
+**Ingesta.** `POST /revisions` recibe `{ documentId, label, spaceId, pointer, contentHash?, chunks: { locator, kind, text?, claims?: { subject, attribute, value, unit, role, confidence? }[] }[] }`. Un fragmento con `claims` es estructurado; uno con `text` y sin `claims` es de texto libre y lo lee la API con `context/inference`. El campo `claims` de primer nivel sigue valiendo: cada grupo de hechos con el mismo localizador es un fragmento implícito de tipo `fila`. El actor es el dueño del documento: token de asiento, o clave más `x-act-as`. Responde `IngestResponse`. `POST /integrations/revit/minutes` comparte el mismo camino interno, con un fragmento `parametro` por cambio. La API no exige un orden entre revisiones: ordenar es trabajo de quien ingiere.
 
-**Carga inicial.** `POST /lake/seed` recibe `{ revisions: [ cuerpo de /revisions + authorId ] }` (los hechos pueden venir vacíos), solo con el lago vacío, y deja lo vigente confirmado con su procedencia. Responde `201 { revisions, baseline }` y emite `lake.seeded`.
+**Solapamientos.** `POST /overlaps/:id/vote` recibe `{ kind: 'se_tocan' | 'no_se_tocan', note? }` de un validador del solapamiento (token de asiento, o clave más `x-act-as`; `x-action-id` para la idempotencia) y responde `OverlapVoteResponse`. El voto es idempotente; cambiarlo es `409 invalid_state`. Un asiento que no valida el solapamiento recibe `403 not_validator`. En la bandeja del asiento, cada solapamiento vivo que valida es un ítem `{ type: 'overlap', kind: 'overlap', id, overlapId, myVote, at, overlap }`. Los contadores de la sala suman `openOverlaps`, y `GET /areas` entrega la ocupación vigente (`levels`, `axes`, `spans`, `systems`, `occupants` con `areas` y la huella `proposed` del PR abierto, y los `overlaps` vivos).
 
-Errores: `401` sin actor o clave inválida, `403 not_your_document`, `404 unknown_document` (o `not_found` para un `x-act-as` fuera del elenco), `409 already_ingested`, `409 lake_not_empty`, `409 seat_held`, `409 seat_taken`, `422 invalid_claims` (sujeto o atributo desconocido, o un espacio distinto al del documento; trae `issues`), `422 invalid_author` y `422 duplicate_revision` en la carga inicial, y `400` si el cuerpo no cumple la forma.
+**Carga inicial.** `POST /lake/seed` recibe `{ revisions: [ cuerpo de /revisions + authorId ] }` (los fragmentos pueden venir vacíos), solo con el lago vacío, y deja lo vigente confirmado con su procedencia. Los fragmentos de texto libre también los lee la API. Responde `201 { revisions, baseline }` y emite `lake.seeded`.
+
+Errores: `401` sin actor o clave inválida, `403 not_your_document`, `404 unknown_document` (o `not_found` para un `x-act-as` fuera del elenco), `409 already_ingested`, `409 lake_not_empty`, `409 seat_held`, `409 seat_taken`, `422 invalid_claims` (sujeto o atributo desconocido, o un espacio distinto al del documento; trae `issues`), `503 inference_unavailable` (el modelo no respondió al leer un fragmento de texto), `403 not_validator`, `422 invalid_author` y `422 duplicate_revision` en la carga inicial, y `400` si el cuerpo no cumple la forma.
 
 ## Tiempo real
 
@@ -307,19 +371,20 @@ El proyecto, el elenco, el grafo, los espacios, los sujetos, los atributos y el 
 
 ### La carga inicial
 
-Nueve documentos, todos al día, que dejan 15 valores vigentes confirmados:
+Diez documentos, todos al día, que dejan 16 valores vigentes confirmados:
 
-| Documento                         | Espacio  | Dueño    | Hechos                                                              |
-| --------------------------------- | -------- | -------- | ------------------------------------------------------------------- |
-| A-201 Fachada norte y shaft rev B | Drive    | Fernanda | Ventanas 120 × 150 cm, 24 unidades; shaft a 6 m                     |
-| E-102 Planta estructural N3 rev B | Drive    | Fernanda | Losas en 15 cm                                                      |
-| EETT-03 Hormigones rev A          | Drive    | Paula    | Losas en 15 cm                                                      |
-| Presupuesto itemizado v2          | Costos   | Daniela  | Cuatro precios unitarios; usa losa N3 en 15 cm y ventanas en 120 cm |
-| Carta Gantt v4                    | Costos   | Marcos   | Entrega a 108 días; usa losa N3 en 15 cm                            |
-| Cotización Q-118 rev 1            | Correo   | Quillay  | $185.000/m²; usa ventanas en 120 cm                                 |
-| Acta de coordinación 12           | Drive    | Fernanda | Entrega a 108 días                                                  |
-| Folio 41                          | Libro    | Marcos   | Shaft a 6 m                                                         |
-| Mensaje de WhatsApp               | WhatsApp | Marcos   | Ambienta, sin hechos de diseño                                      |
+| Documento                                              | Espacio  | Dueño    | Hechos                                                              |
+| ------------------------------------------------------ | -------- | -------- | ------------------------------------------------------------------- |
+| A-201 Fachada norte y shaft rev B                      | Drive    | Fernanda | Ventanas 120 × 150 cm, 24 unidades; shaft a 6 m                     |
+| E-102 Planta estructural N3 rev B                      | Drive    | Fernanda | Losas en 15 cm                                                      |
+| EETT-03 Hormigones rev A                               | Drive    | Paula    | Losas en 15 cm                                                      |
+| Presupuesto itemizado v2                               | Costos   | Daniela  | Cuatro precios unitarios; usa losa N3 en 15 cm y ventanas en 120 cm |
+| Carta Gantt v4                                         | Costos   | Marcos   | Entrega a 108 días; usa losa N3 en 15 cm                            |
+| Cotización Q-118 rev 1                                 | Correo   | Quillay  | $185.000/m²; usa ventanas en 120 cm                                 |
+| Acta de coordinación 12                                | Drive    | Fernanda | Entrega a 108 días                                                  |
+| Folio 41                                               | Libro    | Marcos   | Shaft a 6 m                                                         |
+| Mensaje de WhatsApp                                    | WhatsApp | Marcos   | Ambienta, sin hechos de diseño                                      |
+| IS-301 Plano de instalaciones sanitarias nivel 3 rev A | Drive    | Javier   | Colector B2 a 10 m del eje A (celda C-D/3 del nivel 3)              |
 
 El ETL la entrega por `POST /api/lake/seed`.
 
@@ -327,11 +392,12 @@ El ETL la entrega por `POST /api/lake/seed`.
 
 1. **Losa del nivel 3, de 15 a 20 cm** (E-102 rev C). Avisa a 4 de 7: Paula, Javier, Daniela y Marcos. Costo +$3.636.500 (+14 m³ de hormigón y +1.190 kg de acero) y +1 día en la ruta crítica. Camila, Tomás y Quillay no reciben nada. Al fusionarse quedan desfasados la EETT-03, el presupuesto v2 y la Carta Gantt v4.
 2. **Ventanas norte, de 120 a 150 cm** (el WhatsApp, luego el A-201 rev C). El WhatsApp abre una discrepancia solo para Fernanda; el plano la respalda y abre la propuesta: 4 de 7 (Quillay, Paula, Tomás y Daniela), +$1.998.000. Marcos queda filtrado: la instalación pasa de 4 a 5 días pero tiene 38 días de holgura y la entrega no se mueve. Al fusionarse, la cotización Q-118 rev 1 queda desfasada hasta la rev 2.
-3. **Shaft S1, de 6 a 8,5 m** (el folio 44, luego el A-201 rev D). El folio abre una discrepancia para Fernanda; el plano la respalda y, como las ventanas ya coinciden, abre solo la propuesta del shaft: 3 de 7 (Paula, Javier y Camila), sin costo ni plazo. Daniela y Marcos no reciben aviso.
+3. **Shaft S1, de 6 a 8,5 m** (el folio 44, luego el A-201 rev D). El folio abre una discrepancia para Fernanda; el plano la respalda y, como las ventanas ya coinciden, abre solo la propuesta del shaft: un hunk que cambia y las ventanas como contexto sin cambio, 3 de 7 (Paula, Javier y Camila), sin costo ni plazo. Daniela y Marcos no reciben aviso. Además, el shaft a 8,5 m cae en la celda C-D/3 del nivel 3, donde el IS-301 rev A pone el colector B2: se abre un solapamiento («nivel 3 · C-D/3 · sanitarias») que validan Fernanda y Javier, y la propuesta no entra aunque sus tres revisores aprueben.
+4. **Javier mueve el colector B2** (IS-301 rev B, a 13,5 m, celda D-E/3). Es una propuesta sin revisores. El solapamiento queda resuelto, la propuesta del colector entra sola y la del shaft, que ya tenía sus aprobaciones, entra con ella.
 
 ## Guion de 3 minutos
 
-1. **0:00 a 0:20. Contexto.** En `/sala`, Los Aromos con todo confirmado y 9 documentos al día. «Los planos están en el Drive, el presupuesto en una planilla, la cotización en el correo, las decisiones en un WhatsApp y un libro de obra. Nadie migró nada: leemos donde ya viven.» Se toca «15 cm» y la procedencia dice: plano E-102 rev B, Drive del proyecto, confirmado.
+1. **0:00 a 0:20. Contexto.** En `/sala`, Los Aromos con todo confirmado y 10 documentos al día. «Los planos están en el Drive, el presupuesto en una planilla, la cotización en el correo, las decisiones en un WhatsApp y un libro de obra. Nadie migró nada: leemos donde ya viven.» Se toca «15 cm» y la procedencia dice: plano E-102 rev B, Drive del proyecto, confirmado.
 2. **0:20 a 0:55. Un plano nuevo.** Paso 1: Fernanda sube el E-102 rev C. El telón marca «Losa N3: 20 cm, propuesto» y lo vigente sigue en 15 cm. +$3.636.500, +1 día, 4 de 7 avisados en su canal.
 3. **0:55 a 1:30. El consenso.** Daniela, Javier y Marcos aprueban. Paula disputa («Necesito 2 días…»): el valor queda en disputa y lo vigente no cambia. Fernanda pulsa «Reabrir con la observación»: solo Paula vuelve a estar pendiente. Aprueba y la losa pasa a 20 cm, versión 2.
 4. **1:30 a 1:55. Lo que quedó atrás.** «Pendientes de actualizar» lista la EETT, el presupuesto y la Carta Gantt, cada uno con su dueño. Daniela sube el presupuesto v3 y el índice sube.
@@ -378,17 +444,21 @@ Fernanda abre `/sala` en el proyector, `/presentador` en el notebook y `pnpm etl
 
 ## Glosario
 
-| Término             | Significado                                                                                              |
-| ------------------- | -------------------------------------------------------------------------------------------------------- |
-| Espacio             | Lugar donde ya vive la información; tiene un asiento dueño y el repositorio solo lo lee                  |
-| Documento           | Artefacto de identidad estable (plano, cotización, presupuesto, Carta Gantt, EETT, acta, mensaje, folio) |
-| Revisión            | Versión inmutable de un documento, con espacio, autor, fecha, hash y puntero al origen                   |
-| Hecho               | Afirmación extraída de una revisión sobre una propiedad de un elemento, con rol y localizador            |
-| Lo vigente          | Valor consolidado y consensuado de un hecho, con su procedencia e historial                              |
-| Propuesta de cambio | Diferencia con autoridad entre una revisión y lo vigente; se fusiona cuando todos sus revisores aprueban |
-| Discrepancia        | Valor distinto de lo vigente que viene de una fuente sin autoridad; avisa solo al dueño del valor        |
-| Desfase             | Un documento vigente dice o usa un valor distinto de lo vigente                                          |
-| Procedencia         | Cadena que responde de dónde salió un valor                                                              |
-| Asiento             | Persona fija del elenco que un dispositivo toma sin cuenta; si nadie lo toma, lo juega el ETL            |
-| Sala                | La muestra en vivo: asientos y eventos                                                                   |
-| Consenso            | Documentos al día sobre documentos totales; al completarse aparece «Obra consensuada»                    |
+| Término                                  | Significado                                                                                                                                                             |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Espacio                                  | Lugar donde ya vive la información; tiene un asiento dueño y el repositorio solo lo lee                                                                                 |
+| Documento                                | Artefacto de identidad estable (plano, cotización, presupuesto, Carta Gantt, EETT, acta, mensaje, folio)                                                                |
+| Revisión                                 | Versión inmutable de un documento, con espacio, autor, fecha, hash y puntero al origen                                                                                  |
+| Fragmento (`Chunk`)                      | La parte de una revisión que se compara por separado: una fila, un mensaje, un acuerdo, un parámetro                                                                    |
+| Hecho                                    | Afirmación extraída de un fragmento sobre una propiedad de un elemento, con rol, localizador y confianza                                                                |
+| Lo vigente                               | Valor consolidado y consensuado de un hecho, con su procedencia e historial                                                                                             |
+| Propuesta de cambio (`Proposal`)         | El PR de la obra: una por revisión con autoridad que cambia algo, con un hunk por cambio; se fusiona cuando todos sus revisores aprueban y no tiene solapamientos vivos |
+| Área (`AreaCell`) y huella (`footprint`) | Nivel, celda de la grilla y sistemas; y las áreas que ocupa un elemento según sus valores                                                                               |
+| Solapamiento (`Overlap`)                 | Un fragmento que toca el mismo elemento o la misma área que otro documento o que otro PR; abre una validación conjunta                                                  |
+| Validación conjunta (`Overlap.votes`)    | La decisión de los dueños de ambos lados: se tocan o no se tocan                                                                                                        |
+| Discrepancia                             | Valor distinto de lo vigente que viene de una fuente sin autoridad; avisa solo al dueño del valor                                                                       |
+| Desfase                                  | Un documento vigente dice o usa un valor distinto de lo vigente                                                                                                         |
+| Procedencia                              | Cadena que responde de dónde salió un valor                                                                                                                             |
+| Asiento                                  | Persona fija del elenco que un dispositivo toma sin cuenta; si nadie lo toma, lo juega el ETL                                                                           |
+| Sala                                     | La muestra en vivo: asientos y eventos                                                                                                                                  |
+| Consenso                                 | Documentos al día sobre documentos totales; al completarse aparece «Obra consensuada»                                                                                   |

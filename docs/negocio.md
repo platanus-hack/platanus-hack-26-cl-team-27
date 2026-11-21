@@ -82,31 +82,36 @@ Una misma persona puede ser autor de un cambio y afectada por otro.
 
 ## Glosario
 
-| Término      | En el código           | Qué es                                                                                                              |
-| ------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Proyecto     | `Project`              | La obra: los equipos, su software y las dependencias entre ellos                                                    |
-| Integración  | `Integration`          | La conexión con un software del proyecto (BIM, planificación, costos, gestión documental)                           |
-| Espacio      | `Space`                | Lugar donde ya vive la información: Drive, planillas de costos, correo, WhatsApp, libro de obra; tiene un dueño     |
-| Documento    | `documentId`           | Artefacto de identidad estable: plano, EETT, presupuesto, Carta Gantt, cotización, acta, mensaje, folio             |
-| Revisión     | `Revision`             | Versión inmutable de un documento, con espacio, autor, fecha, hash y puntero al origen                              |
-| Hecho        | `Claim`                | Lo que una revisión afirma (o usa) sobre una propiedad de un elemento, con su localizador de origen                 |
-| Lo vigente   | `BaselineEntry`        | El valor consolidado y consensuado de una propiedad, con su procedencia e historial                                 |
-| Cambio       | `Change`               | Una modificación de una decisión, elemento, especificación o condición, capturada en el documento de origen         |
-| Propuesta    | `Proposal`             | Una diferencia con autoridad entre una revisión y lo vigente; pasa a lo vigente cuando todos sus revisores aprueban |
-| Discrepancia | `Discrepancy`          | Un valor distinto de lo vigente que viene de una fuente sin autoridad; avisa solo al dueño del valor                |
-| Desfase      | `StaleDocument`        | Un documento vigente que dice o usa un valor distinto de lo vigente                                                 |
-| Procedencia  | `Provenance`           | La cadena que responde de dónde salió un valor: revisión, espacio, autor, propuesta y aprobaciones                  |
-| Consenso     | `ConsensusIndex`       | Documentos al día sobre documentos totales; al completarse, la obra queda consensuada                               |
-| Dependencia  | `Dependency`           | La relación por la que el trabajo de un equipo depende de un elemento o una decisión de otro                        |
-| Partida      | `BudgetItem`           | Una línea del presupuesto: cantidad de un tipo de elemento por un precio unitario                                   |
-| Tarea        | `Task`                 | Una faena del plan, con su duración y las tareas que deben terminar antes                                           |
-| Holgura      | `floatDays`            | Los días que una tarea puede atrasarse sin mover la entrega; en la ruta crítica es cero                             |
-| Impacto      | `Impact`               | Lo que un cambio afecta: elementos, decisiones y equipos, con su costo y plazo estimados                            |
-| Hallazgo     | `Finding`              | Lo que un impacto significa para un afectado: qué le cambia, sus números y qué debería hacer                        |
-| Afectado     | `Stakeholder`          | Un equipo o persona alcanzada por el impacto de un cambio                                                           |
-| Canal        | `Channel`              | Donde el afectado recibe la notificación: correo, Slack/Teams, WhatsApp o la propia herramienta                     |
-| Notificación | `Notification`         | El aviso a un afectado: resumen del cambio, impacto estimado en costo y plazo, y enlace al detalle                  |
-| Respuesta    | `NotificationResponse` | Lo que el afectado contesta a una notificación: revisado o tengo un problema, con una nota opcional                 |
+| Término             | En el código           | Qué es                                                                                                                                                                         |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Proyecto            | `Project`              | La obra: los equipos, su software y las dependencias entre ellos                                                                                                               |
+| Integración         | `Integration`          | La conexión con un software del proyecto (BIM, planificación, costos, gestión documental)                                                                                      |
+| Espacio             | `Space`                | Lugar donde ya vive la información: Drive, planillas de costos, correo, WhatsApp, libro de obra; tiene un dueño                                                                |
+| Documento           | `documentId`           | Artefacto de identidad estable: plano, EETT, presupuesto, Carta Gantt, cotización, acta, mensaje, folio                                                                        |
+| Revisión            | `Revision`             | Versión inmutable de un documento, con espacio, autor, fecha, hash y puntero al origen                                                                                         |
+| Fragmento           | `Chunk`                | La parte de una revisión que se compara por separado: una fila, un mensaje, un acuerdo, un parámetro de Revit                                                                  |
+| Hecho               | `Claim`                | Lo que un fragmento afirma (o usa) sobre una propiedad de un elemento, con su localizador de origen y su confianza                                                             |
+| Lo vigente          | `BaselineEntry`        | El valor consolidado y consensuado de una propiedad, con su procedencia e historial                                                                                            |
+| Cambio              | `Change`               | Una modificación de una decisión, elemento, especificación o condición, capturada en el documento de origen                                                                    |
+| Propuesta           | `Proposal`             | El PR de la obra: una por revisión con autoridad que cambia algo, con un hunk por cambio; pasa a lo vigente cuando todos sus revisores aprueban y no tiene solapamientos vivos |
+| Área                | `AreaCell`             | Nivel, celda de la grilla de ejes y sistemas: dónde está algo en la obra                                                                                                       |
+| Huella              | `footprint`            | Las áreas que ocupa un elemento según sus valores vigentes o propuestos                                                                                                        |
+| Solapamiento        | `Overlap`              | Un fragmento que toca el mismo elemento o la misma área que otro documento o que otra propuesta                                                                                |
+| Validación conjunta | `Overlap.votes`        | La decisión de los dueños de ambos lados de un solapamiento: se tocan o no se tocan; mientras no se resuelva, la propuesta no entra                                            |
+| Discrepancia        | `Discrepancy`          | Un valor distinto de lo vigente que viene de una fuente sin autoridad; avisa solo al dueño del valor                                                                           |
+| Desfase             | `StaleDocument`        | Un documento vigente que dice o usa un valor distinto de lo vigente                                                                                                            |
+| Procedencia         | `Provenance`           | La cadena que responde de dónde salió un valor: revisión, espacio, autor, propuesta y aprobaciones                                                                             |
+| Consenso            | `ConsensusIndex`       | Documentos al día sobre documentos totales; al completarse, la obra queda consensuada                                                                                          |
+| Dependencia         | `Dependency`           | La relación por la que el trabajo de un equipo depende de un elemento o una decisión de otro                                                                                   |
+| Partida             | `BudgetItem`           | Una línea del presupuesto: cantidad de un tipo de elemento por un precio unitario                                                                                              |
+| Tarea               | `Task`                 | Una faena del plan, con su duración y las tareas que deben terminar antes                                                                                                      |
+| Holgura             | `floatDays`            | Los días que una tarea puede atrasarse sin mover la entrega; en la ruta crítica es cero                                                                                        |
+| Impacto             | `Impact`               | Lo que un cambio afecta: elementos, decisiones y equipos, con su costo y plazo estimados                                                                                       |
+| Hallazgo            | `Finding`              | Lo que un impacto significa para un afectado: qué le cambia, sus números y qué debería hacer                                                                                   |
+| Afectado            | `Stakeholder`          | Un equipo o persona alcanzada por el impacto de un cambio                                                                                                                      |
+| Canal               | `Channel`              | Donde el afectado recibe la notificación: correo, Slack/Teams, WhatsApp o la propia herramienta                                                                                |
+| Notificación        | `Notification`         | El aviso a un afectado: resumen del cambio, impacto estimado en costo y plazo, y enlace al detalle                                                                             |
+| Respuesta           | `NotificationResponse` | Lo que el afectado contesta a una notificación: revisado o tengo un problema, con una nota opcional                                                                            |
 
 ## Modelo de negocio
 

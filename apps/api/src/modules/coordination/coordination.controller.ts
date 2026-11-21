@@ -21,7 +21,11 @@ import {
   SeatsService,
 } from '../room/seats.service.ts';
 import { CoordinationService } from './coordination.service.ts';
-import { type ProposalFilter, QueryService } from './query.service.ts';
+import {
+  type OverlapFilter,
+  type ProposalFilter,
+  QueryService,
+} from './query.service.ts';
 import {
   type RevisionInput,
   revisionBody,
@@ -49,6 +53,17 @@ const proposalsQuery = z.object({
   status: z
     .enum(['open', 'disputed', 'merged', 'withdrawn', 'replaced', 'active'])
     .optional(),
+});
+
+const overlapsQuery = z.object({
+  status: z
+    .enum(['abierto', 'descartado', 'confirmado', 'resuelto', 'activo'])
+    .optional(),
+});
+
+const overlapVoteBody = z.object({
+  kind: z.enum(['se_tocan', 'no_se_tocan']),
+  note: z.string().max(MAX_NOTE_LENGTH).nullish(),
 });
 
 const changesQuery = z.object({
@@ -143,6 +158,35 @@ export class CoordinationController {
   ) {
     const status: ProposalFilter | undefined = query.status;
     return this.queries.proposalList(status);
+  }
+
+  @Get('overlaps')
+  overlaps(
+    @Query({ schema: overlapsQuery }) query: z.output<typeof overlapsQuery>,
+  ) {
+    const status: OverlapFilter | undefined = query.status;
+    return this.queries.overlapList(status);
+  }
+
+  @Get('areas')
+  areas() {
+    return this.queries.areas();
+  }
+
+  @Post('overlaps/:id/vote')
+  @HttpCode(HttpStatus.OK)
+  async voteOverlap(
+    @Param('id', { schema: uuid }) id: string,
+    @Body({ schema: overlapVoteBody }) body: z.output<typeof overlapVoteBody>,
+    @SeatCredentials() credentials: Credentials,
+    @Headers('x-action-id') actionId: string | undefined,
+  ) {
+    return this.coordination.voteOverlap({
+      seat: await this.seats.actor(credentials),
+      overlapId: id,
+      vote: body,
+      actionId,
+    });
   }
 
   @Post('notifications/:id/response')

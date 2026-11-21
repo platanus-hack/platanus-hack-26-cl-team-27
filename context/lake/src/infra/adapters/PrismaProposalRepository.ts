@@ -9,6 +9,7 @@ import type {
   FilteredReviewer,
   Proposal,
   ProposalChange,
+  ProposalContext,
   ProposalStatus,
 } from '../../domain/Proposal.ts';
 import { toJson } from './json.ts';
@@ -18,10 +19,12 @@ type ProposalRow = Prisma.ProposalGetPayload<{ include: { reviews: true } }>;
 const toProposal = (row: ProposalRow): Proposal => ({
   id: row.id,
   changeId: row.changeId,
-  subject: row.subject,
+  changeIds: row.changeIds as unknown as string[],
+  documentId: row.documentId,
   sourceRevisionId: row.sourceRevisionId,
   authorId: row.authorId,
   changes: row.changes as unknown as ProposalChange[],
+  context: row.context as unknown as ProposalContext[],
   status: row.status as ProposalStatus,
   reviews: [...row.reviews]
     .sort((a, b) => a.reviewerId.localeCompare(b.reviewerId))
@@ -48,10 +51,12 @@ export class PrismaProposalRepository implements ProposalRepository {
     const row = await this.prisma.proposal.create({
       data: {
         changeId: proposal.changeId,
-        subject: proposal.subject,
+        changeIds: toJson(proposal.changeIds),
+        documentId: proposal.documentId,
         sourceRevisionId: proposal.sourceRevisionId,
         authorId: proposal.authorId,
         changes: toJson(proposal.changes),
+        context: toJson(proposal.context),
         filtered: toJson(proposal.filtered),
         status: 'open',
         openedAt: proposal.openedAt,

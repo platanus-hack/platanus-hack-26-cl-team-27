@@ -1,14 +1,14 @@
 import type { FactExtractor } from '../../application/ports/FactExtractor.ts';
-import type { ClaimDraft } from '../../domain/Claim.ts';
+import type { ChunkDraft } from '../../domain/Chunk.ts';
 
 export class InlineFactExtractor implements FactExtractor {
-  private readonly claims: readonly ClaimDraft[];
+  private readonly chunks: readonly ChunkDraft[];
 
-  constructor(claims: readonly ClaimDraft[]) {
-    this.claims = claims;
+  constructor(chunks: readonly ChunkDraft[]) {
+    this.chunks = chunks;
   }
 
-  extract(): Promise<ClaimDraft[]> {
-    return Promise.resolve([...this.claims]);
+  extract(): Promise<ChunkDraft[]> {
+    return Promise.resolve([...this.chunks]);
   }
 }

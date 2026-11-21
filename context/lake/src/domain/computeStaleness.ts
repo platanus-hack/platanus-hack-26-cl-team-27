@@ -60,14 +60,13 @@ export const computeStaleness = (input: StalenessInput): StaleDocument[] => {
   );
   const active = input.proposals.filter(isActive);
   const belongsToProposal = (claim: Claim): boolean =>
-    active.some(
-      (proposal) =>
-        proposal.subject === claim.subject &&
-        proposal.changes.some(
-          (change) =>
-            change.attribute === claim.attribute &&
-            change.after === claim.value,
-        ),
+    active.some((proposal) =>
+      proposal.changes.some(
+        (change) =>
+          change.subject === claim.subject &&
+          change.attribute === claim.attribute &&
+          change.after === claim.value,
+      ),
     );
 
   const result: StaleDocument[] = [];

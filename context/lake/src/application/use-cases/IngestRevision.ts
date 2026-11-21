@@ -1,12 +1,16 @@
-import type { Claim, ClaimDraft } from '../../domain/Claim.ts';
+import { CHUNK_KINDS } from '../../domain/Chunk.ts';
+import type { Chunk, ChunkDraft } from '../../domain/Chunk.ts';
+import type { Claim } from '../../domain/Claim.ts';
 import { classifyClaims } from '../../domain/classifyClaims.ts';
 import type { ClaimOutcome } from '../../domain/classifyClaims.ts';
 import type { Discrepancy } from '../../domain/Discrepancy.ts';
-import { groupBySubject } from '../../domain/groupBySubject.ts';
+import { buildProposalDraft } from '../../domain/buildProposalDraft.ts';
 import type { ProposalDraft } from '../../domain/Proposal.ts';
 import type { Revision, RevisionDraft } from '../../domain/Revision.ts';
 import { ValidationError } from '../errors.ts';
+import { persistChunks } from '../persistChunks.ts';
 import type { BaselineRepository } from '../ports/BaselineRepository.ts';
+import type { ChunkRepository } from '../ports/ChunkRepository.ts';
 import type { ClaimRepository } from '../ports/ClaimRepository.ts';
 import type { DiscrepancyRepository } from '../ports/DiscrepancyRepository.ts';
 import type { FactExtractor } from '../ports/FactExtractor.ts';
@@ -16,16 +20,27 @@ import type { RevisionRepository } from '../ports/RevisionRepository.ts';
 export interface IngestedRevision {
   readonly revision: Revision;
   readonly alreadyIngested: boolean;
+  readonly chunks: readonly Chunk[];
   readonly claims: readonly Claim[];
   readonly outcomes: readonly ClaimOutcome[];
-  readonly drafts: readonly ProposalDraft[];
+  readonly draft: ProposalDraft | null;
   readonly openedDiscrepancies: readonly Discrepancy[];
   readonly backedDiscrepancies: readonly Discrepancy[];
 }
 
-const validate = (claims: readonly ClaimDraft[]): void => {
+const validate = (chunks: readonly ChunkDraft[]): void => {
   const seen = new Set<string>();
-  for (const claim of claims) {
+  for (const chunk of chunks) {
+    if (!chunk.locator.trim()) {
+      throw new ValidationError('Cada fragmento necesita un localizador');
+    }
+    if (!CHUNK_KINDS.includes(chunk.kind)) {
+      throw new ValidationError(
+        `El fragmento ${chunk.locator} tiene un tipo desconocido`,
+      );
+    }
+  }
+  for (const claim of chunks.flatMap((chunk) => chunk.claims)) {
     if (!claim.subject || !claim.attribute) {
       throw new ValidationError('Cada hecho necesita sujeto y atributo');
     }
@@ -41,6 +56,7 @@ const validate = (claims: readonly ClaimDraft[]): void => {
 
 export class IngestRevision {
   private readonly revisions: RevisionRepository;
+  private readonly chunks: ChunkRepository;
   private readonly claims: ClaimRepository;
   private readonly baseline: BaselineRepository;
   private readonly proposals: ProposalRepository;
@@ -49,6 +65,7 @@ export class IngestRevision {
 
   constructor(
     revisions: RevisionRepository,
+    chunks: ChunkRepository,
     claims: ClaimRepository,
     baseline: BaselineRepository,
     proposals: ProposalRepository,
@@ -56,6 +73,7 @@ export class IngestRevision {
     extractor: FactExtractor,
   ) {
     this.revisions = revisions;
+    this.chunks = chunks;
     this.claims = claims;
     this.baseline = baseline;
     this.proposals = proposals;
@@ -72,9 +90,10 @@ export class IngestRevision {
       return {
         revision: existing,
         alreadyIngested: true,
+        chunks: [],
         claims: [],
         outcomes: [],
-        drafts: [],
+        draft: null,
         openedDiscrepancies: [],
         backedDiscrepancies: [],
       };
@@ -83,7 +102,12 @@ export class IngestRevision {
     const extracted = await this.extractor.extract(input);
     validate(extracted);
     const revision = await this.revisions.save(input);
-    const claims = await this.claims.saveMany(revision.id, extracted);
+    const { chunks, claims } = await persistChunks(
+      this.chunks,
+      this.claims,
+      revision.id,
+      extracted,
+    );
 
     const [baseline, proposals, openDiscrepancies] = await Promise.all([
       this.baseline.list(),
@@ -92,12 +116,14 @@ export class IngestRevision {
     ]);
     const outcomes = classifyClaims({
       kind: revision.kind,
+      documentId: revision.documentId,
       claims,
       baseline,
       proposals,
       discrepancies: openDiscrepancies,
     });
-    const drafts = groupBySubject(outcomes, baseline, {
+    const draft = buildProposalDraft(outcomes, baseline, {
+      documentId: revision.documentId,
       revisionId: revision.id,
       authorId: revision.authorId,
     });
@@ -165,9 +191,10 @@ export class IngestRevision {
     return {
       revision,
       alreadyIngested: false,
+      chunks,
       claims,
       outcomes,
-      drafts,
+      draft,
       openedDiscrepancies,
       backedDiscrepancies,
     };

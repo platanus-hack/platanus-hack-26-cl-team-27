@@ -1,0 +1,11 @@
+[
+  {
+    "subject": "ventanas-norte",
+    "attribute": "ancho_cm",
+    "value": 150,
+    "unit": "cm",
+    "role": "afirma",
+    "locator": "mensaje de las 14:32",
+    "confidence": 0.9
+  }
+]

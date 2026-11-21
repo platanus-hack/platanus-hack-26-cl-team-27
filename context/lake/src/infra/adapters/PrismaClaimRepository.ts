@@ -1,12 +1,10 @@
 import type { Prisma, PrismaClient } from '@team27/data-main';
 
-import type { ClaimRepository } from '../../application/ports/ClaimRepository.ts';
 import type {
-  Claim,
-  ClaimDraft,
-  ClaimRole,
-  ClaimValue,
-} from '../../domain/Claim.ts';
+  ClaimInsert,
+  ClaimRepository,
+} from '../../application/ports/ClaimRepository.ts';
+import type { Claim, ClaimRole, ClaimValue } from '../../domain/Claim.ts';
 import { toJson } from './json.ts';
 
 type ClaimRow = Prisma.ClaimGetPayload<object>;
@@ -20,6 +18,8 @@ const toClaim = (row: ClaimRow): Claim => ({
   unit: row.unit,
   role: row.role as ClaimRole,
   locator: row.locator,
+  chunkId: row.chunkId,
+  confidence: row.confidence,
 });
 
 export class PrismaClaimRepository implements ClaimRepository {
@@ -31,10 +31,10 @@ export class PrismaClaimRepository implements ClaimRepository {
 
   async saveMany(
     revisionId: string,
-    drafts: readonly ClaimDraft[],
+    inserts: readonly ClaimInsert[],
   ): Promise<Claim[]> {
     const rows = await this.prisma.$transaction(
-      drafts.map((draft) =>
+      inserts.map((draft) =>
         this.prisma.claim.create({
           data: {
             revisionId,
@@ -44,6 +44,8 @@ export class PrismaClaimRepository implements ClaimRepository {
             unit: draft.unit,
             role: draft.role,
             locator: draft.locator,
+            chunkId: draft.chunkId,
+            confidence: draft.confidence ?? null,
           },
         }),
       ),

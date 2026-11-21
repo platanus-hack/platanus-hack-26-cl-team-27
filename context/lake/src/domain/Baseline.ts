@@ -1,6 +1,6 @@
 import type { Claim, ClaimValue } from './Claim.ts';
 import type { Proposal } from './Proposal.ts';
-import { isActive } from './Proposal.ts';
+import { isActive, touches } from './Proposal.ts';
 
 export interface BaselineEntry {
   readonly subject: string;
@@ -37,9 +37,7 @@ export const touchingProposals = (
 ): Proposal[] =>
   proposals.filter(
     (proposal) =>
-      isActive(proposal) &&
-      proposal.subject === entry.subject &&
-      proposal.changes.some((change) => change.attribute === entry.attribute),
+      isActive(proposal) && touches(proposal, entry.subject, entry.attribute),
   );
 
 export const valueStatus = (

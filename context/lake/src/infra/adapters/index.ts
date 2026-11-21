@@ -1,7 +1,9 @@
 export { InlineFactExtractor } from './InlineFactExtractor.ts';
 export { PrismaAcknowledgementRepository } from './PrismaAcknowledgementRepository.ts';
 export { PrismaBaselineRepository } from './PrismaBaselineRepository.ts';
+export { PrismaChunkRepository } from './PrismaChunkRepository.ts';
 export { PrismaClaimRepository } from './PrismaClaimRepository.ts';
 export { PrismaDiscrepancyRepository } from './PrismaDiscrepancyRepository.ts';
+export { PrismaOverlapRepository } from './PrismaOverlapRepository.ts';
 export { PrismaProposalRepository } from './PrismaProposalRepository.ts';
 export { PrismaRevisionRepository } from './PrismaRevisionRepository.ts';

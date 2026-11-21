@@ -6,8 +6,15 @@ import { IngestRevision } from '../src/application/use-cases/IngestRevision.ts';
 import { ListStale } from '../src/application/use-cases/ListStale.ts';
 import { OpenProposal } from '../src/application/use-cases/OpenProposal.ts';
 import { RecordReview } from '../src/application/use-cases/RecordReview.ts';
+import { ListOverlaps } from '../src/application/use-cases/ListOverlaps.ts';
+import { OpenOverlaps } from '../src/application/use-cases/OpenOverlaps.ts';
+import { ResolveOverlaps } from '../src/application/use-cases/ResolveOverlaps.ts';
+import { SettleOverlaps } from '../src/application/use-cases/SettleOverlaps.ts';
+import { VoteOverlap } from '../src/application/use-cases/VoteOverlap.ts';
+import { WithdrawProposal } from '../src/application/use-cases/WithdrawProposal.ts';
 import { SeedLake } from '../src/application/use-cases/SeedLake.ts';
 import type { ClaimDraft } from '../src/domain/Claim.ts';
+import { footprintModel } from './footprints.ts';
 import type { DocumentKind } from '../src/domain/DocumentKind.ts';
 import type { RevisionDraft } from '../src/domain/Revision.ts';
 
@@ -48,18 +55,45 @@ export const draftOf = (
 
 export const buildLake = (catalog: Record<string, ClaimDraft[]> = {}) => {
   const lake: FakeLake = fakeLake(catalog);
+  const resolve = new ResolveOverlaps(
+    lake.baseline,
+    lake.proposals,
+    lake.overlaps,
+    footprintModel,
+  );
   return {
     lake,
+    resolve,
+    settle: new SettleOverlaps(
+      lake.proposals,
+      lake.baseline,
+      lake.overlaps,
+      resolve,
+    ),
+    openOverlaps: new OpenOverlaps(
+      lake.revisions,
+      lake.claims,
+      lake.baseline,
+      lake.proposals,
+      lake.overlaps,
+      footprintModel,
+    ),
+    voteOverlap: new VoteOverlap(lake.overlaps),
+    listOverlaps: new ListOverlaps(lake.overlaps),
+    withdraw: new WithdrawProposal(lake.proposals),
     seed: new SeedLake(
       lake.revisions,
+      lake.chunks,
       lake.claims,
       lake.baseline,
       lake.proposals,
       lake.discrepancies,
       lake.acknowledgements,
+      lake.overlaps,
     ),
     ingest: new IngestRevision(
       lake.revisions,
+      lake.chunks,
       lake.claims,
       lake.baseline,
       lake.proposals,
@@ -67,7 +101,7 @@ export const buildLake = (catalog: Record<string, ClaimDraft[]> = {}) => {
       lake.extractor,
     ),
     open: new OpenProposal(lake.proposals, lake.baseline),
-    review: new RecordReview(lake.proposals, lake.baseline),
+    review: new RecordReview(lake.proposals, lake.baseline, lake.overlaps),
     stale: new ListStale(
       lake.revisions,
       lake.claims,
@@ -89,6 +123,7 @@ export const buildLake = (catalog: Record<string, ClaimDraft[]> = {}) => {
       lake.proposals,
       lake.discrepancies,
       lake.acknowledgements,
+      lake.overlaps,
     ),
   };
 };

@@ -95,6 +95,11 @@ export const SUBJECTS: readonly SubjectDef[] = [
     name: 'Shaft de instalaciones S1',
     section: 'instalaciones',
   },
+  {
+    id: 'colector-b2',
+    name: 'Colector sanitario B2',
+    section: 'instalaciones',
+  },
   { id: 'ventanas-norte', name: 'Ventanas fachada norte', section: 'fachada' },
   ...PRICE_ITEMS.map(([id, name]): SubjectDef => ({
     id,
@@ -103,6 +108,43 @@ export const SUBJECTS: readonly SubjectDef[] = [
   })),
   { id: 'proyecto', name: 'Proyecto', section: 'plazo' },
 ];
+
+export interface SubjectAttributeDef {
+  readonly key: string;
+  readonly unit: string | null;
+}
+
+const PRICE_UNITS: Readonly<Record<string, string>> = Object.fromEntries(
+  PRICE_ITEMS.map(([id, , , unit]) => [id, unit]),
+);
+
+export const SUBJECT_ATTRIBUTES: Readonly<
+  Record<string, readonly SubjectAttributeDef[]>
+> = {
+  ...Object.fromEntries(
+    SLAB_IDS.map(([id]) => [id, [{ key: 'espesor_cm', unit: 'cm' }]]),
+  ),
+  'shaft-s1': [
+    { key: 'posicion_m', unit: 'm' },
+    { key: 'ancho_cm', unit: 'cm' },
+  ],
+  'colector-b2': [{ key: 'posicion_m', unit: 'm' }],
+  'ventanas-norte': [
+    { key: 'ancho_cm', unit: 'cm' },
+    { key: 'alto_cm', unit: 'cm' },
+    { key: 'cantidad', unit: null },
+  ],
+  ...Object.fromEntries(
+    PRICE_ITEMS.map(([id]) => [
+      id,
+      [{ key: 'precio_unitario', unit: PRICE_UNITS[id] ?? null }],
+    ]),
+  ),
+  proyecto: [
+    { key: 'entrega_dias', unit: 'días' },
+    { key: 'duracion_dias', unit: 'días' },
+  ],
+};
 
 export const ATTRIBUTES: readonly AttributeDef[] = [
   { key: 'espesor_cm', label: 'Espesor' },
@@ -129,6 +171,13 @@ export const DOCUMENTS: readonly DocumentDef[] = [
     kind: 'plano',
     spaceId: 'drive-proyecto',
     ownerId: 'fernanda-lagos',
+  },
+  {
+    id: 'is301',
+    name: 'IS-301 Plano de instalaciones sanitarias nivel 3',
+    kind: 'plano',
+    spaceId: 'drive-proyecto',
+    ownerId: 'javier-munoz',
   },
   {
     id: 'eett03',

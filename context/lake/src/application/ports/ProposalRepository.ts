@@ -2,15 +2,18 @@ import type {
   FilteredReviewer,
   Proposal,
   ProposalChange,
+  ProposalContext,
   ProposalStatus,
 } from '../../domain/Proposal.ts';
 
 export interface NewProposal {
   readonly changeId: string | null;
-  readonly subject: string;
+  readonly changeIds: readonly string[];
+  readonly documentId: string;
   readonly sourceRevisionId: string;
   readonly authorId: string;
   readonly changes: readonly ProposalChange[];
+  readonly context: readonly ProposalContext[];
   readonly reviewerIds: readonly string[];
   readonly filtered: readonly FilteredReviewer[];
   readonly openedAt: Date;

@@ -219,6 +219,29 @@ describe('minuta de Revit', () => {
     expect(claims.map((claim) => claim.value)).toEqual([20, 6, 80.1]);
   });
 
+  it('cada parámetro cambiado es un fragmento con su localizador y su hecho', () => {
+    const { chunks, claims } = mapMinute(
+      withChanges([
+        { after: 20 },
+        { subjectId: 'shaft-s1', attribute: 'ancho_cm', after: 90 },
+      ]),
+      'x',
+    );
+
+    expect(chunks).toHaveLength(2);
+    expect(chunks.map((chunk) => chunk.kind)).toEqual([
+      'parametro',
+      'parametro',
+    ]);
+    expect(chunks.map((chunk) => chunk.claims)).toEqual(
+      claims.map((claim) => [claim]),
+    );
+    expect(chunks.map((chunk) => chunk.locator)).toEqual(
+      claims.map((claim) => claim.locator),
+    );
+    expect(chunks.every((chunk) => chunk.text === null)).toBe(true);
+  });
+
   it('separa lo que entra de lo que no', () => {
     const { claims, ignored } = mapMinute(
       withChanges([{ after: 20 }, { subjectId: 'proyecto' }]),

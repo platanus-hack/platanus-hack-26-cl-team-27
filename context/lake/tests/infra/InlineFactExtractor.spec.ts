@@ -1,9 +1,10 @@
 import type { FactExtractor } from '../../src/application/ports/FactExtractor.ts';
 import { InlineFactExtractor } from '../../src/infra/adapters/InlineFactExtractor.ts';
+import { chunksFromClaims } from '../../src/domain/Chunk.ts';
 import { afirma, draftOf } from '../scenario.ts';
 
 describe('InlineFactExtractor', () => {
-  const claims = [afirma('losa-n3', 'espesor_cm', 20)];
+  const claims = chunksFromClaims([afirma('losa-n3', 'espesor_cm', 20)]);
   const extractor: FactExtractor = new InlineFactExtractor(claims);
 
   it('entrega los hechos que ya trae la revisión, sea cual sea', async () => {

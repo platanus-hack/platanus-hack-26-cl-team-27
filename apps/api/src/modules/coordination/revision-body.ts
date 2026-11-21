@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
-import type { ClaimDraft } from '@team27/context-lake';
+import { CHUNK_KINDS, chunksFromClaims } from '@team27/context-lake';
+import type { ChunkKind, ClaimDraft } from '@team27/context-lake';
 import { z } from 'zod';
 
 import {
@@ -19,6 +20,28 @@ const claimBody = z.object({
   locator: z.string().min(1).max(200),
 });
 
+const chunkClaimBody = z.object({
+  subject: z.string().min(1).max(64),
+  attribute: z.string().min(1).max(64),
+  value: z.union([z.number().finite(), z.string().min(1).max(200)]),
+  unit: z.string().min(1).max(16).nullable(),
+  role: z.enum(['afirma', 'usa']),
+  locator: z.string().min(1).max(200).optional(),
+  confidence: z.number().min(0).max(1).nullish(),
+});
+
+const chunkBody = z
+  .object({
+    locator: z.string().trim().min(1).max(200),
+    kind: z.enum(CHUNK_KINDS),
+    text: z.string().trim().min(1).max(4000).optional(),
+    claims: z.array(chunkClaimBody).max(200).optional(),
+  })
+  .refine((chunk) => chunk.text !== undefined || chunk.claims !== undefined, {
+    message: 'El fragmento necesita texto o hechos',
+    path: ['text'],
+  });
+
 const baseFields = {
   documentId: z.string().min(1).max(64),
   label: z.string().trim().min(1).max(64),
@@ -32,10 +55,21 @@ const baseFields = {
 
 const claims = z.array(claimBody).max(500);
 
-export const revisionBody = z.object({
-  ...baseFields,
-  claims: claims.min(1),
-});
+const chunks = z.array(chunkBody).max(500);
+
+const hasContent = (body: { chunks?: unknown[]; claims?: unknown[] }) =>
+  (body.chunks?.length ?? 0) + (body.claims?.length ?? 0) > 0;
+
+export const revisionBody = z
+  .object({
+    ...baseFields,
+    chunks: chunks.optional(),
+    claims: claims.optional(),
+  })
+  .refine(hasContent, {
+    message: 'La revisión necesita al menos un fragmento',
+    path: ['chunks'],
+  });
 
 export const seedBody = z.object({
   revisions: z
@@ -43,7 +77,8 @@ export const seedBody = z.object({
       z.object({
         ...baseFields,
         authorId: z.string().min(1).max(64),
-        claims,
+        chunks: chunks.optional(),
+        claims: claims.optional(),
       }),
     )
     .min(1)
@@ -70,23 +105,61 @@ export const knownDocument = (documentId: string): DocumentDef => {
   return found;
 };
 
+export interface RawChunk {
+  readonly locator: string;
+  readonly kind: ChunkKind;
+  readonly text?: string | undefined;
+  readonly claims?: readonly ClaimDraft[] | undefined;
+}
+
+export const rawChunksOf = (
+  input: Pick<RevisionInput, 'chunks' | 'claims'>,
+): RawChunk[] => [
+  ...(input.chunks ?? []).map((chunk): RawChunk => ({
+    locator: chunk.locator,
+    kind: chunk.kind,
+    text: chunk.text,
+    claims: chunk.claims?.map((claim) => ({
+      subject: claim.subject,
+      attribute: claim.attribute,
+      value: claim.value,
+      unit: claim.unit,
+      role: claim.role,
+      locator: chunk.locator,
+      confidence: claim.confidence ?? null,
+    })),
+  })),
+  ...chunksFromClaims((input.claims ?? []).map((claim) => ({ ...claim }))).map(
+    (chunk): RawChunk => ({
+      locator: chunk.locator,
+      kind: chunk.kind,
+      claims: chunk.claims,
+    }),
+  ),
+];
+
 export const checkRevision = (
-  input: Pick<RevisionInput, 'spaceId' | 'claims'>,
+  input: Pick<RevisionInput, 'spaceId' | 'chunks' | 'claims'>,
   document: DocumentDef,
-): ClaimDraft[] => {
+): RawChunk[] => {
   const issues: string[] = [];
   if (input.spaceId !== document.spaceId) {
     issues.push(
       `${document.name} vive en el espacio ${document.spaceId}, no en ${input.spaceId}`,
     );
   }
-  input.claims.forEach((claim, index) => {
-    if (!subjectIds.has(claim.subject)) {
-      issues.push(`claims[${index}]: no existe el sujeto ${claim.subject}`);
-    }
-    if (!attributeKeys.has(claim.attribute)) {
-      issues.push(`claims[${index}]: no existe el atributo ${claim.attribute}`);
-    }
+  const chunks = rawChunksOf(input);
+  chunks.forEach((chunk, index) => {
+    (chunk.claims ?? []).forEach((claim) => {
+      if (!subjectIds.has(claim.subject)) {
+        issues.push(`chunks[${index}]: no existe el sujeto ${claim.subject}`);
+      }
+      if (!attributeKeys.has(claim.attribute)) {
+        issues.push(
+          `chunks[${index}]: no existe el atributo ${claim.attribute}`,
+        );
+      }
+    });
   });
   if (issues.length > 0) {
     throw new HttpException(
@@ -98,7 +171,7 @@ export const checkRevision = (
       HttpStatus.UNPROCESSABLE_ENTITY,
     );
   }
-  return input.claims.map((claim) => ({ ...claim }));
+  return chunks;
 };
 
 export const checkAuthor = (authorId: string): void => {

@@ -9,11 +9,14 @@ export interface ClaimDraft {
   readonly unit: string | null;
   readonly role: ClaimRole;
   readonly locator: string;
+  readonly confidence?: number | null;
 }
 
 export interface Claim extends ClaimDraft {
   readonly id: string;
   readonly revisionId: string;
+  readonly chunkId: string | null;
+  readonly confidence: number | null;
 }
 
 export const sameValue = (a: ClaimValue, b: ClaimValue): boolean => a === b;

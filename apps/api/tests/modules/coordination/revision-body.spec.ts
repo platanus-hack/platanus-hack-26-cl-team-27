@@ -37,16 +37,94 @@ const issuesOf = (overrides: Record<string, unknown>): string[] => {
 };
 
 describe('cuerpo de una revisión', () => {
-  it('acepta una revisión válida y devuelve sus hechos', () => {
+  it('acepta una revisión válida y devuelve sus hechos como un fragmento implícito', () => {
     const input = parse();
 
-    expect(checkRevision(input, knownDocument('e102'))).toEqual(input.claims);
+    expect(checkRevision(input, knownDocument('e102'))).toEqual([
+      {
+        locator: 'cuadro de losas rev C',
+        kind: 'fila',
+        claims: input.claims,
+      },
+    ]);
   });
 
-  it('exige hechos, un hash sha256 válido y roles conocidos', () => {
+  it('el fragmento implícito agrupa los hechos que comparten localizador', () => {
+    const input = parse({
+      claims: [
+        valid.claims[0],
+        { ...valid.claims[0], attribute: 'ancho_cm' },
+        { ...valid.claims[0], locator: 'otro cuadro' },
+      ],
+    });
+
+    expect(
+      checkRevision(input, knownDocument('e102')).map((chunk) => [
+        chunk.locator,
+        chunk.claims?.length,
+      ]),
+    ).toEqual([
+      ['cuadro de losas rev C', 2],
+      ['otro cuadro', 1],
+    ]);
+  });
+
+  it('acepta fragmentos estructurados y de texto libre', () => {
+    const input = parse({
+      claims: undefined,
+      chunks: [
+        {
+          locator: 'cuadro de losas · Losa nivel 3',
+          kind: 'fila',
+          claims: [{ ...valid.claims[0], locator: undefined }],
+        },
+        { locator: 'folio 44', kind: 'anotacion', text: 'El shaft se corre.' },
+      ],
+    });
+
+    const chunks = checkRevision(input, knownDocument('e102'));
+    expect(
+      chunks.map((chunk) => [chunk.kind, chunk.text, chunk.claims?.length]),
+    ).toEqual([
+      ['fila', undefined, 1],
+      ['anotacion', 'El shaft se corre.', undefined],
+    ]);
+    expect(chunks[0]?.claims?.[0]?.locator).toBe(
+      'cuadro de losas · Losa nivel 3',
+    );
+  });
+
+  it('un fragmento necesita texto o hechos y un tipo conocido', () => {
+    expect(
+      revisionBody.safeParse({
+        ...valid,
+        claims: undefined,
+        chunks: [{ locator: 'a', kind: 'fila' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      revisionBody.safeParse({
+        ...valid,
+        claims: undefined,
+        chunks: [{ locator: 'a', kind: 'otro', text: 'hola' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      revisionBody.safeParse({
+        ...valid,
+        claims: undefined,
+        chunks: [{ locator: 'a', kind: 'mensaje', text: '   ' }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('exige al menos un fragmento, un hash sha256 válido y roles conocidos', () => {
     expect(revisionBody.safeParse({ ...valid, claims: [] }).success).toBe(
       false,
     );
+    expect(
+      revisionBody.safeParse({ ...valid, claims: [], chunks: [] }).success,
+    ).toBe(false);
     expect(
       revisionBody.safeParse({ ...valid, contentHash: 'abc' }).success,
     ).toBe(false);
@@ -79,13 +157,13 @@ describe('cuerpo de una revisión', () => {
     const issues = issuesOf({
       claims: [
         { ...valid.claims[0], subject: 'torre' },
-        { ...valid.claims[0], attribute: 'color' },
+        { ...valid.claims[0], attribute: 'color', locator: 'otro' },
       ],
     });
 
     expect(issues).toEqual([
-      'claims[0]: no existe el sujeto torre',
-      'claims[1]: no existe el atributo color',
+      'chunks[0]: no existe el sujeto torre',
+      'chunks[1]: no existe el atributo color',
     ]);
   });
 

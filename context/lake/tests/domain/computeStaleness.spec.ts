@@ -1,5 +1,5 @@
 import { computeStaleness } from '../../src/domain/computeStaleness.ts';
-import { at, claim, entry, proposal, revision } from '../factories.ts';
+import { at, claim, entry, hunk, proposal, revision } from '../factories.ts';
 
 const baseline = [
   entry('losa-n3', 'espesor_cm', 20),
@@ -62,16 +62,7 @@ describe('computeStaleness', () => {
 
   it('un hecho que pertenece a una propuesta abierta no es desfase', () => {
     const open = proposal('p1', {
-      subject: 'ventanas-norte',
-      changes: [
-        {
-          attribute: 'ancho_cm',
-          unit: null,
-          before: 120,
-          after: 150,
-          claimId: null,
-        },
-      ],
+      changes: [hunk('ventanas-norte', 'ancho_cm', 120, 150)],
     });
     const claims = [
       claim('c1', 'presupuesto', 'ventanas-norte', 'ancho_cm', 150, 'usa'),

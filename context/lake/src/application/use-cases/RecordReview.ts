@@ -3,10 +3,12 @@ import {
   decideProposal,
   isActive,
 } from '../../domain/Proposal.ts';
+import { blocksProposal } from '../../domain/Overlap.ts';
 import type { Decision, Proposal } from '../../domain/Proposal.ts';
 import { ValidationError } from '../errors.ts';
 import { mergeProposal } from '../mergeProposal.ts';
 import type { BaselineRepository } from '../ports/BaselineRepository.ts';
+import type { OverlapRepository } from '../ports/OverlapRepository.ts';
 import type { ProposalRepository } from '../ports/ProposalRepository.ts';
 
 export interface RecordReviewInput {
@@ -25,10 +27,16 @@ export interface RecordedReview {
 export class RecordReview {
   private readonly proposals: ProposalRepository;
   private readonly baseline: BaselineRepository;
+  private readonly overlaps: OverlapRepository;
 
-  constructor(proposals: ProposalRepository, baseline: BaselineRepository) {
+  constructor(
+    proposals: ProposalRepository,
+    baseline: BaselineRepository,
+    overlaps: OverlapRepository,
+  ) {
     this.proposals = proposals;
     this.baseline = baseline;
+    this.overlaps = overlaps;
   }
 
   async execute(input: RecordReviewInput): Promise<RecordedReview> {
@@ -58,7 +66,13 @@ export class RecordReview {
       input.note?.trim() || null,
       at,
     );
-    const status = decideProposal(voted);
+    const decided = decideProposal(voted);
+    const blocked =
+      decided === 'merged' &&
+      (await this.overlaps.listLive()).some((overlap) =>
+        blocksProposal(overlap, proposal.id),
+      );
+    const status = blocked ? 'open' : decided;
     const next: Proposal = {
       ...voted,
       status,

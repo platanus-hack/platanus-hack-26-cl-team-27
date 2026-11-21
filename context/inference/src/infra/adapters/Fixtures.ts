@@ -19,6 +19,7 @@ export interface AffectedFixture {
 
 export interface ClaimFixture {
   readonly title: string;
+  readonly textIncludes?: string;
   readonly claims: readonly ClaimCandidate[];
 }
 
@@ -50,8 +51,13 @@ export class FixtureClaimReader implements ClaimReader {
   }
 
   read(query: ClaimQuery): Promise<ClaimCandidate[]> {
+    const { evidence } = query;
     const fixture = this.fixtures.find(
-      (candidate) => candidate.title === query.evidence.title,
+      (candidate) =>
+        candidate.title === evidence.title &&
+        (candidate.textIncludes === undefined ||
+          (evidence.kind === 'text' &&
+            evidence.text.includes(candidate.textIncludes))),
     );
     return Promise.resolve(fixture ? [...fixture.claims] : []);
   }

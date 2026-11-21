@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
 
-import type { ClaimDraft, RevisionDraft } from '@team27/context-lake';
+import type {
+  ChunkDraft,
+  ClaimDraft,
+  RevisionDraft,
+} from '@team27/context-lake';
 import { z } from 'zod';
 
 import {
@@ -110,6 +114,7 @@ export interface IgnoredChange {
 export interface MappedMinute {
   readonly revision: RevisionDraft;
   readonly claims: ClaimDraft[];
+  readonly chunks: ChunkDraft[];
   readonly ignored: IgnoredChange[];
 }
 
@@ -208,6 +213,13 @@ export const mapMinute = (
       contentHash,
     },
     claims,
+    chunks: claims.map((claim): ChunkDraft => ({
+      locator: claim.locator,
+      kind: 'parametro',
+      text: null,
+      claims: [claim],
+      rejected: [],
+    })),
     ignored,
   };
 };

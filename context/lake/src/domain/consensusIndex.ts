@@ -1,4 +1,6 @@
 import type { Discrepancy } from './Discrepancy.ts';
+import { isLiveOverlap } from './Overlap.ts';
+import type { Overlap } from './Overlap.ts';
 import type { Proposal } from './Proposal.ts';
 import { isActive } from './Proposal.ts';
 import type { StaleDocument } from './computeStaleness.ts';
@@ -10,6 +12,7 @@ export interface ConsensusIndex {
   readonly total: number;
   readonly openProposals: number;
   readonly openDiscrepancies: number;
+  readonly openOverlaps: number;
   readonly staleDocuments: number;
   readonly acknowledgedDocuments: number;
   readonly sealed: boolean;
@@ -20,6 +23,7 @@ export interface ConsensusInput {
   readonly stale: readonly StaleDocument[];
   readonly discrepancies: readonly Discrepancy[];
   readonly proposals: readonly Proposal[];
+  readonly overlaps: readonly Overlap[];
 }
 
 export const consensusIndex = (input: ConsensusInput): ConsensusIndex => {
@@ -35,6 +39,7 @@ export const consensusIndex = (input: ConsensusInput): ConsensusIndex => {
   for (const discrepancy of open) pending.add(discrepancy.documentId);
 
   const openProposals = input.proposals.filter(isActive).length;
+  const openOverlaps = input.overlaps.filter(isLiveOverlap).length;
   const upToDate = documents.filter(
     (document) => !pending.has(document.documentId),
   ).length;
@@ -46,8 +51,13 @@ export const consensusIndex = (input: ConsensusInput): ConsensusIndex => {
     total: documents.length,
     openProposals,
     openDiscrepancies: open.length,
+    openOverlaps,
     staleDocuments,
     acknowledgedDocuments: input.stale.length - staleDocuments,
-    sealed: openProposals === 0 && open.length === 0 && staleDocuments === 0,
+    sealed:
+      openProposals === 0 &&
+      open.length === 0 &&
+      openOverlaps === 0 &&
+      staleDocuments === 0,
   };
 };
