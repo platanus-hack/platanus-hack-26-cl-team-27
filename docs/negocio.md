@@ -10,7 +10,7 @@ Como estas dependencias están distribuidas entre personas y sistemas, detectar 
 
 ## Propuesta de valor
 
-Convertimos cada cambio del proyecto en acción coordinada antes de que sus consecuencias se propaguen.
+Convertimos el efecto de cada cambio en una respuesta coordinada antes de que afecte decisiones, costos o plazos.
 
 La solución identifica qué elementos, decisiones y equipos quedan afectados, determina qué necesita saber cada actor y lleva esa información directamente a las herramientas donde ya trabaja. Así, los equipos reaccionan sobre el impacto real del cambio en lugar de descubrirlo después en reuniones, revisiones manuales o conflictos, sin reemplazar su software ni centralizar sus datos en una nueva plataforma.
 
