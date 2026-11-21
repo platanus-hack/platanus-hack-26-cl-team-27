@@ -19,11 +19,13 @@ import { Timeline } from './Timeline';
 
 export function PaulaView({
   flow,
+  hideHistory = false,
   auth,
   onChanged,
   onSeatLost,
 }: {
   readonly flow: FlowState;
+  readonly hideHistory?: boolean;
   readonly auth: Auth;
   readonly onChanged: () => void;
   readonly onSeatLost?: () => void;
@@ -98,7 +100,9 @@ export function PaulaView({
           <Timeline steps={authorTimeline(flow)} />
         </div>
       </Card>
-      <CaseHistory flow={flow} focus="P-12" viewerId={AUTHOR_ID} />
+      {!hideHistory && (
+        <CaseHistory flow={flow} focus="P-12" viewerId={AUTHOR_ID} />
+      )}
     </div>
   );
 }

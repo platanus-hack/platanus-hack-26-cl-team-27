@@ -236,3 +236,8 @@ export const proposalTexts = (input: ProposalTextInput) => {
     footer: 'Vigente propone; tú decides. No se cambia nada hasta que aceptes.',
   };
 };
+
+export const CASE_EXCLUSION = {
+  documentIds: CASE_DOCUMENT_IDS,
+  subjectPrefix: CASE_SUBJECT_PREFIX,
+} as const;

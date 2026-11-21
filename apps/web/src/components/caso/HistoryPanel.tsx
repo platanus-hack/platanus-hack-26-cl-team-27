@@ -14,35 +14,42 @@ import type {
 } from '@/lib/flow-history-api';
 import {
   approvalText,
-  authorText,
   documentText,
   formatHourMinute,
   historyKey,
   pendingText,
+  valueText,
 } from '@/lib/flow-history';
 import { valuePath } from '@/lib/provenance-api';
 
 type Focus = 'P-12' | 'E-B-03' | null;
 
 function EntryRow({ entry }: { readonly entry: HistoryEntry }) {
-  const approval = approvalText(entry.approvedBy);
+  const approval = approvalText(entry.approvedBy, entry.kind);
+  const base = entry.kind === 'base';
   return (
     <li className="flex flex-col gap-1 border-l-2 border-hairline pl-3">
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
-        <span className="font-mono text-ink">{formatHourMinute(entry.at)}</span>
-        <span>{authorText(entry)}</span>
+      <p className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm text-ink">
+        {!base && (
+          <span className="font-mono text-ink-2">
+            {formatHourMinute(entry.at)}
+          </span>
+        )}
+        <span className="min-w-0 break-words">{entry.text}</span>
         {entry.current && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-good/15 px-2 py-0.5 text-xs font-medium text-ink">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-good/15 px-2 py-0.5 text-xs font-medium text-ink">
             <Icon name="check" className="size-3 text-good" />
-            Vigente
+            En uso
           </span>
         )}
       </p>
-      <p className="flex items-start gap-1.5 text-sm text-ink-2">
+      <p className="flex items-start gap-1.5 text-xs text-ink-3">
         <Icon name="file" className="mt-0.5 size-3.5 shrink-0" />
-        {documentText(entry)}
+        <span className="min-w-0 break-words">{documentText(entry)}</span>
       </p>
-      <p className="break-words font-mono text-xs text-ink">{entry.value}</p>
+      <p className="break-words font-mono text-xs text-ink-2">
+        {valueText(entry.value)}
+      </p>
       {approval && (
         <p className="flex items-center gap-1.5 text-sm font-medium text-ink">
           <Icon name="seal" className="size-4 text-good" />
@@ -86,8 +93,8 @@ function ElementBlock({
             <p className="text-xs text-ink-3">
               {formatHourMinute(pending.at)} · por {pending.by.name}
             </p>
-            <p className="break-words font-mono text-xs text-ink">
-              {pending.value}
+            <p className="break-words font-mono text-xs text-ink-2">
+              {valueText(pending.value)}
             </p>
           </li>
         )}

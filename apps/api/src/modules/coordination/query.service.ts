@@ -32,6 +32,7 @@ import {
 } from '../lake/lake.module.ts';
 import {
   CASE_DOCUMENT_IDS,
+  CASE_EXCLUSION,
   CASE_SUBJECT_PREFIX,
 } from '../../scenario/caso-p12.ts';
 import { fail } from './http-errors.ts';
@@ -126,7 +127,7 @@ export class QueryService {
       this.proposals.list(),
       this.discrepancies.list(),
       this.overlaps.list(),
-      this.getConsensus.execute(),
+      this.getConsensus.execute(withCase ? undefined : CASE_EXCLUSION),
     ]);
     const caseRevisionIds = new Set(
       allRevisions

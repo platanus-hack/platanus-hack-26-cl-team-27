@@ -11,7 +11,7 @@ export { GetBaseline } from './GetBaseline.ts';
 export type { BaselineView } from './GetBaseline.ts';
 export { GetChange } from './GetChange.ts';
 export { GetConsensus } from './GetConsensus.ts';
-export type { Consensus } from './GetConsensus.ts';
+export type { Consensus, LakeExclusion } from './GetConsensus.ts';
 export { GetProvenance } from './GetProvenance.ts';
 export type { GetProvenanceInput } from './GetProvenance.ts';
 export { IngestRevision } from './IngestRevision.ts';

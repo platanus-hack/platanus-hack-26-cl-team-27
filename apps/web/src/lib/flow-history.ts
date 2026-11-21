@@ -1,6 +1,7 @@
 import type { FlowState } from './flow-api';
 import type {
   HistoryApproval,
+  HistoryKind,
   HistoryEntry,
   HistoryPending,
 } from './flow-history-api';
@@ -16,23 +17,30 @@ export const formatHourMinute = (iso: string): string => {
 
 export const approvalText = (
   approvals: readonly HistoryApproval[],
+  kind: HistoryKind = 'arreglo',
 ): string | null => {
   if (approvals.length === 0) return null;
   const names = joinNames(approvals.map((approval) => approval.name));
-  const first = approvals[0]!;
-  const time = formatHourMinute(first.at);
+  const time = formatHourMinute(approvals[0]!.at);
+  if (kind !== 'arreglo')
+    return time
+      ? `${names} aprobó la propuesta a las ${time}`
+      : `${names} aprobó la propuesta`;
   return time ? `Aprobó ${names} a las ${time}` : `Aprobó ${names}`;
 };
 
-export const authorText = (entry: HistoryEntry): string =>
-  entry.kind === 'arreglo'
-    ? `${entry.by.name} propuso`
-    : `por ${entry.by.name}`;
+export const valueText = (value: string): string =>
+  value.replace(/(\d)\.(\d)/g, '$1,$2');
+
+const shortId = (id: string): string => (id.length > 12 ? id.slice(0, 8) : id);
 
 export const documentText = (entry: HistoryEntry): string => {
-  const label = entry.minuteId
-    ? `${entry.document.split(' ')[0] ?? entry.document} · ${entry.minuteId}`
-    : entry.document;
+  const name = entry.document.split(' ')[0] ?? entry.document;
+  if (entry.kind === 'base') return entry.document;
+  const label =
+    entry.kind === 'arreglo'
+      ? `Propuesta de Vigente sobre ${name}`
+      : `${name} · minuta ${shortId(entry.minuteId ?? '')}`;
   return entry.source ? `${label} (${entry.source})` : label;
 };
 

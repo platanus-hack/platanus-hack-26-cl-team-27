@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from '@team27/data-main';
 import type { OverlapStatus, ProposalStatus } from '@team27/context-lake';
 
+import { CASE_DOCUMENT_IDS, CASE_EXCLUSION } from '../../scenario/caso-p12.ts';
 import { buildLake } from '../lake/lake.module.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
 import { overlapTitle, proposalTitle } from '../coordination/views.ts';
@@ -92,12 +93,18 @@ export const observe = async (
   project: ProjectCatalog,
 ): Promise<Observed> => {
   const lake = buildLake(db, project);
-  const [consensus, proposals, overlaps, revisions] = await Promise.all([
-    lake.consensus.execute(),
+  const [consensus, allProposals, overlaps, allRevisions] = await Promise.all([
+    lake.consensus.execute(CASE_EXCLUSION),
     lake.ports.proposals.list(),
     lake.ports.overlaps.list(),
     lake.ports.revisions.list(),
   ]);
+  const proposals = allProposals.filter(
+    (item) => !CASE_DOCUMENT_IDS.includes(item.documentId),
+  );
+  const revisions = allRevisions.filter(
+    (item) => !CASE_DOCUMENT_IDS.includes(item.documentId),
+  );
   return {
     sealed: consensus.index.sealed,
     version: 1 + proposals.filter((item) => item.status === 'merged').length,

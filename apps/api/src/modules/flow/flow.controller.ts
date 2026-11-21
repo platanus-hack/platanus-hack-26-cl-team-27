@@ -11,6 +11,8 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 
+import { BASE_LABEL, FIX_LABEL_PREFIX } from '../../scenario/caso-p12.ts';
+
 import { SeatCredentials } from '../room/credentials.ts';
 import {
   type Credentials,
@@ -25,7 +27,14 @@ const delta = z.object({
 });
 
 const minuteBody = z.object({
-  minuteId: z.string().min(1).max(100),
+  minuteId: z
+    .string()
+    .min(1)
+    .max(100)
+    .refine(
+      (id) => id !== BASE_LABEL && !id.startsWith(FIX_LABEL_PREFIX),
+      'minuteId reservado',
+    ),
   source: z.enum(['sala', 'revit']),
   model: z.object({
     title: z.string().min(1).max(200),

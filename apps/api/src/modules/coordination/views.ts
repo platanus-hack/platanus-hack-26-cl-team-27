@@ -27,7 +27,7 @@ import {
 import type { Notification } from '@team27/context-notification';
 
 import type { CastMember, ProjectCatalog } from '../project/project-catalog.ts';
-import { revisionTitle } from './lookup.ts';
+import { authorName, revisionTitle } from './lookup.ts';
 
 export interface LakeSnapshot {
   readonly project: ProjectCatalog;
@@ -533,7 +533,10 @@ export const provenanceResponse = (
             },
             author: {
               id: input.revision.authorId,
-              name: project.castName(input.revision.authorId),
+              name: authorName(
+                (id) => project.castName(id),
+                input.revision.authorId,
+              ),
             },
             proposal: proposalRef(input.proposal),
             reviews: reviewsOf(input.proposal),
@@ -547,7 +550,9 @@ export const provenanceResponse = (
         ? revisionTitle(revision)
         : discrepancy.documentId,
       spaceName: revision ? project.spaceName(revision.spaceId) : '',
-      authorName: revision ? project.castName(revision.authorId) : '',
+      authorName: revision
+        ? authorName((id) => project.castName(id), revision.authorId)
+        : '',
       weakValue: discrepancy.value,
     }));
   const primaryClaimId = provenance.claim?.id ?? null;
@@ -891,7 +896,9 @@ export const inboxResponse = (snapshot: LakeSnapshot, castId: string) => {
           ? revisionTitle(revision)
           : discrepancy.documentId,
         spaceName: revision ? project.spaceName(revision.spaceId) : '',
-        authorName: revision ? project.castName(revision.authorId) : '',
+        authorName: revision
+          ? authorName((id) => project.castName(id), revision.authorId)
+          : '',
         at: discrepancy.createdAt,
       };
     });

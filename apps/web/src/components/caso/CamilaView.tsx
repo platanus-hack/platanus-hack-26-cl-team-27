@@ -138,12 +138,14 @@ function ProposalCard({
 
 export function CamilaView({
   flow,
+  hideHistory = false,
   auth,
   reportPresence,
   onChanged,
   onSeatLost,
 }: {
   readonly flow: FlowState;
+  readonly hideHistory?: boolean;
   readonly auth: Auth;
   readonly reportPresence: boolean;
   readonly onChanged: () => void;
@@ -230,7 +232,9 @@ export function CamilaView({
           </div>
         </Card>
       )}
-      <CaseHistory flow={flow} focus="E-B-03" viewerId={AFFECTED_ID} />
+      {!hideHistory && (
+        <CaseHistory flow={flow} focus="E-B-03" viewerId={AFFECTED_ID} />
+      )}
     </div>
   );
 }

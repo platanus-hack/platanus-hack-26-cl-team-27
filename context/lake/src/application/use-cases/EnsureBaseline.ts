@@ -30,7 +30,10 @@ export class EnsureBaseline {
         seed.revision.documentId,
         seed.revision.label,
       );
-      if (existing) continue;
+      if (existing) {
+        await this.restore(existing.id, existing.ingestedAt, seed);
+        continue;
+      }
       const revision = await this.revisions.save(seed.revision);
       const { claims } = await persistChunks(
         this.chunks,
@@ -56,5 +59,38 @@ export class EnsureBaseline {
       seeded += 1;
     }
     return { seeded };
+  }
+
+  private async restore(
+    revisionId: string,
+    since: Date,
+    seed: SeedLakeInput['revisions'][number],
+  ): Promise<void> {
+    for (const chunk of seed.chunks) {
+      for (const draft of chunk.claims) {
+        if (draft.role !== 'afirma') continue;
+        if (await this.baseline.find(draft.subject, draft.attribute)) continue;
+        const claims = await this.claims.listFor(
+          draft.subject,
+          draft.attribute,
+        );
+        const claim = claims.find(
+          (candidate) =>
+            candidate.revisionId === revisionId && candidate.role === 'afirma',
+        );
+        if (!claim) continue;
+        await this.baseline.upsert({
+          subject: claim.subject,
+          attribute: claim.attribute,
+          value: claim.value,
+          unit: claim.unit,
+          claimId: claim.id,
+          revisionId,
+          proposalId: null,
+          since,
+          version: 1,
+        });
+      }
+    }
   }
 }

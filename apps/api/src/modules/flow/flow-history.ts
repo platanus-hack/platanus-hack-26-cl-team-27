@@ -55,6 +55,9 @@ const who = (cast: CastNames, id: string): Person => ({
   name: id === VIGENTE_ID ? VIGENTE_NAME : cast.castName(id),
 });
 
+const short = (label: string): string =>
+  label.length > 12 ? label.slice(0, 8) : label;
+
 const entryText = (
   input: HistoryInput,
   kind: Kind,
@@ -69,9 +72,9 @@ const entryText = (
   if (kind === 'minuta') {
     const payload = parse<MinutePayload>(text);
     if (!payload)
-      return `${author} cambió ${elementId} (minuta ${revision.label})`;
+      return `${author} cambió ${elementId} (minuta ${short(revision.label)})`;
     const { axis, sign, distance } = dominant(payload.delta);
-    return `${author} movió ${elementId} ${centimeters(distance)} cm ${direction(axis, sign)} (minuta ${revision.label} de ${revision.documentName})`;
+    return `${author} movió ${elementId} ${centimeters(distance)} cm ${direction(axis, sign)} (minuta ${short(revision.label)} de ${revision.documentName})`;
   }
   const payload = parse<FixPayload>(text);
   const head = payload
