@@ -4,8 +4,7 @@ Aquí vive el dominio: un bounded context hexagonal por carpeta (`context/<ctx>`
 
 | Contexto                                 | Qué hace                                                                                                                                                          |
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`lake`](lake/README.md)                 | El lago de hechos con procedencia, lo vigente y el consenso                                                                                                       |
-| [`capture`](capture/README.md)           | Los cambios entre una base y un siguiente estado de un elemento                                                                                                   |
+| [`lake`](lake/README.md)                 | El lago de hechos con procedencia, lo vigente, el consenso y el cambio por elemento                                                                               |
 | [`impact`](impact/README.md)             | Quién se ve afectado por un cambio, con su costo y su plazo (reglas), la probabilidad de que alguien más lo esté (Jev) y la lectura de mensajes y planos (Claude) |
 | [`notification`](notification/README.md) | Un aviso por afectado, en su canal, y su respuesta                                                                                                                |
 

@@ -1,5 +1,5 @@
-import type { ModelElement } from '@team27/context-capture';
 import type { ProjectGraph, Task } from '@team27/context-impact';
+import type { ModelElement } from '@team27/context-lake';
 import type { Stakeholder } from '@team27/context-notification';
 
 export type CastMember = Stakeholder;

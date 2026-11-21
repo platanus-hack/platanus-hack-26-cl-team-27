@@ -1,5 +1,4 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { formatValue } from '@team27/context-capture';
 import type { AddressedFinding } from '@team27/context-notification';
 import { InlineFactExtractor } from '@team27/context-lake/adapters';
 import type { PrismaClient } from '@team27/data-main';
@@ -18,17 +17,17 @@ import {
   observe,
 } from '../room/events.ts';
 import { readState, ROOM_STATE_ID } from '../room/state.ts';
-import { buildCapture } from '../capture/capture.module.ts';
 import { buildImpact } from '../impact/impact.module.ts';
 import { buildLake } from '../lake/lake.module.ts';
 import { buildNotification } from '../notification/notification.module.ts';
-import type {
-  ChunkDraft,
-  Decision,
-  IngestedRevision,
-  OverlapVoteKind,
-  ProposalDraft,
-  RevisionDraft,
+import {
+  type ChunkDraft,
+  type Decision,
+  formatValue,
+  type IngestedRevision,
+  type OverlapVoteKind,
+  type ProposalDraft,
+  type RevisionDraft,
 } from '@team27/context-lake';
 import { ActionLog } from './action-log.ts';
 import { ChunkReader } from './chunk-reader.ts';
@@ -391,7 +390,6 @@ export class CoordinationService {
     draft: ProposalDraft,
   ): Promise<OpenedProposal> {
     const lake = buildLake(db);
-    const capture = buildCapture(db);
     const impact = buildImpact(db);
     const notification = buildNotification(db);
 
@@ -405,7 +403,7 @@ export class CoordinationService {
       baseline,
       draft.after,
     ).filter((element) => subjects.has(element.id));
-    const changes = await capture.detectChanges.execute({
+    const changes = await lake.detectChanges.execute({
       sourceId: draft.sourceRevisionId,
       base,
       next,

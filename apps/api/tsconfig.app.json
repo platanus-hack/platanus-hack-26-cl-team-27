@@ -28,9 +28,6 @@
     },
     {
       "path": "../../context/impact/tsconfig.lib.json"
-    },
-    {
-      "path": "../../context/capture/tsconfig.lib.json"
     }
   ]
 }

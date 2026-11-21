@@ -91,8 +91,7 @@ src/
 └── modules/
     ├── database/                 el PrismaClient (token PRISMA_CLIENT), global, y UnitOfWork (transacción con lock)
     ├── health/                   /api/health y /api/health/ready
-    ├── lake/                     adapters por token y casos de uso de context-lake; buildLake(db, extractor?) los arma sobre una transacción
-    ├── capture/                  adapters y casos de uso de context-capture
+    ├── lake/                     adapters por token y casos de uso de context-lake (con DetectChanges, ListChanges y GetChange); buildLake(db, extractor?) los arma sobre una transacción
     ├── impact/                   adapters y casos de uso de context-impact: el grafo (sale de la definición del proyecto), el `ClaimReader` (Claude o respuestas fijas, con caché de archivos), el vocabulario del proyecto y `ExtractClaims`
     ├── notification/             adapters y casos de uso de context-notification
     ├── coordination/             orquesta la cadena y expone las rutas de datos; `revision-body.ts` valida la ingesta genérica y la carga inicial, `chunk-reader.ts` lee los fragmentos de texto libre, `revit-minute.ts` valida la minuta de Revit y la convierte en hechos, y `integrations.controller.ts` la recibe

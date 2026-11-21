@@ -1,5 +1,6 @@
 export type { AcknowledgementRepository } from './AcknowledgementRepository.ts';
 export type { BaselineRepository } from './BaselineRepository.ts';
+export type { ChangeRepository } from './ChangeRepository.ts';
 export type { ChunkRepository } from './ChunkRepository.ts';
 export type { ClaimInsert, ClaimRepository } from './ClaimRepository.ts';
 export type { DiscrepancyRepository } from './DiscrepancyRepository.ts';

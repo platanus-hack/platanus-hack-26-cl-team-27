@@ -24,6 +24,14 @@ export type {
   ProvenanceSource,
 } from './buildProvenance.ts';
 export { sameValue } from './Claim.ts';
+export type {
+  Change,
+  ChangeDraft,
+  ChangeKind,
+  ChangedElement,
+  PropertyDiff,
+} from './Change.ts';
+export { describeDiffs, diffSnapshots, formatValue } from './diffSnapshots.ts';
 export { NO_FOOTPRINT, sameFootprint, sharedAreas } from './AreaCell.ts';
 export type {
   AreaCell,
@@ -91,6 +99,11 @@ export type {
   DiscrepancyStatus,
 } from './Discrepancy.ts';
 export { DOCUMENT_KINDS } from './DocumentKind.ts';
+export type {
+  ModelElement,
+  ModelProperty,
+  PropertyValue,
+} from './ModelElement.ts';
 export type { DocumentKind } from './DocumentKind.ts';
 export { buildProposalDraft } from './buildProposalDraft.ts';
 export type { DraftSource } from './buildProposalDraft.ts';

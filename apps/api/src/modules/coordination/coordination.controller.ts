@@ -10,7 +10,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { MAX_CHANGES } from '@team27/context-capture';
+import { MAX_CHANGES } from '@team27/context-lake';
 import { MAX_NOTE_LENGTH, RESPONSE_KINDS } from '@team27/context-notification';
 import { z } from 'zod';
 

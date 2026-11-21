@@ -6,7 +6,7 @@ Prisma 7 sobre PostgreSQL 18. Contiene el schema (`prisma/schema.prisma`), las m
 
 | Modelo (tabla)                  | Contexto       | Qué guarda                                                                          |
 | ------------------------------- | -------------- | ----------------------------------------------------------------------------------- |
-| `Change` (`changes`)            | `capture`      | Un cambio por elemento entre una base y un siguiente: la revisión de origen (`source_id`), tipo, resumen, diferencias, antes y después |
+| `Change` (`changes`)            | `lake`         | Un cambio por elemento entre una base y un siguiente: la revisión de origen (`source_id`), tipo, resumen, diferencias, antes y después |
 | `Impact` (`impacts`)            | `impact`       | El impacto de un cambio: costo y atraso en columnas, el resto del detalle en JSON   |
 | `Notification` (`notifications`) | `notification` | Un aviso por afectado y cambio, con sus hallazgos en JSON y la respuesta del afectado |
 | `Revision` (`revisions`) | `lake` | Cada versión de un documento, inmutable: espacio, autor, tipo, hash, puntero al origen y orden de ingesta. Única por documento y etiqueta |
@@ -14,7 +14,7 @@ Prisma 7 sobre PostgreSQL 18. Contiene el schema (`prisma/schema.prisma`), las m
 | `Claim` (`claims`) | `lake` | Un hecho de una revisión: sujeto, atributo, valor en JSON, unidad, rol (`afirma` o `usa`), localizador, su fragmento (`chunk_id`) y la confianza si la leyó un modelo |
 | `BaselineEntry` (`baseline_entries`) | `lake` | Lo vigente de cada sujeto y atributo, con el hecho, la revisión y la propuesta que lo respaldan. Clave compuesta |
 | `BaselineHistory` (`baseline_history`) | `lake` | Los valores vigentes anteriores, con desde cuándo y hasta cuándo rigieron |
-| `Proposal` (`proposals`) | `lake` | Una propuesta (el PR) por revisión con autoridad: el documento, los hunks en JSON (cada uno con su elemento y localizador), el contexto sin cambio, el cambio principal de `capture` y todos los de sus elementos (`change_ids`), los filtrados y su estado |
+| `Proposal` (`proposals`) | `lake` | Una propuesta (el PR) por revisión con autoridad: el documento, los hunks en JSON (cada uno con su elemento y localizador), el contexto sin cambio, el cambio principal y todos los de sus elementos (`change_ids`), los filtrados y su estado |
 | `Review` (`reviews`) | `lake` | El voto de cada revisor de una propuesta: aprobar, disputar o pendiente, con nota y hora |
 | `Discrepancy` (`discrepancies`) | `lake` | Un hecho sin autoridad que difiere de lo vigente, con su dueño y su estado (abierta, respaldada o descartada) |
 | `Overlap` (`overlaps`) | `lake` | Un solapamiento: tipo (`mismo-elemento`, `misma-area` o `simultaneo`), área (nivel, celda y sistemas), los dos elementos, la propuesta y el fragmento que lo abrieron, quién respalda al otro elemento, los validadores y su estado (`abierto`, `confirmado`, `descartado` o `resuelto`, con la razón de la resolución) |

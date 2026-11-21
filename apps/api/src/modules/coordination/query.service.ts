@@ -1,13 +1,14 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { GetChange, ListChanges } from '@team27/context-capture';
 import { GetImpacts, type Impact } from '@team27/context-impact';
 import {
   type BaselineRepository,
   type ChunkRepository,
   type ClaimRepository,
   type DiscrepancyRepository,
+  GetChange,
   GetConsensus,
   GetProvenance,
+  ListChanges,
   ListOverlaps,
   ListProposals,
   type OverlapRepository,

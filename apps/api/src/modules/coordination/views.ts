@@ -1,9 +1,8 @@
-import type { Change } from '@team27/context-capture';
-import { formatValue } from '@team27/context-capture';
 import type { Impact } from '@team27/context-impact';
 import { quantityOf } from '@team27/context-impact';
 import type {
   BaselineEntry,
+  Change,
   Chunk,
   Claim,
   ClaimValue,
@@ -19,6 +18,7 @@ import {
   activeFor,
   baselineValues,
   finalValues,
+  formatValue,
   isActive,
   isLiveOverlap,
   sameFootprint,

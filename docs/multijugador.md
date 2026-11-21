@@ -90,7 +90,7 @@ Un hecho «usa» distinto de lo vigente deja el documento desfasado desde el ing
 
 ### Propuesta y consenso
 
-Una **propuesta** es el PR de la obra: **una por cada revisión con autoridad que cambia algo**, con un **hunk** por cada fragmento que cambia (`subject`, `attribute`, `before`, `after`, localizador). Los fragmentos que coinciden con lo vigente quedan como contexto sin cambio. Reutiliza `capture` (el antes y el después de cada elemento del modelo) e `impact` (costo, plazo, un hallazgo por afectado y los filtrados con su razón). El costo es la suma de los hunks y el atraso, la suma de los atrasos por elemento. Los **revisores** son la unión de los afectados notificados por cualquier hunk, con un solo aviso por revisor y por propuesta, que lista sus hallazgos; los filtrados se muestran con su razón y no votan.
+Una **propuesta** es el PR de la obra: **una por cada revisión con autoridad que cambia algo**, con un **hunk** por cada fragmento que cambia (`subject`, `attribute`, `before`, `after`, localizador). Los fragmentos que coinciden con lo vigente quedan como contexto sin cambio. Reutiliza `DetectChanges` (el antes y el después de cada elemento del modelo) e `impact` (costo, plazo, un hallazgo por afectado y los filtrados con su razón). El costo es la suma de los hunks y el atraso, la suma de los atrasos por elemento. Los **revisores** son la unión de los afectados notificados por cualquier hunk, con un solo aviso por revisor y por propuesta, que lista sus hallazgos; los filtrados se muestran con su razón y no votan.
 
 - Cada revisor aprueba o disputa, con nota opcional (en `notification`, `reviewed` o `issue`).
 - La propuesta se **fusiona** a lo vigente cuando todos los revisores aprobaron y no queda ningún solapamiento abierto o confirmado: es atómica, todos los hunks entran juntos y la versión del proyecto sube en uno. Con cero revisores se fusiona sola apenas no tiene solapamientos. No hay botón de fusionar.
@@ -128,25 +128,20 @@ El **índice de consenso** son los documentos al día sobre los documentos total
 
 ## Contextos y capas
 
-| Contexto       | Estado       | Papel                                                                                                                     |
-| -------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| `lake`         | nuevo        | Repositorio, fragmentos, lo vigente, autoridad, detección, solapamientos, propuestas, discrepancias, desfase, procedencia |
-| `capture`      | generalizado | Detecta el cambio entre una base y un siguiente (`DetectChanges` sobre `diffSnapshots`)                                   |
-| `impact`       | extendido    | Costo, plazo, afectados y filtrados; lee los fragmentos de texto libre (`ExtractClaims`) con su confianza                 |
-| `notification` | extendido    | Un aviso por afectado en su canal; la respuesta es el voto; `ReopenResponse`                                              |
+| Contexto       | Estado    | Papel                                                                                                                                                                                                                    |
+| -------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lake`         | nuevo     | Repositorio, fragmentos, lo vigente, autoridad, detección, solapamientos, propuestas, discrepancias, desfase, procedencia y el cambio por elemento entre una base y un siguiente (`DetectChanges` sobre `diffSnapshots`) |
+| `impact`       | extendido | Costo, plazo, afectados y filtrados; lee los fragmentos de texto libre (`ExtractClaims`) con su confianza                                                                                                                |
+| `notification` | extendido | Un aviso por afectado en su canal; la respuesta es el voto; `ReopenResponse`                                                                                                                                             |
 
 Los contextos nunca se importan entre sí: la API los compone. La sala (asientos y eventos) es un módulo de la API, infraestructura de la muestra y no un contexto de dominio.
 
 ### `lake`
 
-- **Dominio**: `Space`, `Revision`, `Chunk`, `Claim`, `Authority`, `BaselineEntry`, `Proposal`, `Review`, `Discrepancy`, `Overlap`, `AreaCell`, `Acknowledgement`. Funciones puras: `classifyClaims`, `buildProposalDraft`, `detectOverlaps`, `reassessOverlaps`, `decideProposal`, `decideOverlap`, `reopenFor`, `computeStaleness`, `consensusIndex`, `buildProvenance`. Las huellas (`footprint`) no son del lago: la API le pasa el modelo de áreas como un `FootprintModel`.
-- **Puertos**: un repositorio por agregado (con `ChunkRepository` y `OverlapRepository`) y `FactExtractor`.
-- **Casos de uso**: `IngestRevision`, `OpenProposal`, `RecordReview`, `ReopenProposal`, `WithdrawProposal`, `DismissDiscrepancy`, `OpenOverlaps`, `VoteOverlap`, `ResolveOverlaps`, `SettleOverlaps`, `ListOverlaps`, `AcknowledgeStale`, `GetBaseline`, `GetProvenance`, `ListStale`, `ListProposals`, `GetConsensus`.
+- **Dominio**: `Space`, `Revision`, `Chunk`, `Claim`, `Authority`, `BaselineEntry`, `Proposal`, `Review`, `Discrepancy`, `Overlap`, `AreaCell`, `Acknowledgement`, `ModelElement`, `Change`. Funciones puras: `classifyClaims`, `buildProposalDraft`, `detectOverlaps`, `reassessOverlaps`, `decideProposal`, `decideOverlap`, `reopenFor`, `computeStaleness`, `consensusIndex`, `buildProvenance`, `diffSnapshots`. Las huellas (`footprint`) no son del lago: la API le pasa el modelo de áreas como un `FootprintModel`.
+- **Puertos**: un repositorio por agregado (con `ChunkRepository`, `OverlapRepository` y `ChangeRepository`) y `FactExtractor`.
+- **Casos de uso**: `IngestRevision`, `OpenProposal`, `RecordReview`, `ReopenProposal`, `WithdrawProposal`, `DismissDiscrepancy`, `OpenOverlaps`, `VoteOverlap`, `ResolveOverlaps`, `SettleOverlaps`, `ListOverlaps`, `AcknowledgeStale`, `GetBaseline`, `GetProvenance`, `ListStale`, `ListProposals`, `GetConsensus`, `DetectChanges`, `GetChange`, `ListChanges`. `ChangeDraft` lleva `sourceId` (la revisión de origen); `DetectChanges({ sourceId, base, next })` envuelve `diffSnapshots`, persiste un cambio por elemento y lo devuelve.
 - **Adapters** (subpath `/adapters`): Prisma por repositorio e `InlineFactExtractor` (los hechos vienen en la revisión).
-
-### `capture`
-
-`ChangeDraft` lleva `sourceId` (la revisión de origen) y no tiene versión de integración. `DetectChanges({ sourceId, base, next })` envuelve `diffSnapshots`, persiste un cambio por elemento y lo devuelve. `GetChange` y `ListChanges` se conservan.
 
 ### `notification`
 
@@ -154,14 +149,14 @@ Los contextos nunca se importan entre sí: la API los compone. La sala (asientos
 
 ### La API compone
 
-`modules/lake`, `capture`, `impact` y `notification` entran cada uno por su módulo de Nest. `modules/coordination` orquesta una acción completa: lectura de los fragmentos de texto, ingesta, `DetectChanges`, `analyzeChange` por elemento, `NotifyStakeholders`, `OpenProposal`, `OpenOverlaps`, el voto, la fusión, los totales y la bandeja. Después de cada ingreso, voto y retiro corre `SettleOverlaps`: vuelve a detectar, resuelve los solapamientos que ya no se tocan y fusiona las propuestas que quedaron listas. `modules/room` lleva asientos y eventos. El adaptador `elementsFromBaseline` arma la base y el siguiente como elementos del modelo del escenario con los valores vigentes y los de la propuesta.
+`modules/lake`, `impact` y `notification` entran cada uno por su módulo de Nest. `modules/coordination` orquesta una acción completa: lectura de los fragmentos de texto, ingesta, `DetectChanges`, `analyzeChange` por elemento, `NotifyStakeholders`, `OpenProposal`, `OpenOverlaps`, el voto, la fusión, los totales y la bandeja. Después de cada ingreso, voto y retiro corre `SettleOverlaps`: vuelve a detectar, resuelve los solapamientos que ya no se tocan y fusiona las propuestas que quedaron listas. `modules/room` lleva asientos y eventos. El adaptador `elementsFromBaseline` arma la base y el siguiente como elementos del modelo del escenario con los valores vigentes y los de la propuesta.
 
 ## Datos
 
 Prisma, una migración nueva:
 
 - `Change` gana `source_id` y pierde `integration_id` y `version`; `Snapshot` no existe. `Impact` y `Notification` no cambian.
-- `Revision`, `Chunk`, `Claim` (con su fragmento y su confianza), `BaselineEntry`, `BaselineHistory`, `Proposal` (con los hunks, el contexto, el documento y los cambios de `capture`), `Review`, `Discrepancy`, `Overlap`, `OverlapVote`, `Acknowledgement`.
+- `Revision`, `Chunk`, `Claim` (con su fragmento y su confianza), `BaselineEntry`, `BaselineHistory`, `Proposal` (con los hunks, el contexto, el documento y sus cambios por elemento), `Review`, `Discrepancy`, `Overlap`, `OverlapVote`, `Acknowledgement`.
 - `Seat` (token hasheado y último latido), `RoomEvent` (`seq` autoincremental), y `RoomState` (la época). La versión del proyecto se deriva de las propuestas fusionadas.
 - Sin tabla: estado de un valor, fuentes, desfase y totales.
 
@@ -420,7 +415,7 @@ Fernanda abre `/sala` en el proyector, `/presentador` en el notebook y `pnpm etl
 
 ## Alcance
 
-**Imprescindible.** El contexto `lake` con detección, propuestas y consenso; el lago de archivos del ETL, que reproduce las tres cifras; capture, impact y notification reutilizados; procedencia; desfase; discrepancia con respaldo; asientos, `x-act-as`, ingesta genérica, carga inicial y reinicio; sondeo con cursor; `/sala`, `/asiento/[castId]` y `/presentador`.
+**Imprescindible.** El contexto `lake` con detección, propuestas y consenso; el lago de archivos del ETL, que reproduce las tres cifras; `DetectChanges`, impact y notification reutilizados; procedencia; desfase; discrepancia con respaldo; asientos, `x-act-as`, ingesta genérica, carga inicial y reinicio; sondeo con cursor; `/sala`, `/asiento/[castId]` y `/presentador`.
 
 **Deseable.** Reapertura solo al disputante y retiro; confirmar sin cambio con nota; sello con la línea de quién cerró qué; `/espacios`, `/cambios/[id]` y `/valor`; paso del shaft; looks de canal; QR y acceso desde celulares.
 
@@ -431,7 +426,7 @@ Fernanda abre `/sala` en el proyector, `/presentador` en el notebook y `pnpm etl
 | Riesgo                                        | Mitigación                                                                                                          |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Alcance excesivo para el tiempo               | Un solo contexto nuevo, desfase derivado, segmentos con valor demostrable, recorte de lo deseable y opcional        |
-| Romper capture, impact o notification         | `impact` intacto, `diffSnapshots` sin tocar, test de regresión de las tres cifras                                   |
+| Romper `DetectChanges`, impact o notification | `impact` intacto, `diffSnapshots` sin tocar, test de regresión de las tres cifras                                   |
 | Una disputa atasca la demo                    | «Reabrir con la observación» es un botón determinista y el ETL lo ejecuta en modo automático                        |
 | Muchos celulares en un Wi-Fi saturado         | Sondeo corto con cursor, jitter, backoff, época, acciones idempotentes                                              |
 | Concurrencia de votos y tareas                | Transacción con bloqueo por propuesta, advisory lock de la sala, evento con `seq` único                             |

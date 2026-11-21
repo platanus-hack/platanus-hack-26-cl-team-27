@@ -1,5 +1,8 @@
-import type { ModelElement } from '@team27/context-capture';
-import type { BaselineEntry, ClaimValue } from '@team27/context-lake';
+import type {
+  BaselineEntry,
+  ClaimValue,
+  ModelElement,
+} from '@team27/context-lake';
 
 export type ValueOverrides = Readonly<
   Record<string, Readonly<Record<string, ClaimValue>>>

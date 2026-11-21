@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import {
   AcknowledgeStale,
+  DetectChanges,
   DismissDiscrepancy,
   type FactExtractor,
   GetBaseline,
+  GetChange,
   GetConsensus,
   GetProvenance,
   IngestRevision,
+  ListChanges,
   ListOverlaps,
   ListProposals,
   ListStale,
@@ -24,6 +27,7 @@ import {
   InlineFactExtractor,
   PrismaAcknowledgementRepository,
   PrismaBaselineRepository,
+  PrismaChangeRepository,
   PrismaChunkRepository,
   PrismaClaimRepository,
   PrismaDiscrepancyRepository,
@@ -45,6 +49,7 @@ export const BASELINE_REPOSITORY = 'BASELINE_REPOSITORY';
 export const PROPOSAL_REPOSITORY = 'PROPOSAL_REPOSITORY';
 export const DISCREPANCY_REPOSITORY = 'DISCREPANCY_REPOSITORY';
 export const ACKNOWLEDGEMENT_REPOSITORY = 'ACKNOWLEDGEMENT_REPOSITORY';
+export const CHANGE_REPOSITORY = 'CHANGE_REPOSITORY';
 
 export const buildLake = (
   db: PrismaClient,
@@ -58,6 +63,7 @@ export const buildLake = (
   const discrepancies = new PrismaDiscrepancyRepository(db);
   const acknowledgements = new PrismaAcknowledgementRepository(db);
   const overlaps = new PrismaOverlapRepository(db);
+  const changes = new PrismaChangeRepository(db);
   const resolveOverlaps = new ResolveOverlaps(
     baseline,
     proposals,
@@ -74,6 +80,7 @@ export const buildLake = (
       discrepancies,
       overlaps,
     },
+    detectChanges: new DetectChanges(changes),
     ingestRevision: new IngestRevision(
       revisions,
       chunks,
@@ -180,6 +187,14 @@ export const buildLake = (
       useFactory: (prisma: PrismaClient) =>
         new PrismaAcknowledgementRepository(prisma),
     },
+    {
+      provide: CHANGE_REPOSITORY,
+      inject: [PRISMA_CLIENT],
+      useFactory: (prisma: PrismaClient) => new PrismaChangeRepository(prisma),
+    },
+    provideUseCase(DetectChanges, [CHANGE_REPOSITORY]),
+    provideUseCase(ListChanges, [CHANGE_REPOSITORY]),
+    provideUseCase(GetChange, [CHANGE_REPOSITORY]),
     provideUseCase(OpenProposal, [PROPOSAL_REPOSITORY, BASELINE_REPOSITORY]),
     provideUseCase(RecordReview, [
       PROPOSAL_REPOSITORY,
@@ -236,6 +251,9 @@ export const buildLake = (
     BASELINE_REPOSITORY,
     DISCREPANCY_REPOSITORY,
     PROPOSAL_REPOSITORY,
+    DetectChanges,
+    ListChanges,
+    GetChange,
     GetBaseline,
     GetProvenance,
     ListStale,

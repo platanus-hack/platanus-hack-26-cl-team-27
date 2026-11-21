@@ -251,7 +251,7 @@ describe('PR por revisión', () => {
     expect(direct.proposal.status).toBe('merged');
   });
 
-  it('guarda los cambios de capture y el cambio principal de la propuesta', async () => {
+  it('guarda los cambios por elemento y el cambio principal de la propuesta', async () => {
     const ctx = await seeded();
     const ingested = await ctx.ingest.execute(
       draftOf('a201', 'rev C', 'plano'),

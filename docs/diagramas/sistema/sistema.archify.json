@@ -137,7 +137,7 @@
       "id": "contexts",
       "type": "backend",
       "label": "context/*",
-      "sublabel": "lake · capture · impact · notification",
+      "sublabel": "lake · impact · notification",
       "pos": [
         770,
         340
