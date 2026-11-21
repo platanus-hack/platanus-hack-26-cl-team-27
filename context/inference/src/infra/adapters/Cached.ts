@@ -9,7 +9,9 @@ import type {
   ClaimQuery,
   ClaimReader,
 } from '../../application/ports/ClaimReader.ts';
+import type { DependencyScorer } from '../../application/ports/DependencyScorer.ts';
 import type { AffectedEstimate } from '../../domain/AffectedSuggestion.ts';
+import type { DependencyScore } from '../../domain/DependencyScore.ts';
 import type { ClaimCandidate } from '../../domain/ExtractedClaim.ts';
 import { stableStringify } from '../../domain/stableStringify.ts';
 
@@ -117,6 +119,30 @@ export class CachedClaimReader implements ClaimReader {
       this.cache,
       cacheKey(`claims:${this.namespace}`, query),
       () => this.inner.read(query),
+    );
+  }
+}
+
+export class CachedDependencyScorer implements DependencyScorer {
+  private readonly inner: DependencyScorer;
+  private readonly cache: ResponseCache;
+  private readonly namespace: string;
+
+  constructor(
+    inner: DependencyScorer,
+    cache: ResponseCache,
+    namespace: string,
+  ) {
+    this.inner = inner;
+    this.cache = cache;
+    this.namespace = namespace;
+  }
+
+  score(query: AffectedQuery): Promise<DependencyScore[]> {
+    return throughCache(
+      this.cache,
+      cacheKey(`scores:${this.namespace}`, query),
+      () => this.inner.score(query),
     );
   }
 }

@@ -6,7 +6,9 @@ import type {
   ClaimQuery,
   ClaimReader,
 } from '../../application/ports/ClaimReader.ts';
+import type { DependencyScorer } from '../../application/ports/DependencyScorer.ts';
 import type { AffectedEstimate } from '../../domain/AffectedSuggestion.ts';
+import type { DependencyScore } from '../../domain/DependencyScore.ts';
 import type { ClaimCandidate } from '../../domain/ExtractedClaim.ts';
 
 export interface AffectedFixture {
@@ -52,5 +54,31 @@ export class FixtureClaimReader implements ClaimReader {
       (candidate) => candidate.title === query.evidence.title,
     );
     return Promise.resolve(fixture ? [...fixture.claims] : []);
+  }
+}
+
+export interface ScoreFixture {
+  readonly subjectId: string;
+  readonly attribute: string;
+  readonly scores: readonly DependencyScore[];
+}
+
+export class FixtureDependencyScorer implements DependencyScorer {
+  private readonly fixtures: readonly ScoreFixture[];
+
+  constructor(fixtures: readonly ScoreFixture[]) {
+    this.fixtures = fixtures;
+  }
+
+  score(query: AffectedQuery): Promise<DependencyScore[]> {
+    return Promise.resolve(
+      this.fixtures
+        .filter(
+          (fixture) =>
+            fixture.subjectId === query.change.subjectId &&
+            fixture.attribute === query.change.attribute,
+        )
+        .flatMap((fixture) => fixture.scores),
+    );
   }
 }

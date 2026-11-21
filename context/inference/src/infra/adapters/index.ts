@@ -1,6 +1,7 @@
 export {
   CachedAffectedEstimator,
   CachedClaimReader,
+  CachedDependencyScorer,
   cacheKey,
   FileResponseCache,
   MemoryResponseCache,
@@ -24,6 +25,15 @@ export {
 export {
   FixtureAffectedEstimator,
   FixtureClaimReader,
+  FixtureDependencyScorer,
   type AffectedFixture,
   type ClaimFixture,
+  type ScoreFixture,
 } from './Fixtures.ts';
+export {
+  JEV_MODEL,
+  JevDependencyScorer,
+  jevQuestions,
+  jevState,
+  type JevOptions,
+} from './JevDependencyScorer.ts';
