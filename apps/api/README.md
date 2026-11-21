@@ -41,6 +41,8 @@ Todas cuelgan de `/api`. Los POST responden 201, salvo los que dicen 204. Los er
 | `POST /discrepancies/:id/dismiss` | 204. El dueño del valor descarta la discrepancia; `{ note? }` opcional. Repetirlo no cambia nada ni emite otro evento |
 | `POST /stale/acknowledge` | 204. `{ revisionId, note }`: el dueño del documento confirma sin cambio; la nota es obligatoria |
 | `GET /changes?limit=20` | Los cambios más recientes (hasta 50), cada uno con su `impact`, sus `notifications` y su `proposal` |
+| `GET /aps/viewer-token` | `{ access_token, expires_in }`: un token 2-legged de APS con solo `viewables:read`, para el visor del navegador. Se cachea hasta un minuto antes de vencer y va con `Cache-Control: no-store`. 503 `aps_not_configured` sin `APS_CLIENT_ID` y `APS_CLIENT_SECRET`; 503 `aps_unavailable` si APS no lo entrega |
+| `GET /aps/models` | `{ models: { file, discipline, urn }[] }`: los modelos de `models/models.json` con la traducción lista. `discipline`: `architectural`, `site`, `structural`, `plumbing`, `hvac`, `electrical` u `other`. Sin catálogo, `models: []` |
 | `GET /changes/:id` | Un cambio con su impacto, sus avisos y su propuesta; 404 si no existe |
 
 Cabeceras:
@@ -95,7 +97,9 @@ src/
     ├── impact/                   adapters y casos de uso de context-impact: el grafo (sale de la definición del proyecto), el `ClaimReader` (Claude o respuestas fijas, con caché de archivos), el vocabulario del proyecto y `ExtractClaims`
     ├── notification/             adapters y casos de uso de context-notification
     ├── coordination/             orquesta la cadena y expone las rutas de datos; `revision-body.ts` valida la ingesta genérica y la carga inicial, `chunk-reader.ts` lee los fragmentos de texto libre, `revit-minute.ts` valida la minuta de Revit y la convierte en hechos, y `integrations.controller.ts` la recibe
-    └── room/                     asientos, eventos, reinicio (módulo de la API, no un contexto)
+    ├── room/                     asientos, eventos, reinicio (módulo de la API, no un contexto)
+    └── aps/                      Autodesk Platform Services: ApsAuth (token 2-legged cacheado por scopes), el catálogo models/models.json y las rutas del visor
+scripts/                          aps-check.ts y aps-models.ts (pnpm aps:check y pnpm aps:models); Node los ejecuta sin compilar
 tests/                            replica src/: Vitest, sin base de datos
 ```
 
@@ -108,5 +112,22 @@ tests/                            replica src/: Vitest, sin base de datos
 - **Variables.** `PRESENTER_KEY` (por defecto `sala-los-aromos` fuera de producción; obligatoria en producción) y `ANTHROPIC_API_KEY` (opcional; ausente o vacía, la lectura de texto libre es determinista: respuestas fijas y grabadas).
 - **Lectura de texto libre.** Con `ANTHROPIC_API_KEY`, el `ClaimReader` es `CachedClaimReader(ClaudeClaimReader)` y la primera respuesta queda grabada; sin clave, `CachedClaimReader(FixtureClaimReader)` con las respuestas fijas de la muestra (WhatsApp mensajes 1 y 2, folios 41 y 44, acta 12, con confianza 0,9). La caché es `inference-cache/`, una carpeta versionada de la API con un JSON por consulta: la demo reproduce lo grabado sin red. Sin clave no sale nada a la red.
 - **Modelo de áreas.** `scenario/areas.ts` define los niveles `n1` a `n5` y la cubierta `n6`, la grilla (ejes A a E a 0, 4, 8, 12 y 16 m y transversales 1 a 4), los sistemas y la huella de cada elemento: las losas son soporte, el shaft S1, las ventanas y el colector B2 son ocupantes, y las partidas y el proyecto no ocupan espacio. El lago recibe ese modelo como un `FootprintModel`.
+
+## Modelos BIM (APS)
+
+Los modelos de Revit se ven con el visor de Autodesk Platform Services. Las credenciales (`APS_CLIENT_ID`, `APS_CLIENT_SECRET`) viven solo en el `.env` de la raíz y solo las usa el servidor: el navegador recibe un token de `viewables:read` por `GET /api/aps/viewer-token`.
+
+```sh
+pnpm aps:check                        # pide un token: imprime solo éxito o fallo y el HTTP
+pnpm aps:models [--force]             # sube y traduce models/*.rvt y escribe models/models.json
+```
+
+`aps:models` usa los SDK oficiales (`@aps_sdk/oss`, `@aps_sdk/model-derivative`):
+
+1. Crea el bucket si no existe (`persistent`, región US). Su clave es `APS_BUCKET_KEY` o, si no está, `vigente-` más 16 hex del SHA-256 del client id.
+2. Por cada `.rvt` de `models/`, lo sube a OSS si no está o cambió de tamaño, y pide la traducción a SVF2 (vistas 2D y 3D) con `generateMasterViews`: una vista 3D por fase de Revit con todos los elementos del modelo, aunque el archivo no traiga vistas 3D propias (el de Site de Snowdon Towers solo trae planos). Se salta el que ya está traducido con el mismo tamaño; `--force` lo vuelve a traducir.
+3. Consulta el manifiesto cada 15 s (hasta 45 min) y guarda en `models/models.json` el archivo, la disciplina (sale del nombre), la URN, el estado y los mensajes del manifiesto (y un aviso si no quedó ninguna vista 3D). Si un archivo falla, sigue con los demás; el script termina con código 1 si alguno no quedó traducido.
+
+`models/models.json` no lleva secretos y se versiona. Los `.rvt` no se versionan (`.gitignore`).
 
 Variables, cómo se compone un contexto y por qué Node ejecuta los paquetes del workspace como TypeScript: [arquitectura](../../docs/arquitectura.md).

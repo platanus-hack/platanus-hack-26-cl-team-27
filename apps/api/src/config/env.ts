@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 export const DEV_PRESENTER_KEY = 'sala-los-aromos';
 
+const optionalText = z
+  .string()
+  .optional()
+  .transform((value) => value?.trim() || undefined);
+
 export const envSchema = z
   .object({
     NODE_ENV: z
@@ -28,6 +33,8 @@ export const envSchema = z
       .string()
       .optional()
       .transform((value) => (value && value.trim() !== '' ? value : undefined)),
+    APS_CLIENT_ID: optionalText,
+    APS_CLIENT_SECRET: optionalText,
   })
   .refine(
     (env) => env.NODE_ENV !== 'production' || env.CORS_ALLOW_ORIGINS !== true,

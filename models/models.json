@@ -1,0 +1,78 @@
+{
+  "bucketKey": "vigente-956d852fc0a3c635",
+  "region": "US",
+  "models": [
+    {
+      "file": "Snowdon Towers Sample Architectural.rvt",
+      "discipline": "architectural",
+      "messages": [
+        "warning Revit-MissingLink: <message>Missing link files: <ul>{0}</ul></message> Snowdon Towers Sample Electrical.rvt, Snowdon Towers Sample Facades.rvt, Snowdon Towers Sample HVAC.rvt, Snowdon Towers Sample Plumbing.rvt, Snowdon Towers Sample Site.rvt, Snowdon Towers Sample Structural.rvt"
+      ],
+      "objectKey": "Snowdon Towers Sample Architectural.rvt",
+      "size": 94691328,
+      "urn": "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6dmlnZW50ZS05NTZkODUyZmMwYTNjNjM1L1Nub3dkb24lMjBUb3dlcnMlMjBTYW1wbGUlMjBBcmNoaXRlY3R1cmFsLnJ2dA",
+      "status": "success",
+      "updatedAt": "2026-11-21T19:18:36.899Z"
+    },
+    {
+      "file": "Snowdon Towers Sample Electrical.rvt",
+      "discipline": "electrical",
+      "messages": [
+        "warning Revit-MissingLink: <message>Missing link files: <ul>{0}</ul></message> Snowdon Towers Sample Architectural.rvt, Snowdon Towers Sample HVAC.rvt, Snowdon Towers Sample Plumbing.rvt, Snowdon Towers Sample Site.rvt, Snowdon Towers Sample Structural.rvt"
+      ],
+      "objectKey": "Snowdon Towers Sample Electrical.rvt",
+      "size": 41304064,
+      "urn": "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6dmlnZW50ZS05NTZkODUyZmMwYTNjNjM1L1Nub3dkb24lMjBUb3dlcnMlMjBTYW1wbGUlMjBFbGVjdHJpY2FsLnJ2dA",
+      "status": "success",
+      "updatedAt": "2026-11-21T19:11:35.647Z"
+    },
+    {
+      "file": "Snowdon Towers Sample HVAC.rvt",
+      "discipline": "hvac",
+      "messages": [
+        "warning Revit-MissingLink: <message>Missing link files: <ul>{0}</ul></message> Snowdon Towers Sample Architectural.rvt, Snowdon Towers Sample Electrical.rvt, Snowdon Towers Sample Facades.rvt, Snowdon Towers Sample Plumbing.rvt, Snowdon Towers Sample Site.rvt, Snowdon Towers Sample Structural.rvt"
+      ],
+      "objectKey": "Snowdon Towers Sample HVAC.rvt",
+      "size": 22818816,
+      "urn": "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6dmlnZW50ZS05NTZkODUyZmMwYTNjNjM1L1Nub3dkb24lMjBUb3dlcnMlMjBTYW1wbGUlMjBIVkFDLnJ2dA",
+      "status": "success",
+      "updatedAt": "2026-11-21T19:12:22.099Z"
+    },
+    {
+      "file": "Snowdon Towers Sample Plumbing.rvt",
+      "discipline": "plumbing",
+      "messages": [
+        "warning Revit-MissingLink: <message>Missing link files: <ul>{0}</ul></message> Snowdon Towers Sample Architectural.rvt, Snowdon Towers Sample Electrical.rvt, Snowdon Towers Sample Facades.rvt, Snowdon Towers Sample HVAC.rvt, Snowdon Towers Sample Structural.rvt"
+      ],
+      "objectKey": "Snowdon Towers Sample Plumbing.rvt",
+      "size": 42119168,
+      "urn": "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6dmlnZW50ZS05NTZkODUyZmMwYTNjNjM1L1Nub3dkb24lMjBUb3dlcnMlMjBTYW1wbGUlMjBQbHVtYmluZy5ydnQ",
+      "status": "success",
+      "updatedAt": "2026-11-21T19:13:40.207Z"
+    },
+    {
+      "file": "Snowdon Towers Sample Site.rvt",
+      "discipline": "site",
+      "messages": [
+        "warning Revit-MissingLink: <message>Missing link files: <ul>{0}</ul></message> Snowdon Towers Sample Architectural.rvt, Snowdon Towers Sample Facades.rvt"
+      ],
+      "objectKey": "Snowdon Towers Sample Site.rvt",
+      "size": 54484992,
+      "urn": "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6dmlnZW50ZS05NTZkODUyZmMwYTNjNjM1L1Nub3dkb24lMjBUb3dlcnMlMjBTYW1wbGUlMjBTaXRlLnJ2dA",
+      "status": "success",
+      "updatedAt": "2026-11-21T19:10:48.670Z"
+    },
+    {
+      "file": "Snowdon Towers Sample Structural.rvt",
+      "discipline": "structural",
+      "messages": [
+        "warning Revit-MissingLink: <message>Missing link files: <ul>{0}</ul></message> Snowdon Towers Sample Architectural.rvt, Snowdon Towers Sample Electrical.rvt, Snowdon Towers Sample Facades.rvt, Snowdon Towers Sample HVAC.rvt, Snowdon Towers Sample Plumbing.rvt, Snowdon Towers Sample Site.rvt"
+      ],
+      "objectKey": "Snowdon Towers Sample Structural.rvt",
+      "size": 28057600,
+      "urn": "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6dmlnZW50ZS05NTZkODUyZmMwYTNjNjM1L1Nub3dkb24lMjBUb3dlcnMlMjBTYW1wbGUlMjBTdHJ1Y3R1cmFsLnJ2dA",
+      "status": "success",
+      "updatedAt": "2026-11-21T19:12:06.488Z"
+    }
+  ]
+}

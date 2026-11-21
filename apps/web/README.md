@@ -22,6 +22,7 @@ pnpm nx run @team27/web:test          # Vitest: los *.spec.ts de src/
 | `/presentador`                   | La consola de Fernanda: requieren atención, propuestas (activas e historial), asientos y reinicio            |
 | `/espacios`                      | Espacios y documentos; el documento se abre en un panel. Acepta `?espacio=`, `?documento=` y `?revision=`    |
 | `/cambios/[id]`                  | Detalle de una propuesta; acepta `?para=<stakeholderId>`                                                     |
+| `/modelos`                       | El visor de APS con todas las disciplinas de `models/models.json` en una escena: abre con Arquitectura y carga las demás al encenderlas, con un interruptor por disciplina y las propiedades del elemento seleccionado |
 | `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                                                             |
 
 Los route groups `(site)`, `(sala)` y `(asiento)` dan a cada pantalla su propio layout: el sitio con encabezado y navegación (marca la sección actual), el telón sin márgenes y el celular en una columna de 430 px. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
@@ -73,6 +74,7 @@ Cada módulo declara los tipos de las respuestas y las funciones que las piden. 
 | `attention.ts`       | Sin endpoint: junta las disputas y las discrepancias de Fernanda para «Requieren atención»                   |
 | `waiting.ts`         | Sin endpoint: recuerda en `localStorage` las discrepancias marcadas con «Esperar el plano»                   |
 | `votes-api.ts`       | `POST /api/notifications/:id/response` con `{ kind, note? }`, `POST /api/discrepancies/:id/dismiss`, `POST /api/stale/acknowledge` con `{ revisionId, note }` |
+| `aps-api.ts`         | `GET /api/aps/models`, `GET /api/aps/viewer-token`                                                         |
 | `changes-api.ts`     | `GET /api/changes/:id`                                                                                     |
 
 Con el lago vacío (`lake.empty`), `/sala`, `/presentador` y el celular muestran «Esperando la carga inicial» hasta que el ETL carga lo vigente. La web no sube documentos: la tarjeta de desfase dice «Sube la revisión nueva a tu carpeta y la leemos solos» y ofrece «Confirmo sin cambio».
@@ -95,6 +97,19 @@ Los formatos (`format.ts`) son es-CL: pesos sin decimales (`$3.636.500`), `1 dí
 - Cada sondeo lleva un `AbortController`; con la pestaña oculta se pausa y al volver se consulta de inmediato.
 
 `useLive` carga los datos de una pantalla y los vuelve a pedir cuando llegan eventos. Con `reset: true` recarga todo; los celulares borran sus tokens y vuelven a `/`.
+
+## Visor BIM
+
+`BimViewer` (`components/modelos`) carga el visor de APS v7 desde el CDN de Autodesk (`lib/aps-viewer.ts`), con `AutodeskProduction2` y `streamingV2` para SVF2, y pide el token a `/api/aps/viewer-token`. De cada modelo abre la última vista maestra (la fase final, «New Construction» en Snowdon Towers), o si no hay, `{3D}` o la primera vista 3D; un modelo sin vista 3D aparece como error y los demás cargan igual. Carga cada disciplina con `keepCurrentModels` y `applyRefPoint`, y con el `globalOffset` del primer modelo: los de Snowdon Towers comparten coordenadas y quedan alineados. Al abrir carga solo Arquitectura (`PRIMARY_DISCIPLINE`; si no está, el primer modelo): es el modelo principal y fija el offset. Las demás disciplinas parten apagadas y se cargan la primera vez que se encienden; después se ocultan y se muestran sin volver a cargar.
+
+`onReady` entrega un `ViewerControls`, que nombra cada elemento como `{ discipline, dbId }`:
+
+- `ensureLoaded` carga una disciplina si falta y la deja visible (para resaltar en un modelo que todavía no se abrió). `disciplines` lista las cargadas.
+- `setDisciplineVisible` muestra u oculta una disciplina ya cargada.
+- `resolveExternalIds` traduce `uniqueId` de Revit (el `externalId` del visor, el mismo de la minuta) a elementos, buscando en las disciplinas cargadas.
+- `getProperties`, `select`, `isolate` (vacío muestra todo), `highlight` (color RGBA de 0 a 1), `clearHighlights`, `fitTo` y `reset`.
+
+`onSelectionChange` entrega la selección con la misma forma.
 
 ## Almacenamiento
 
