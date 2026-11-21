@@ -5,15 +5,14 @@ import type {
   ClaimDraft,
   RevisionDraft,
 } from '@team27/context-lake';
+import { HttpStatus } from '@nestjs/common';
 import { z } from 'zod';
 
-import {
-  ATTRIBUTES,
-  documentOf,
-  REVIT_MODEL_ID,
-  SUBJECTS,
-  toRevisionDraft,
-} from '../../scenario/documents.ts';
+import type {
+  DocumentDef,
+  ProjectCatalog,
+} from '../project/project-catalog.ts';
+import { fail } from './http-errors.ts';
 
 const MAX_LOCATOR = 200;
 
@@ -36,14 +35,22 @@ const DESIGN_SECTIONS: readonly string[] = [
   'fachada',
 ];
 
-const designSubjects = new Set(
-  SUBJECTS.filter((subject) => DESIGN_SECTIONS.includes(subject.section)).map(
-    (subject) => subject.id,
-  ),
-);
+const isDesignSubject = (project: ProjectCatalog, id: string): boolean =>
+  project.hasSubject(id) && DESIGN_SECTIONS.includes(project.sectionOf(id));
 
-const attributeLabel = (key: string): string =>
-  ATTRIBUTES.find((attribute) => attribute.key === key)?.label ?? key;
+export const modelDocumentOf = (project: ProjectCatalog): DocumentDef => {
+  const document = project.modelDocumentId
+    ? project.documentDef(project.modelDocumentId)
+    : null;
+  if (!document) {
+    throw fail(
+      HttpStatus.NOT_FOUND,
+      'no_model_document',
+      'El proyecto no tiene un modelo de Revit',
+    );
+  }
+  return document;
+};
 
 const text = z.string().min(1).max(200);
 
@@ -147,11 +154,13 @@ const unitName = (unit: string | null): string =>
   unit === null ? 'sin unidad' : `«${unit}»`;
 
 const judge = (
+  project: ProjectCatalog,
   item: RevitMinute['changes'][number],
 ): { value: number; unit: string | null } | string => {
-  if (!designSubjects.has(item.subjectId)) {
+  if (!isDesignSubject(project, item.subjectId)) {
     return 'El proyecto no sigue ese elemento';
   }
+  const attributeLabel = (key: string) => project.attributeLabel(key);
   const tracked = TRACKED[item.attribute];
   if (!tracked) return 'El proyecto no sigue ese atributo';
   if (item.unit !== tracked.unit) {
@@ -168,13 +177,14 @@ const judge = (
 };
 
 export const mapMinute = (
+  project: ProjectCatalog,
   minute: RevitMinute,
   authorId: string,
 ): MappedMinute => {
   const claims: ClaimDraft[] = [];
   const ignored: IgnoredChange[] = [];
   for (const item of minute.changes) {
-    const verdict = judge(item);
+    const verdict = judge(project, item);
     if (typeof verdict === 'string') {
       ignored.push({
         subjectId: item.subjectId,
@@ -193,7 +203,7 @@ export const mapMinute = (
     });
   }
   const label = minuteLabel(minute);
-  const document = documentOf(REVIT_MODEL_ID);
+  const document = modelDocumentOf(project);
   const pointer = `Revit · ${minute.model.title}.rvt · ${label}`;
   const normalized = claims
     .map((claim) => [claim.subject, claim.attribute, claim.value, claim.unit])
@@ -203,7 +213,7 @@ export const mapMinute = (
     .digest('hex');
   return {
     revision: {
-      ...toRevisionDraft(
+      ...project.toRevisionDraft(
         document.id,
         label,
         authorId,

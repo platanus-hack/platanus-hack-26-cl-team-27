@@ -14,15 +14,19 @@ import {
 import type { PrismaClient } from '@team27/data-main';
 
 import { provideUseCase } from '../../common/provide-use-case.ts';
-import { LOS_AROMOS } from '../../scenario/los-aromos.ts';
 import { PRISMA_CLIENT } from '../database/database.module.ts';
+import type { ProjectCatalog } from '../project/project-catalog.ts';
+import { PROJECT_CATALOG } from '../project/project.module.ts';
 
 export const STAKEHOLDER_DIRECTORY = 'STAKEHOLDER_DIRECTORY';
 export const NOTIFICATION_REPOSITORY = 'NOTIFICATION_REPOSITORY';
 
-export const buildNotification = (db: PrismaClient) => {
-  const directory = new InMemoryStakeholderDirectory(LOS_AROMOS.stakeholders);
-  const notifications = new PrismaNotificationRepository(db);
+export const buildNotification = (
+  db: PrismaClient,
+  project: ProjectCatalog,
+) => {
+  const directory = new InMemoryStakeholderDirectory(project.stakeholders);
+  const notifications = new PrismaNotificationRepository(db, project.id);
   return {
     notifyStakeholders: new NotifyStakeholders(directory, notifications),
     listNotifications: new ListNotifications(notifications),
@@ -36,14 +40,15 @@ export const buildNotification = (db: PrismaClient) => {
   providers: [
     {
       provide: STAKEHOLDER_DIRECTORY,
-      useFactory: () =>
-        new InMemoryStakeholderDirectory(LOS_AROMOS.stakeholders),
+      inject: [PROJECT_CATALOG],
+      useFactory: (project: ProjectCatalog) =>
+        new InMemoryStakeholderDirectory(project.stakeholders),
     },
     {
       provide: NOTIFICATION_REPOSITORY,
-      inject: [PRISMA_CLIENT],
-      useFactory: (prisma: PrismaClient) =>
-        new PrismaNotificationRepository(prisma),
+      inject: [PRISMA_CLIENT, PROJECT_CATALOG],
+      useFactory: (prisma: PrismaClient, project: ProjectCatalog) =>
+        new PrismaNotificationRepository(prisma, project.id),
     },
     provideUseCase(NotifyStakeholders, [
       STAKEHOLDER_DIRECTORY,

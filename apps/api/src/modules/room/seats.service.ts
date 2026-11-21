@@ -5,9 +5,9 @@ import { ConfigService } from '@nestjs/config';
 import type { PrismaClient } from '@team27/data-main';
 
 import type { Env } from '../../config/index.ts';
-import { LOS_AROMOS } from '../../scenario/los-aromos.ts';
+import type { ProjectCatalog } from '../project/project-catalog.ts';
+import { PROJECT_CATALOG } from '../project/project.module.ts';
 import { fail } from '../coordination/http-errors.ts';
-import { castMember, castName } from '../coordination/lookup.ts';
 import { PRISMA_CLIENT } from '../database/prisma-token.ts';
 import { emitEvents } from './events.ts';
 import { PRESENCE_MS } from './state.ts';
@@ -15,8 +15,6 @@ import { PRESENCE_MS } from './state.ts';
 export const SEAT_TOKEN_HEADER = 'x-seat-token';
 export const PRESENTER_KEY_HEADER = 'x-presenter-key';
 export const ACT_AS_HEADER = 'x-act-as';
-
-export const PRESENTER_ID = LOS_AROMOS.author.id;
 
 export interface Credentials {
   readonly token: string | undefined;
@@ -43,13 +41,16 @@ const sameSecret = (given: string, expected: string): boolean => {
 export class SeatsService {
   private readonly prisma: PrismaClient;
   private readonly presenterKey: string;
+  private readonly project: ProjectCatalog;
 
   constructor(
     @Inject(PRISMA_CLIENT) prisma: PrismaClient,
     @Inject(ConfigService) config: ConfigService<Env, true>,
+    @Inject(PROJECT_CATALOG) project: ProjectCatalog,
   ) {
     this.prisma = prisma;
     this.presenterKey = config.get('PRESENTER_KEY', { infer: true });
+    this.project = project;
   }
 
   isPresenter(key: string | undefined): boolean {
@@ -71,18 +72,28 @@ export class SeatsService {
   async actor(credentials: Credentials): Promise<string> {
     if (credentials.token) {
       const seat = await this.prisma.seat.findFirst({
-        where: { tokenHash: hashToken(credentials.token) },
+        where: {
+          projectId: this.project.id,
+          tokenHash: hashToken(credentials.token),
+        },
       });
       if (seat) {
         await this.prisma.seat.update({
-          where: { castId: seat.castId },
+          where: {
+            projectId_castId: {
+              projectId: this.project.id,
+              castId: seat.castId,
+            },
+          },
           data: { lastBeatAt: new Date() },
         });
         return seat.castId;
       }
     }
     if (this.isPresenter(credentials.key)) {
-      return credentials.actAs ? this.actAs(credentials.actAs) : PRESENTER_ID;
+      return credentials.actAs
+        ? this.actAs(credentials.actAs)
+        : this.project.author.id;
     }
     throw fail(
       HttpStatus.UNAUTHORIZED,
@@ -92,7 +103,7 @@ export class SeatsService {
   }
 
   private async actAs(castId: string): Promise<string> {
-    if (!castMember(castId)) {
+    if (!this.project.castMember(castId)) {
       throw fail(
         HttpStatus.NOT_FOUND,
         'not_found',
@@ -101,6 +112,7 @@ export class SeatsService {
     }
     const held = await this.prisma.seat.findFirst({
       where: {
+        projectId: this.project.id,
         castId,
         lastBeatAt: { gte: new Date(Date.now() - PRESENCE_MS) },
       },
@@ -109,14 +121,14 @@ export class SeatsService {
       throw fail(
         HttpStatus.CONFLICT,
         'seat_held',
-        `${castName(castId)} la tiene una persona`,
+        `${this.project.castName(castId)} la tiene una persona`,
       );
     }
     return castId;
   }
 
   async actorFor(castId: string, credentials: Credentials): Promise<void> {
-    if (!castMember(castId)) {
+    if (!this.project.castMember(castId)) {
       throw fail(
         HttpStatus.NOT_FOUND,
         'not_found',
@@ -136,11 +148,16 @@ export class SeatsService {
   async heartbeat(token: string | undefined): Promise<string | null> {
     if (!token) return null;
     const seat = await this.prisma.seat.findFirst({
-      where: { tokenHash: hashToken(token) },
+      where: {
+        projectId: this.project.id,
+        tokenHash: hashToken(token),
+      },
     });
     if (!seat) return null;
     await this.prisma.seat.update({
-      where: { castId: seat.castId },
+      where: {
+        projectId_castId: { projectId: this.project.id, castId: seat.castId },
+      },
       data: { lastBeatAt: new Date() },
     });
     return seat.castId;
@@ -148,21 +165,24 @@ export class SeatsService {
 
   async presentIds(): Promise<Set<string>> {
     const seats = await this.prisma.seat.findMany({
-      where: { lastBeatAt: { gte: new Date(Date.now() - PRESENCE_MS) } },
+      where: {
+        projectId: this.project.id,
+        lastBeatAt: { gte: new Date(Date.now() - PRESENCE_MS) },
+      },
       select: { castId: true },
     });
     return new Set(seats.map((seat) => seat.castId));
   }
 
   async claim(castId: string): Promise<{ castId: string; token: string }> {
-    if (!castMember(castId)) {
+    if (!this.project.castMember(castId)) {
       throw fail(
         HttpStatus.NOT_FOUND,
         'not_found',
         `No existe el asiento ${castId}`,
       );
     }
-    if (castId === PRESENTER_ID) {
+    if (castId === this.project.author.id) {
       throw fail(
         HttpStatus.FORBIDDEN,
         'presenter_seat',
@@ -178,6 +198,7 @@ export class SeatsService {
     };
     const taken = await this.prisma.seat.updateMany({
       where: {
+        projectId: this.project.id,
         castId,
         lastBeatAt: { lt: new Date(now.getTime() - PRESENCE_MS) },
       },
@@ -185,23 +206,25 @@ export class SeatsService {
     });
     if (taken.count === 0) {
       try {
-        await this.prisma.seat.create({ data: { castId, ...data } });
+        await this.prisma.seat.create({
+          data: { projectId: this.project.id, castId, ...data },
+        });
       } catch (error) {
         if (!isUniqueViolation(error)) throw error;
         throw new HttpException(
           {
             error: 'seat_taken',
             code: 'seat_taken',
-            message: `${castName(castId)} ya la tiene otra persona`,
+            message: `${this.project.castName(castId)} ya la tiene otra persona`,
           },
           HttpStatus.CONFLICT,
         );
       }
     }
-    await emitEvents(this.prisma, [
+    await emitEvents(this.prisma, this.project.id, [
       {
         kind: 'seat.claimed',
-        message: `${castName(castId)} tiene a una persona en su asiento.`,
+        message: `${this.project.castName(castId)} tiene a una persona en su asiento.`,
         refs: { castId },
       },
     ]);
@@ -209,7 +232,7 @@ export class SeatsService {
   }
 
   async release(castId: string, credentials: Credentials): Promise<void> {
-    if (!castMember(castId)) {
+    if (!this.project.castMember(castId)) {
       throw fail(
         HttpStatus.NOT_FOUND,
         'not_found',
@@ -219,12 +242,14 @@ export class SeatsService {
     if (!this.isPresenter(credentials.key)) {
       await this.actorFor(castId, credentials);
     }
-    const removed = await this.prisma.seat.deleteMany({ where: { castId } });
+    const removed = await this.prisma.seat.deleteMany({
+      where: { projectId: this.project.id, castId },
+    });
     if (removed.count > 0) {
-      await emitEvents(this.prisma, [
+      await emitEvents(this.prisma, this.project.id, [
         {
           kind: 'seat.released',
-          message: `El asiento de ${castName(castId)} volvió a un bot.`,
+          message: `El asiento de ${this.project.castName(castId)} volvió a un bot.`,
           refs: { castId },
         },
       ]);

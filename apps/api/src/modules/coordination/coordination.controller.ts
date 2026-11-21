@@ -39,13 +39,7 @@ const castId = z.string().min(1).max(64);
 
 const subjectPart = z.string().min(1).max(64);
 
-const section = z.enum([
-  'estructura',
-  'instalaciones',
-  'fachada',
-  'costos',
-  'plazo',
-]);
+const section = z.string().min(1).max(64);
 
 const baselineQuery = z.object({ section: section.optional() });
 

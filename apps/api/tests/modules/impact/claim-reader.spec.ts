@@ -16,7 +16,7 @@ import {
 import type { ChunkDraft } from '@team27/context-lake';
 
 import { ChunkReader } from '../../../src/modules/coordination/chunk-reader.ts';
-import { documentOf } from '../../../src/scenario/documents.ts';
+import { project } from '../../project.ts';
 import { chooseClaimReader } from '../../../src/modules/impact/claim-reader.ts';
 import { SAMPLE_CLAIM_FIXTURES } from '../../../src/modules/impact/fixtures.ts';
 import { buildVocabulary } from '../../../src/modules/impact/vocabulary.ts';
@@ -113,9 +113,12 @@ describe('elección del lector de afirmaciones', () => {
     ['sin clave', undefined],
     ['con la clave vacía', ''],
     ['con la clave en blanco', '   '],
-  ])('%s, la lectura es determinista y usa las respuestas fijas', (_name, key) => {
-    expect(chooseClaimReader(key, tempDirectory()).mode).toBe('fixtures');
-  });
+  ])(
+    '%s, la lectura es determinista y usa las respuestas fijas',
+    (_name, key) => {
+      expect(chooseClaimReader(key, tempDirectory()).mode).toBe('fixtures');
+    },
+  );
 
   it('con una clave real usa a Claude', () => {
     expect(chooseClaimReader('sk-ant-prueba', tempDirectory()).mode).toBe(
@@ -125,7 +128,7 @@ describe('elección del lector de afirmaciones', () => {
 });
 
 describe('respuestas fijas de los textos libres de la muestra', () => {
-  const vocabulary = buildVocabulary();
+  const vocabulary = buildVocabulary(project);
   const goldenFor = (documentId: string, label: string): CatalogClaim[] =>
     [...catalog.seeded, ...catalog.fixtures].find(
       (item) => item.documentId === documentId && item.label === label,
@@ -134,7 +137,7 @@ describe('respuestas fijas de los textos libres de la muestra', () => {
   it.each(SAMPLE_TEXTS)(
     'dan exactamente los hechos del catálogo de oro: $documentId $label',
     async ({ documentId, label, chunks }) => {
-      const document = documentOf(documentId);
+      const document = project.documentOf(documentId);
       const extract = new ExtractClaims(
         chooseClaimReader(undefined, tempDirectory()).reader,
       );
@@ -171,8 +174,8 @@ describe('respuestas fijas de los textos libres de la muestra', () => {
   );
 
   it('cada hecho de texto libre del catálogo de oro tiene su respuesta fija', () => {
-    const freeText = [...catalog.seeded, ...catalog.fixtures].filter(
-      (item) => ['whatsapp', 'libro', 'acta'].includes(item.documentId),
+    const freeText = [...catalog.seeded, ...catalog.fixtures].filter((item) =>
+      ['whatsapp', 'libro', 'acta'].includes(item.documentId),
     );
     const fixed = SAMPLE_CLAIM_FIXTURES.flatMap((fixture) => fixture.claims);
     for (const claim of freeText.flatMap((item) => item.claims)) {
@@ -201,7 +204,7 @@ describe('respuestas fijas de los textos libres de la muestra', () => {
 
   it('la caché graba la primera respuesta y la reproduce sin volver a leer', async () => {
     const directory = tempDirectory();
-    const document = documentOf('libro');
+    const document = project.documentOf('libro');
     const query = {
       evidence: {
         kind: 'text' as const,
@@ -228,9 +231,7 @@ describe('respuestas fijas de los textos libres de la muestra', () => {
 });
 
 describe('ChunkReader', () => {
-  const candidate = (
-    overrides: Partial<ClaimCandidate>,
-  ): ClaimCandidate => ({
+  const candidate = (overrides: Partial<ClaimCandidate>): ClaimCandidate => ({
     subject: 'shaft-s1',
     attribute: 'posicion_m',
     value: 8.5,
@@ -243,9 +244,12 @@ describe('ChunkReader', () => {
 
   const readerOf = (candidates: ClaimCandidate[]) =>
     new ChunkReader(
-      new ExtractClaims(new FixtureClaimReader([
-        { title: 'Libro de obra folio 44', claims: candidates },
-      ])),
+      new ExtractClaims(
+        new FixtureClaimReader([
+          { title: 'Libro de obra folio 44', claims: candidates },
+        ]),
+      ),
+      project,
     );
 
   it('los fragmentos estructurados pasan tal cual y los de texto se leen con inferencia', async () => {
@@ -259,9 +263,13 @@ describe('ChunkReader', () => {
       locator: 'fila',
       confidence: null,
     };
-    const chunks = await reader.read(documentOf('libro'), 'folio 44', [
+    const chunks = await reader.read(project.documentOf('libro'), 'folio 44', [
       { locator: 'cuadro', kind: 'fila', claims: [structured] },
-      { locator: 'folio 44', kind: 'anotacion', text: 'el shaft se corre a 8,5 m' },
+      {
+        locator: 'folio 44',
+        kind: 'anotacion',
+        text: 'el shaft se corre a 8,5 m',
+      },
       { locator: 'vacío', kind: 'fila', claims: [] },
     ]);
 
@@ -293,16 +301,27 @@ describe('ChunkReader', () => {
   it('lo rechazado queda registrado con su razón y sin efecto', async () => {
     const reader = readerOf([
       candidate({}),
-      candidate({ attribute: 'ancho_cm', unit: 'cm', value: 90, confidence: 0.5 }),
+      candidate({
+        attribute: 'ancho_cm',
+        unit: 'cm',
+        value: 90,
+        confidence: 0.5,
+      }),
       candidate({ subject: 'torre' }),
     ]);
 
-    const [chunk] = (await reader.read(documentOf('libro'), 'folio 44', [
-      { locator: 'folio 44', kind: 'anotacion', text: 'texto' },
-    ])) as [ChunkDraft];
+    const [chunk] = (await reader.read(
+      project.documentOf('libro'),
+      'folio 44',
+      [{ locator: 'folio 44', kind: 'anotacion', text: 'texto' }],
+    )) as [ChunkDraft];
 
-    expect(chunk.claims.map((claim) => claim.attribute)).toEqual(['posicion_m']);
-    expect(chunk.rejected.map((item) => [item.subject, item.attribute, item.reason])).toEqual([
+    expect(chunk.claims.map((claim) => claim.attribute)).toEqual([
+      'posicion_m',
+    ]);
+    expect(
+      chunk.rejected.map((item) => [item.subject, item.attribute, item.reason]),
+    ).toEqual([
       ['shaft-s1', 'ancho_cm', 'Confianza 0,50, bajo el mínimo de 0,70'],
       ['torre', 'posicion_m', 'El sujeto o el atributo no está en el proyecto'],
     ]);
@@ -313,10 +332,11 @@ describe('ChunkReader', () => {
       new ExtractClaims({
         read: () => Promise.reject(new InferenceUnavailableError('sin red')),
       }),
+      project,
     );
 
     await expect(
-      reader.read(documentOf('libro'), 'folio 44', [
+      reader.read(project.documentOf('libro'), 'folio 44', [
         { locator: 'folio 44', kind: 'anotacion', text: 'texto' },
       ]),
     ).rejects.toMatchObject({

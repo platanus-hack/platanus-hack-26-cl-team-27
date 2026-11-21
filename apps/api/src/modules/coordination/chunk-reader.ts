@@ -7,7 +7,11 @@ import {
 import type { ChunkDraft } from '@team27/context-lake';
 
 import { buildVocabulary } from '../impact/vocabulary.ts';
-import type { DocumentDef } from '../../scenario/documents.ts';
+import type {
+  DocumentDef,
+  ProjectCatalog,
+} from '../project/project-catalog.ts';
+import { PROJECT_CATALOG } from '../project/project.module.ts';
 import { fail } from './http-errors.ts';
 import type { RawChunk } from './revision-body.ts';
 
@@ -21,10 +25,14 @@ const sourceOf = (document: DocumentDef): TextSource =>
 @Injectable()
 export class ChunkReader {
   private readonly extractClaims: ExtractClaims;
-  private readonly vocabulary = buildVocabulary();
+  private readonly vocabulary: ReturnType<typeof buildVocabulary>;
 
-  constructor(@Inject(ExtractClaims) extractClaims: ExtractClaims) {
+  constructor(
+    @Inject(ExtractClaims) extractClaims: ExtractClaims,
+    @Inject(PROJECT_CATALOG) project: ProjectCatalog,
+  ) {
     this.extractClaims = extractClaims;
+    this.vocabulary = buildVocabulary(project);
   }
 
   async read(

@@ -38,8 +38,9 @@ import {
 import type { PrismaClient } from '@team27/data-main';
 
 import { provideUseCase } from '../../common/provide-use-case.ts';
-import { footprintModel } from '../../scenario/areas.ts';
 import { PRISMA_CLIENT } from '../database/database.module.ts';
+import type { ProjectCatalog } from '../project/project-catalog.ts';
+import { PROJECT_CATALOG } from '../project/project.module.ts';
 
 export const REVISION_REPOSITORY = 'REVISION_REPOSITORY';
 export const CHUNK_REPOSITORY = 'CHUNK_REPOSITORY';
@@ -53,17 +54,19 @@ export const CHANGE_REPOSITORY = 'CHANGE_REPOSITORY';
 
 export const buildLake = (
   db: PrismaClient,
+  project: ProjectCatalog,
   extractor: FactExtractor = new InlineFactExtractor([]),
 ) => {
-  const revisions = new PrismaRevisionRepository(db);
-  const chunks = new PrismaChunkRepository(db);
-  const claims = new PrismaClaimRepository(db);
-  const baseline = new PrismaBaselineRepository(db);
-  const proposals = new PrismaProposalRepository(db);
-  const discrepancies = new PrismaDiscrepancyRepository(db);
-  const acknowledgements = new PrismaAcknowledgementRepository(db);
-  const overlaps = new PrismaOverlapRepository(db);
-  const changes = new PrismaChangeRepository(db);
+  const { footprintModel } = project;
+  const revisions = new PrismaRevisionRepository(db, project.id);
+  const chunks = new PrismaChunkRepository(db, project.id);
+  const claims = new PrismaClaimRepository(db, project.id);
+  const baseline = new PrismaBaselineRepository(db, project.id);
+  const proposals = new PrismaProposalRepository(db, project.id);
+  const discrepancies = new PrismaDiscrepancyRepository(db, project.id);
+  const acknowledgements = new PrismaAcknowledgementRepository(db, project.id);
+  const overlaps = new PrismaOverlapRepository(db, project.id);
+  const changes = new PrismaChangeRepository(db, project.id);
   const resolveOverlaps = new ResolveOverlaps(
     baseline,
     proposals,
@@ -144,53 +147,57 @@ export const buildLake = (
   providers: [
     {
       provide: REVISION_REPOSITORY,
-      inject: [PRISMA_CLIENT],
-      useFactory: (prisma: PrismaClient) =>
-        new PrismaRevisionRepository(prisma),
+      inject: [PRISMA_CLIENT, PROJECT_CATALOG],
+      useFactory: (prisma: PrismaClient, project: ProjectCatalog) =>
+        new PrismaRevisionRepository(prisma, project.id),
     },
     {
       provide: CHUNK_REPOSITORY,
-      inject: [PRISMA_CLIENT],
-      useFactory: (prisma: PrismaClient) => new PrismaChunkRepository(prisma),
+      inject: [PRISMA_CLIENT, PROJECT_CATALOG],
+      useFactory: (prisma: PrismaClient, project: ProjectCatalog) =>
+        new PrismaChunkRepository(prisma, project.id),
     },
     {
       provide: OVERLAP_REPOSITORY,
-      inject: [PRISMA_CLIENT],
-      useFactory: (prisma: PrismaClient) => new PrismaOverlapRepository(prisma),
+      inject: [PRISMA_CLIENT, PROJECT_CATALOG],
+      useFactory: (prisma: PrismaClient, project: ProjectCatalog) =>
+        new PrismaOverlapRepository(prisma, project.id),
     },
     {
       provide: CLAIM_REPOSITORY,
-      inject: [PRISMA_CLIENT],
-      useFactory: (prisma: PrismaClient) => new PrismaClaimRepository(prisma),
+      inject: [PRISMA_CLIENT, PROJECT_CATALOG],
+      useFactory: (prisma: PrismaClient, project: ProjectCatalog) =>
+        new PrismaClaimRepository(prisma, project.id),
     },
     {
       provide: BASELINE_REPOSITORY,
-      inject: [PRISMA_CLIENT],
-      useFactory: (prisma: PrismaClient) =>
-        new PrismaBaselineRepository(prisma),
+      inject: [PRISMA_CLIENT, PROJECT_CATALOG],
+      useFactory: (prisma: PrismaClient, project: ProjectCatalog) =>
+        new PrismaBaselineRepository(prisma, project.id),
     },
     {
       provide: PROPOSAL_REPOSITORY,
-      inject: [PRISMA_CLIENT],
-      useFactory: (prisma: PrismaClient) =>
-        new PrismaProposalRepository(prisma),
+      inject: [PRISMA_CLIENT, PROJECT_CATALOG],
+      useFactory: (prisma: PrismaClient, project: ProjectCatalog) =>
+        new PrismaProposalRepository(prisma, project.id),
     },
     {
       provide: DISCREPANCY_REPOSITORY,
-      inject: [PRISMA_CLIENT],
-      useFactory: (prisma: PrismaClient) =>
-        new PrismaDiscrepancyRepository(prisma),
+      inject: [PRISMA_CLIENT, PROJECT_CATALOG],
+      useFactory: (prisma: PrismaClient, project: ProjectCatalog) =>
+        new PrismaDiscrepancyRepository(prisma, project.id),
     },
     {
       provide: ACKNOWLEDGEMENT_REPOSITORY,
-      inject: [PRISMA_CLIENT],
-      useFactory: (prisma: PrismaClient) =>
-        new PrismaAcknowledgementRepository(prisma),
+      inject: [PRISMA_CLIENT, PROJECT_CATALOG],
+      useFactory: (prisma: PrismaClient, project: ProjectCatalog) =>
+        new PrismaAcknowledgementRepository(prisma, project.id),
     },
     {
       provide: CHANGE_REPOSITORY,
-      inject: [PRISMA_CLIENT],
-      useFactory: (prisma: PrismaClient) => new PrismaChangeRepository(prisma),
+      inject: [PRISMA_CLIENT, PROJECT_CATALOG],
+      useFactory: (prisma: PrismaClient, project: ProjectCatalog) =>
+        new PrismaChangeRepository(prisma, project.id),
     },
     provideUseCase(DetectChanges, [CHANGE_REPOSITORY]),
     provideUseCase(ListChanges, [CHANGE_REPOSITORY]),

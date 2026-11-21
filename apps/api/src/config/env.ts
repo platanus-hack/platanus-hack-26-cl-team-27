@@ -28,6 +28,7 @@ export const envSchema = z
               .map((origin) => origin.trim())
               .filter(Boolean),
       ),
+    PROJECT_ID: optionalText,
     PRESENTER_KEY: z.string().min(8).optional(),
     ANTHROPIC_API_KEY: z
       .string()

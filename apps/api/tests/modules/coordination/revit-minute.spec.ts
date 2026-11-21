@@ -1,3 +1,4 @@
+import { project } from '../../project.ts';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,7 +37,7 @@ const withChanges = (
 };
 
 const ignoredOf = (change: Partial<RevitMinute['changes'][number]>) =>
-  mapMinute(withChanges([change]), 'fernanda-lagos').ignored;
+  mapMinute(project, withChanges([change]), 'fernanda-lagos').ignored;
 
 describe('minuta de Revit', () => {
   it('el ejemplo del contrato cumple el schema', () => {
@@ -44,7 +45,11 @@ describe('minuta de Revit', () => {
   });
 
   it('mapea el ejemplo a dos hechos y una revisión del modelo de Revit', () => {
-    const { revision, claims, ignored } = mapMinute(parsed(), 'fernanda-lagos');
+    const { revision, claims, ignored } = mapMinute(
+      project,
+      parsed(),
+      'fernanda-lagos',
+    );
 
     expect(ignored).toEqual([]);
     expect(claims).toEqual([
@@ -83,11 +88,11 @@ describe('minuta de Revit', () => {
     const reversed = { ...minute, changes: [...minute.changes].reverse() };
     const other = withChanges([{ after: 21 }]);
 
-    expect(mapMinute(reversed, 'x').revision.contentHash).toBe(
-      mapMinute(minute, 'x').revision.contentHash,
+    expect(mapMinute(project, reversed, 'x').revision.contentHash).toBe(
+      mapMinute(project, minute, 'x').revision.contentHash,
     );
-    expect(mapMinute(other, 'x').revision.contentHash).not.toBe(
-      mapMinute(minute, 'x').revision.contentHash,
+    expect(mapMinute(project, other, 'x').revision.contentHash).not.toBe(
+      mapMinute(project, minute, 'x').revision.contentHash,
     );
   });
 
@@ -103,13 +108,13 @@ describe('minuta de Revit', () => {
     expect(minuteLabel(sync)).toBe('guardado 42');
     expect(minuteLabel(manual)).toBe('minuta 6f1c2b9e');
     expect(minuteLabel(noNumber)).toBe('minuta 6f1c2b9e');
-    expect(mapMinute(manual, 'x').revision.sourcePointer).toBe(
+    expect(mapMinute(project, manual, 'x').revision.sourcePointer).toBe(
       'Revit · LosAromos_ARQ.rvt · minuta 6f1c2b9e',
     );
   });
 
   it('sin elementos el origen es el modelo', () => {
-    const { claims } = mapMinute(withChanges([{ elements: [] }]), 'x');
+    const { claims } = mapMinute(project, withChanges([{ elements: [] }]), 'x');
 
     expect(claims[0]?.locator).toBe('Revit · LosAromos_ARQ');
   });
@@ -122,7 +127,11 @@ describe('minuta de Revit', () => {
       name: null,
       level: null,
     };
-    const { claims } = mapMinute(withChanges([{ elements: [element] }]), 'x');
+    const { claims } = mapMinute(
+      project,
+      withChanges([{ elements: [element] }]),
+      'x',
+    );
 
     expect(claims[0]?.locator).toBe('Revit · Elemento (id 7)');
   });
@@ -135,7 +144,11 @@ describe('minuta de Revit', () => {
       name: 'N'.repeat(200),
       level: null,
     };
-    const { claims } = mapMinute(withChanges([{ elements: [element] }]), 'x');
+    const { claims } = mapMinute(
+      project,
+      withChanges([{ elements: [element] }]),
+      'x',
+    );
 
     expect(claims[0]?.locator).toHaveLength(200);
   });
@@ -185,6 +198,7 @@ describe('minuta de Revit', () => {
 
   it('acepta el cero y una cantidad entera', () => {
     const { claims } = mapMinute(
+      project,
       withChanges([
         { after: 0 },
         {
@@ -203,6 +217,7 @@ describe('minuta de Revit', () => {
 
   it('redondea a los decimales del atributo', () => {
     const { claims } = mapMinute(
+      project,
       withChanges([
         { after: 20.04 },
         {
@@ -221,6 +236,7 @@ describe('minuta de Revit', () => {
 
   it('cada parámetro cambiado es un fragmento con su localizador y su hecho', () => {
     const { chunks, claims } = mapMinute(
+      project,
       withChanges([
         { after: 20 },
         { subjectId: 'shaft-s1', attribute: 'ancho_cm', after: 90 },
@@ -244,6 +260,7 @@ describe('minuta de Revit', () => {
 
   it('separa lo que entra de lo que no', () => {
     const { claims, ignored } = mapMinute(
+      project,
       withChanges([{ after: 20 }, { subjectId: 'proyecto' }]),
       'x',
     );

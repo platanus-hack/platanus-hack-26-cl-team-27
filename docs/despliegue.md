@@ -37,7 +37,7 @@ Si cambia el dueño del espejo, cambia `MIRROR_REPO` en `mirror.yml` y el token,
 [`render.yaml`](../render.yaml) es un Blueprint: declara el servicio `vigente-api` y el Postgres `vigente-db`, los dos en Virginia y en el plan gratis.
 
 - **La imagen** ([`apps/api/Dockerfile`](../apps/api/Dockerfile), con la raíz como contexto) instala el workspace completo y compila con `pnpm nx run @team27/api:build`. Node ejecuta los contextos y `data/main` como TypeScript y no quita tipos dentro de `node_modules`, así que la imagen no puede usar `pnpm deploy` ni podar el workspace.
-- **Al arrancar** corre `prisma migrate deploy` y después `node dist/main.js`. Las migraciones no tienen un paso aparte.
+- **Al arrancar** corre `prisma migrate deploy`, siembra Los Aromos solo si la base no tiene proyectos (`seed/main.ts --si-no-hay`) y después `node dist/main.js`. Las migraciones y la semilla no tienen un paso aparte. Una definición ya guardada no se pisa al redesplegar.
 - **Una sola instancia.** El registro de `x-action-id` vive en la memoria del proceso.
 - **Se despliega en cada push**, salvo cuando el cambio solo toca la web, el ETL, la CLI de APS, `packages/`, `docs/`, el add-in o archivos Markdown (`buildFilter`).
 - **El plan gratis** se duerme tras 15 minutos sin peticiones y tarda cerca de un minuto en despertar, con 0,1 CPU. Con la sala abierta, el sondeo la mantiene despierta. Si la sala se pone lenta con muchos celulares, sube el servicio a Starter en el panel. El Postgres gratis vence a los 30 días.
