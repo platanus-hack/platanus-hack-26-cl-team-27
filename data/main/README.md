@@ -41,6 +41,7 @@ Prisma 7 sobre PostgreSQL 18. Contiene el schema (`prisma/schema.prisma`), las m
 - **`ProjectDefinition`** ([`project/definition.ts`](project/definition.ts)) es la definición completa de un proyecto como datos planos. La API la valida al cargarla.
 - **`saveOrganization(prisma, organización)`** crea o actualiza una organización, que tiene que existir antes que sus proyectos; **`inviteToOrganization(prisma, { organizationId, email, role })`** invita un correo.
 - **`saveProjectDefinition(prisma, definición)`** la guarda en una transacción: crea o actualiza la fila de `projects` y reemplaza sus filas hijas. No toca el lago, la sala ni los avisos.
+- **Un proyecto creado desde la web** lo escribe la API directo en `projects` y `project_members`: solo lo básico y su creador en el elenco, con las demás tablas vacías. `loadProjectDefinition` lo lee igual, pero no pasa la validación del catálogo de la sala (no tiene grilla).
 - **`loadProjectDefinition(prisma, id)`** la lee en el orden de `position`, y **`listProjectIds(prisma)`** lista los proyectos por fecha de creación.
 - **La semilla** ([`seed/los-aromos.ts`](seed/los-aromos.ts)) es el Edificio Los Aromos de la [muestra](../../docs/muestra.md#el-proyecto-edificio-los-aromos). Los tests de la API la importan desde `@team27/data-main/seed`.
 - **Las huellas** de cada sujeto van en `project_subjects.spatial`: tipo (`soporte` u `ocupante`), niveles, celdas (`{ kind: 'all' }`, `{ kind: 'axis', axis }` o `{ kind: 'position', attribute, axis }`) y sistemas.

@@ -25,7 +25,9 @@ pnpm nx run @team27/web:test          # Vitest: los *.spec.ts de src/
 | `/espacios`                      | Espacios y documentos; el documento se abre en un panel. Acepta `?espacio=`, `?documento=` y `?revision=`    |
 | `/cambios/[id]`                  | Detalle de una propuesta; acepta `?para=<stakeholderId>`                                                     |
 | `/modelos`                       | El visor de APS con todas las disciplinas del catálogo de la API (`GET /api/aps/models`) en una escena: abre con Arquitectura y carga las demás al encenderlas, con un interruptor por disciplina y las propiedades del elemento seleccionado |
-| `/cuenta` | Tu cuenta: entrar con tu correo (sin contraseña, con Auth0), tus organizaciones con tu rol, sus proyectos, el equipo con las invitaciones pendientes y, si eres administrador, invitar un correo. Sin Auth0 configurado, avisa que las cuentas no están activas |
+| `/cuenta` | Tu cuenta: entrar con tu correo (sin contraseña, con Auth0), tus organizaciones con tu rol, sus proyectos (cada uno se abre en `/proyectos/[projectId]`) con «Crear proyecto», el equipo con las invitaciones pendientes y, si eres administrador, invitar un correo. Sin Auth0 configurado, avisa que las cuentas no están activas |
+| `/proyectos/nuevo` | Crear un proyecto: organización (si eres parte de más de una; `?organizacion=` elige cuál), nombre, lugar y descripción. Al crearlo, abre el proyecto. Pide sesión como `/cuenta` |
+| `/proyectos/[projectId]` | Un proyecto de tus organizaciones: nombre, organización, lugar, descripción y fecha de creación, con el aviso de que todavía no tiene documentos, equipo ni mapa de dependencias. Pide sesión como `/cuenta` |
 | `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                                                             |
 
 Los route groups `(site)`, `(sala)`, `(asiento)` y `(caso)` dan a cada pantalla su propio layout: el sitio con encabezado y navegación (marca la sección actual), el telón sin márgenes y el celular en una columna de 430 px y el caso a todo el ancho. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
@@ -50,6 +52,8 @@ src/
 │   ├── espacios/          SpaceExplorer, DocumentDrawer, RevisionFacts
 │   ├── cambios/           ChangeDetailBody (el detalle, compartido), ChangeResponse, ChangeDetailView,
 │   │                      ProposalDrawer
+│   ├── cuenta/            AccountPanel, MembersCard, SessionGate (pide la sesión de Auth0)
+│   ├── proyectos/         NewProjectForm, ProjectView
 │   └── valor/             ValuePage, ProvenanceChain, useChangeIds
 ├── hooks/                 useRoomPulse, useLive, useResource, useNow, useHeldSeats, useSeatToken,
 │                          usePresenterKey
@@ -79,7 +83,7 @@ Cada módulo declara los tipos de las respuestas y las funciones que las piden. 
 | `votes-api.ts`       | `POST /api/notifications/:id/response` con `{ kind, note? }`, `POST /api/discrepancies/:id/dismiss`, `POST /api/stale/acknowledge` con `{ revisionId, note }` |
 | `aps-api.ts`         | `GET /api/aps/models`, `GET /api/aps/viewer-token`                                                         |
 | `changes-api.ts`     | `GET /api/changes/:id`                                                                                     |
-| `accounts-api.ts`    | `GET /api/me`, `GET /api/projects`, `GET /api/organizations/:id/members`, `POST /api/organizations/:id/invitations`, y `projectsByOrganization` (los proyectos bajo cada organización) |
+| `accounts-api.ts`    | `GET /api/me`, `GET /api/projects`, `POST /api/projects` (recorta los textos), `GET /api/projects/:id`, `GET /api/organizations/:id/members`, `POST /api/organizations/:id/invitations`, `projectsByOrganization` (los proyectos bajo cada organización), `initialOrganization` (la del formulario), `projectHref` y `newProjectHref` |
 
 Con el lago vacío (`lake.empty`), `/sala`, `/presentador` y el celular muestran «Esperando la carga inicial» hasta que el ETL carga lo vigente. La web no sube documentos: la tarjeta de desfase dice «Sube la revisión nueva a tu carpeta y la leemos solos» y ofrece «Confirmo sin cambio».
 
@@ -98,7 +102,7 @@ El login es de Auth0, con `@auth0/nextjs-auth0` en el servidor de Next: la aplic
 
 - `lib/auth0.ts` arma el `Auth0Client` solo si están `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_SECRET` y `AUTH0_AUDIENCE` (`authConfigured` en `lib/account-routes.ts`); `APP_BASE_URL` es la URL de la web. Pide `openid profile email offline_access` y un access token para la audiencia de la API. Sin esas variables, `auth0` es `null`: no hay `/auth/*`, `/cuenta` avisa y el resto de la web funciona igual.
 - `src/proxy.ts` (el `middleware` de Next 16) monta `/auth/login`, `/auth/callback` y `/auth/logout` y mantiene viva la sesión. A las rutas de cuenta de la API (`/api/me`, `/api/projects`, `/api/organizations/*`, `needsAccountToken`) les agrega `Authorization: Bearer <access token>` antes del `rewrite`. Las de la sala no lo llevan.
-- `/cuenta` revisa la sesión en el servidor: sin sesión muestra «Entrar con tu correo» (`/auth/login?returnTo=/cuenta`); con sesión, `AccountPanel` y `MembersCard` piden los datos a la API desde el navegador.
+- `/cuenta` y `/proyectos/*` revisan la sesión en el servidor con `SessionGate`: sin Auth0 avisa, sin sesión muestra «Entrar con tu correo» (`/auth/login?returnTo=<la ruta>`) y con sesión muestra la página. `AccountPanel`, `MembersCard`, `NewProjectForm` y `ProjectView` piden los datos a la API desde el navegador.
 - En Auth0: Allowed Callback URLs `http://localhost:3000/auth/callback`, Allowed Logout URLs y Web Origins `http://localhost:3000`, y una API cuyo identificador es `AUTH0_AUDIENCE`. En esa API, pestaña Application Access, la aplicación tiene que quedar con User Access en Authorized: si no, Auth0 corta el login con «Client … is not authorized to access resource server …».
 
 ## El flujo del caso
