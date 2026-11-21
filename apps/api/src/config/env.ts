@@ -35,6 +35,21 @@ export const envSchema = z
       .transform((value) => (value && value.trim() !== '' ? value : undefined)),
     APS_CLIENT_ID: optionalText,
     APS_CLIENT_SECRET: optionalText,
+    GOOGLE_CLIENT_ID: optionalText,
+    GOOGLE_CLIENT_SECRET: optionalText,
+    GOOGLE_REDIRECT_URI: z
+      .url()
+      .default('http://localhost:3000/api/integrations/google/callback'),
+    INTEGRATIONS_ENCRYPTION_KEY: optionalText.refine(
+      (value) => value === undefined || value.length >= 16,
+      'la clave de cifrado necesita al menos 16 caracteres',
+    ),
+    INTEGRATIONS_POLL_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(3600)
+      .default(60),
   })
   .refine(
     (env) => env.NODE_ENV !== 'production' || env.CORS_ALLOW_ORIGINS !== true,

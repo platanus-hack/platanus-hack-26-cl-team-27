@@ -8,6 +8,7 @@ const LINKS = [
   { href: '/sala', label: 'Sala' },
   { href: '/espacios', label: 'Espacios' },
   { href: '/modelos', label: 'Modelos' },
+  { href: '/conectores', label: 'Conectores' },
   { href: '/presentador', label: 'Presentador' },
 ] as const;
 

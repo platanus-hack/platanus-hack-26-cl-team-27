@@ -8,7 +8,30 @@ describe('envSchema', () => {
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5427/team27',
       CORS_ALLOW_ORIGINS: ['http://localhost:3000'],
       PRESENTER_KEY: DEV_PRESENTER_KEY,
+      GOOGLE_REDIRECT_URI:
+        'http://localhost:3000/api/integrations/google/callback',
+      INTEGRATIONS_POLL_SECONDS: 60,
     });
+  });
+
+  it('los conectores son opcionales y la clave de cifrado pide 16 caracteres', () => {
+    const env = envSchema.parse({
+      GOOGLE_CLIENT_ID: ' id ',
+      GOOGLE_CLIENT_SECRET: 'secret',
+      INTEGRATIONS_ENCRYPTION_KEY: 'una-clave-larga-de-prueba',
+      INTEGRATIONS_POLL_SECONDS: '15',
+    });
+    expect(env.GOOGLE_CLIENT_ID).toBe('id');
+    expect(env.INTEGRATIONS_POLL_SECONDS).toBe(15);
+    expect(envSchema.parse({ GOOGLE_CLIENT_ID: '' }).GOOGLE_CLIENT_ID).toBe(
+      undefined,
+    );
+    expect(
+      envSchema.safeParse({ INTEGRATIONS_ENCRYPTION_KEY: 'corta' }).success,
+    ).toBe(false);
+    expect(
+      envSchema.safeParse({ GOOGLE_REDIRECT_URI: 'no es una url' }).success,
+    ).toBe(false);
   });
 
   it('la clave de Anthropic es opcional: ausente o vacía deja la lectura determinista', () => {

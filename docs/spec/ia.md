@@ -26,6 +26,7 @@ No se negocian. Si una tarea parece pedir romper una, detente y pregunta.
 | `context/impact/src/infra/adapters/`          | `InMemoryProjectGraph`, `PrismaImpactRepository`, `ClaudeClaimReader`, `ClaudeAffectedEstimator`, `JevDependencyScorer`, fixtures y caché                                             |
 | `context/notification/src/domain/`            | `Stakeholder` con `CHANNELS = ['email', 'whatsapp', 'slack']`; `Notification` con `RESPONSE_KINDS = ['reviewed', 'issue']` y `draftNotifications`                                     |
 | `context/notification/src/infra/adapters/`    | `InMemoryStakeholderDirectory`, `PrismaNotificationRepository`                                                                                                                        |
+| `context/integrations/`                       | El conector de Google Sheets: `readBudgetSheet`, `SyncSource` y los adapters de Google, Prisma y cifrado. La API lo compone en `modules/integrations`                                 |
 | `apps/api/src/modules/coordination/`          | `coordination.service.ts` (la cadena), `query.service.ts` (vistas), `revision-body.ts`, `revit-minute.ts`, `chunk-reader.ts`, `action-log.ts` (idempotencia en memoria, 500 entradas) |
 | `apps/api/src/modules/room/`                  | Asientos con token hasheado, eventos con `seq`, época y reinicio                                                                                                                      |
 | `apps/api/src/modules/database/`              | `PRISMA_CLIENT` y `unit-of-work.ts`                                                                                                                                                   |
@@ -103,6 +104,7 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 
 - Hay: `apps/etl/src/transform/presupuesto.ts`, sobre un CSV ficticio.
 - Falta: el formato real (Presto exporta FIEBDC-3, `.bc3`). Ver la receta [agregar un conector o un parser](#agregar-un-conector-o-un-parser).
+- Para el pitch, la reemplaza el conector de Google Sheets ([integraciones](integraciones.md)).
 
 **9 · Parser de P6 o MS Project** · `distinto`
 

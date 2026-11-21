@@ -26,6 +26,9 @@
     },
     {
       "path": "./apps/etl"
+    },
+    {
+      "path": "./context/integrations"
     }
   ]
 }

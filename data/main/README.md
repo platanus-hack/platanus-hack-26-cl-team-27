@@ -23,8 +23,11 @@ Prisma 7 sobre PostgreSQL 18. Contiene el schema (`prisma/schema.prisma`), las m
 | `Seat` (`seats`) | API (sala) | Un asiento tomado: el hash SHA-256 del token y el último latido |
 | `RoomEvent` (`room_events`) | API (sala) | Los eventos del ticker: `seq` autoincremental, época, tipo, mensaje en español y referencias |
 | `RoomState` (`room_state`) | API (sala) | Una sola fila: la época |
+| `IntegrationConnection` (`integration_connections`) | `integrations` | Una cuenta conectada por proveedor (`google`): el correo, los permisos y el refresh token cifrado con `INTEGRATIONS_ENCRYPTION_KEY` |
+| `IntegrationSource` (`integration_sources`) | `integrations` | Una planilla vinculada a un documento (único por documento): el id externo, el título, el link, la última revisión, la última lectura entregada (rótulo, hash, época y celdas que no entraron) y el último error, en JSON. Se borra con su conexión |
 
 - Cada tabla es de un solo contexto, salvo las de la sala, que son de la API. No hay llaves foráneas entre tablas de contextos distintos: los ids viajan como valores.
+- El reinicio de la sala no toca las tablas de `integrations`: las cuentas y las planillas vinculadas sobreviven.
 - Las tablas y columnas van en `snake_case` con `@@map` y `@map`; los modelos y campos, en `camelCase`.
 
 ## Comandos

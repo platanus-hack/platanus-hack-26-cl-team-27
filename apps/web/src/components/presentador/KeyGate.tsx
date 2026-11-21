@@ -6,14 +6,16 @@ import { useState } from 'react';
 export function KeyGate({
   onSubmit,
   message,
+  title = 'Sala de Fernanda',
 }: {
   readonly onSubmit: (key: string) => void;
   readonly message: string | null;
+  readonly title?: string;
 }) {
   const [value, setValue] = useState('');
   return (
     <div className="mx-auto max-w-sm py-10">
-      <h1 className="text-xl font-semibold text-ink">Sala de Fernanda</h1>
+      <h1 className="text-xl font-semibold text-ink">{title}</h1>
       <p className="mt-1 text-sm text-ink-2">
         Ingresa la clave del presentador. La pedimos una vez por pestaña.
       </p>

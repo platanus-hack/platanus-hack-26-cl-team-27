@@ -6,6 +6,7 @@ import { CoordinationModule } from './modules/coordination/coordination.module.t
 import { DatabaseModule } from './modules/database/database.module.ts';
 import { RoomModule } from './modules/room/room.module.ts';
 import { HealthModule } from './modules/health/health.module.ts';
+import { IntegrationsModule } from './modules/integrations/integrations.module.ts';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { HealthModule } from './modules/health/health.module.ts';
     CoordinationModule,
     RoomModule,
     ApsModule,
+    IntegrationsModule,
   ],
 })
 export class AppModule {}

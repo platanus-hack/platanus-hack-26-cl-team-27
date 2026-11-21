@@ -276,3 +276,33 @@ model RoomState {
 
   @@map("room_state")
 }
+
+model IntegrationConnection {
+  id                 String              @id @default(uuid()) @db.Uuid
+  provider           String              @unique
+  accountEmail       String              @map("account_email")
+  scopes             String[]
+  refreshTokenSealed String              @map("refresh_token_sealed")
+  connectedAt        DateTime            @default(now()) @map("connected_at")
+  sources            IntegrationSource[]
+
+  @@map("integration_connections")
+}
+
+model IntegrationSource {
+  id           String                @id @default(uuid()) @db.Uuid
+  connectionId String                @map("connection_id") @db.Uuid
+  provider     String
+  externalId   String                @map("external_id")
+  documentId   String                @unique @map("document_id")
+  title        String
+  pointer      String
+  checkedAt    DateTime?             @map("checked_at")
+  lastRead     Json?                 @map("last_read")
+  lastError    Json?                 @map("last_error")
+  createdAt    DateTime              @default(now()) @map("created_at")
+  connection   IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId])
+  @@map("integration_sources")
+}
