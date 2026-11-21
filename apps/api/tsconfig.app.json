@@ -19,6 +19,15 @@
   "references": [
     {
       "path": "../../data/main/tsconfig.lib.json"
+    },
+    {
+      "path": "../../context/notification/tsconfig.lib.json"
+    },
+    {
+      "path": "../../context/impact/tsconfig.lib.json"
+    },
+    {
+      "path": "../../context/capture/tsconfig.lib.json"
     }
   ]
 }

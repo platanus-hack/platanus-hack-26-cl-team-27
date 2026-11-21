@@ -92,6 +92,15 @@ importers:
       '@nestjs/platform-express':
         specifier: ^12.6.0
         version: 12.6.0(@nestjs/common@12.6.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.6.0)(rxjs@7.8.2)
+      '@team27/context-capture':
+        specifier: workspace:*
+        version: link:../../context/capture
+      '@team27/context-impact':
+        specifier: workspace:*
+        version: link:../../context/impact
+      '@team27/context-notification':
+        specifier: workspace:*
+        version: link:../../context/notification
       '@team27/data-main':
         specifier: workspace:*
         version: link:../../data/main

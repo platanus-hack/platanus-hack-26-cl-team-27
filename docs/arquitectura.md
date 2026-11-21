@@ -4,13 +4,13 @@ Monorepo con Nx 24 y workspaces de pnpm 10. Cada proyecto es un paquete (`packag
 
 ## Estructura
 
-| Carpeta                                   | Proyecto                | Tags                           | Qué es                                                   |
-| ----------------------------------------- | ----------------------- | ------------------------------ | -------------------------------------------------------- |
-| [`apps/web`](../apps/web/README.md)       | `@team27/web`           | `type:app`                     | Next.js 16 (App Router, Turbopack): el panel, en `:3000` |
-| [`apps/api`](../apps/api/README.md)       | `@team27/api`           | `type:app`                     | NestJS 12: la API HTTP, en `:3001/api`                   |
-| [`context/<ctx>`](../context/README.md)   | `@team27/context-<ctx>` | `type:context`, `scope:<ctx>`  | Un bounded context hexagonal. Todavía no hay ninguno     |
-| [`data/main`](../data/main/README.md)     | `@team27/data-main`     | `type:data`                    | Prisma 7 sobre PostgreSQL: schema, migraciones y cliente |
-| [`packages/ui`](../packages/ui/README.md) | `@team27/ui`            | `type:package`, `scope:shared` | Tema (tokens claro y oscuro) y componentes de React      |
+| Carpeta                                   | Proyecto                | Tags                           | Qué es                                                             |
+| ----------------------------------------- | ----------------------- | ------------------------------ | ------------------------------------------------------------------ |
+| [`apps/web`](../apps/web/README.md)       | `@team27/web`           | `type:app`                     | Next.js 16 (App Router, Turbopack): el panel, en `:3000`           |
+| [`apps/api`](../apps/api/README.md)       | `@team27/api`           | `type:app`                     | NestJS 12: la API HTTP, en `:3001/api`                             |
+| [`context/<ctx>`](../context/README.md)   | `@team27/context-<ctx>` | `type:context`, `scope:<ctx>`  | Un bounded context hexagonal: `capture`, `impact` y `notification` |
+| [`data/main`](../data/main/README.md)     | `@team27/data-main`     | `type:data`                    | Prisma 7 sobre PostgreSQL: schema, migraciones y cliente           |
+| [`packages/ui`](../packages/ui/README.md) | `@team27/ui`            | `type:package`, `scope:shared` | Tema (tokens claro y oscuro) y componentes de React                |
 
 ```mermaid
 flowchart LR
@@ -76,6 +76,46 @@ pnpm nx g @nx/js:lib context/<ctx> --name=@team27/context-<ctx> --bundler=none \
    - registra cada caso de uso con `provideUseCase(CasoDeUso, [TOKEN, …])`, el único punto de unión entre los casos de uso y Nest
    - agrega el controller, que inyecta el caso de uso con `@Inject(CasoDeUso)`
    - importa el módulo en `app.module.ts`
+
+## Coordinación de un cambio
+
+Tres contextos, uno por etapa del [flujo](negocio.md#flujo). Ninguno conoce a los otros. El módulo `coordination` de la API los encadena y traduce lo que sale de uno a lo que entra al siguiente.
+
+| Contexto                                            | Qué hace                                                                                 | Dominio                                                              | Puertos → adapters                                                     |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [`capture`](../context/capture/README.md)           | Guarda cada versión del modelo y la compara con la anterior: un cambio por elemento      | `Snapshot`, `ModelElement`, `Change`, `diffSnapshots`                | `SnapshotRepository`, `ChangeRepository` → Prisma                      |
+| [`impact`](../context/impact/README.md)             | Recorre el grafo del proyecto desde lo que cambió: dependencias, partidas y ruta crítica | `ProjectGraph`, `Impact`, `Finding`, `analyzeChange`, `criticalPath` | `ProjectGraphRepository` → en memoria; `ImpactRepository` → Prisma     |
+| [`notification`](../context/notification/README.md) | Junta los hallazgos de cada afectado en un aviso, en su canal, y guarda su respuesta     | `Stakeholder`, `Notification`, `draftNotifications`                  | `StakeholderDirectory` → en memoria; `NotificationRepository` → Prisma |
+
+```mermaid
+sequenceDiagram
+  participant O as Software de origen
+  participant A as API · coordination
+  participant C as capture
+  participant I as impact
+  participant N as notification
+  participant W as Web
+  O->>A: POST /api/integrations/:id/versions
+  A->>C: PublishVersion
+  C-->>A: versión y cambios
+  loop por cada cambio
+    A->>I: AnalyzeChange
+    I-->>A: impacto y hallazgos por afectado
+    A->>N: NotifyStakeholders
+  end
+  W->>A: GET /api/changes
+  A->>C: ListChanges
+  A->>I: GetImpacts
+  A->>N: ListNotifications
+  A-->>W: cambios con su impacto y sus avisos
+  W->>A: POST /api/notifications/:id/response
+  A->>N: RespondToNotification
+```
+
+- **La cadena es sincrónica.** Cuando `POST /api/integrations/:id/versions` responde, los cambios ya tienen su impacto y sus avisos guardados.
+- **El proyecto, el elenco y su grafo son el guion de la muestra** ([`apps/api/src/scenario/los-aromos.ts`](../apps/api/src/scenario/los-aromos.ts)). La API se los pasa a los adapters en memoria `InMemoryProjectGraph` e `InMemoryStakeholderDirectory`. Lo que cambia durante la muestra (versiones, cambios, impactos, avisos y respuestas) se guarda en Postgres.
+- **Al arrancar, si no hay ninguna versión, la API publica el modelo base del guion.** `POST /api/demo/reset` borra las cuatro tablas y lo vuelve a publicar.
+- **Los canales son simulados.** Un aviso guardado es un aviso entregado: la web lo muestra en la maqueta de su canal. Un canal real sería un puerto nuevo en `notification`, con un adapter por proveedor. Por qué es así: [espacio controlado](muestra.md#espacio-controlado).
 
 ## Web y API
 
