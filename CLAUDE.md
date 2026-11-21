@@ -19,9 +19,11 @@ Antes de tocar un área, lee su doc. Si cambias un comportamiento, actualiza el 
 | Auditoría de la idea: debate adversarial, la idea purificada (Mano alzada), soporte del producto y plan              | [docs/auditoria.md](docs/auditoria.md)                                                        |
 | Despliegue: espejo a un repo personal, API y Postgres en Render, web en Vercel, y el día del pitch                   | [docs/despliegue.md](docs/despliegue.md)                                                      |
 | Spec: síntesis, el plan de 26 tareas frente al código, backlog, flujo de usuario y arquitectura en draw.io           | [docs/spec/README.md](docs/spec/README.md), y para agentes [docs/spec/ia.md](docs/spec/ia.md) |
+| El flujo de 4 pasos del pitch: el caso P-12 y la bandeja E-B-03, el choque, la propuesta y `/api/flow`               | [docs/spec/fuente-de-verdad.md](docs/spec/fuente-de-verdad.md)                                |
 | La web                                                                                                               | [apps/web/README.md](apps/web/README.md)                                                      |
 | La API                                                                                                               | [apps/api/README.md](apps/api/README.md)                                                      |
 | El ETL de la muestra: lago de archivos, parsers, guion, jugadores simulados y CLI                                    | [apps/etl/README.md](apps/etl/README.md)                                                      |
+| La CLI de APS: subir los modelos de Revit al bucket y traducirlos a SVF2 para el visor                               | [apps/aps/README.md](apps/aps/README.md)                                                      |
 | Conectores reales: Google Sheets para el presupuesto, cómo configurar Google y el formato de la planilla             | [context/integrations/README.md](context/integrations/README.md)                              |
 | Base de datos y migraciones                                                                                          | [data/main/README.md](data/main/README.md)                                                    |
 | El add-in de Revit: la minuta de cambios al guardar, compilar, instalar y preparar el modelo                         | [tool-use-case/revit/README.md](tool-use-case/revit/README.md)                                |
@@ -40,8 +42,8 @@ pnpm dev                            # API en http://localhost:3001/api y web en 
 pnpm dev:api | pnpm dev:web
 pnpm etl                            # carga y juega la muestra: Enter = paso siguiente (ver apps/etl/README.md)
 pnpm etl auto [--velocidad 1|2|4] | reiniciar | paso <id> | estado
-pnpm aps:check                      # prueba las credenciales de APS (solo éxito o fallo y HTTP)
-pnpm aps:models [--force]           # sube y traduce models/*.rvt a SVF2 y escribe models/models.json
+pnpm aps:check                      # prueba las credenciales y el bucket de APS (solo éxito o fallo y HTTP)
+pnpm aps:models [--force] [--carpeta <ruta>]  # sube a APS y traduce a SVF2 los .rvt de apps/aps/models
 pnpm db:studio                      # Prisma Studio
 pnpm check                          # lint, test, typecheck y build de todo
 pnpm affected                       # lo mismo, solo lo que cambió respecto de main
@@ -73,6 +75,7 @@ pnpm format
 - Después de agregar o quitar una dependencia entre proyectos, corre `pnpm nx sync`.
 - Todo `/api/*` de la web se reenvía a la API (`rewrites` en `apps/web/next.config.ts`): no crees rutas en `apps/web/src/app/api/`, porque le ganan al reenvío. El `rewrite` fija `API_URL` al compilar la web.
 - La CI (`.github/workflows/check.yml`) corre `pnpm install --frozen-lockfile` y `pnpm check` en cada push a `main` y cada PR: si cambias dependencias, commitea el `pnpm-lock.yaml`.
+- El deploy sale del espejo (`agustin-rios/hack-team-27`), no del repo de la organización. `mirror.yml` lo pone al día en cada push a `main`, también al mergear un PR en GitHub, si existe el secret `MIRROR_TOKEN`. Si no existe, quien mergea corre `git pull && git push` con el doble push ([despliegue](docs/despliegue.md#el-repo-espejo)).
 - Nx carga el `.env` de la raíz en cada tarea, y `data/main/prisma.config.ts` también lo lee. La API no lee archivos: toma el entorno y no arranca si una variable no cumple su schema.
 - Si `pnpm db:up` falla en WSL con «docker could not be found», activa la integración con WSL en Docker Desktop, o apunta `DATABASE_URL` a otro Postgres.
 - En WSL, el shell puede traer un Node viejo: `nvm use` antes de `pnpm`.

@@ -47,6 +47,16 @@ describe('envSchema', () => {
     ).toBe('sk-ant-x');
   });
 
+  it('las variables de APS son opcionales y se recortan', () => {
+    expect(envSchema.parse({}).APS_BUCKET_KEY).toBeUndefined();
+    expect(
+      envSchema.parse({ APS_BUCKET_KEY: '   ' }).APS_BUCKET_KEY,
+    ).toBeUndefined();
+    expect(
+      envSchema.parse({ APS_BUCKET_KEY: ' vigente-b ' }).APS_BUCKET_KEY,
+    ).toBe('vigente-b');
+  });
+
   it('convierte el puerto a número y separa los orígenes', () => {
     const env = envSchema.parse({
       API_PORT: '4000',

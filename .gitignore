@@ -17,8 +17,8 @@ next-env.d.ts
 .env.local
 .env.*.local
 
-models/*.rvt
-models/*.rvt.*
+*.rvt
+*.rvt.*
 
 .nx/cache
 .nx/workspace-data

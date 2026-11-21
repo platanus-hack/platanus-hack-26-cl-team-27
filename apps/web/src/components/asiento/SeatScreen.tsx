@@ -308,7 +308,7 @@ export function SeatScreen({ castId }: { readonly castId: string }) {
           <Notice>
             Este es el asiento de la presentadora. Sus avisos están en{' '}
             <Link className="underline" href="/presentador">
-              la sala de Fernanda
+              la consola de la presentadora
             </Link>
             .
           </Notice>

@@ -12,6 +12,7 @@ services:
       ignoredPaths:
         - apps/web/**
         - apps/etl/**
+        - apps/aps/**
         - packages/**
         - docs/**
         - tool-use-case/**
@@ -29,6 +30,12 @@ services:
         generateValue: true
       - key: CORS_ALLOW_ORIGINS
         sync: false
+      - key: APS_CLIENT_ID
+        sync: false
+      - key: APS_CLIENT_SECRET
+        sync: false
+      - key: APS_BUCKET_KEY
+        value: vigente-956d852fc0a3c635
 
 databases:
   - name: vigente-db

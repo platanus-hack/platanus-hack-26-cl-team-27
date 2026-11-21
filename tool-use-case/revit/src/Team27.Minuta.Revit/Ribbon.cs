@@ -34,6 +34,8 @@ internal static class Ribbon
             "Reintenta las minutas que no llegaron a la API.");
         Add(panel, log, typeof(PublishStateCommand), "Publicar\nestado", "P", Neutral,
             "Envía todos los valores vinculados del modelo; la obra abre propuestas donde difieran de lo vigente.");
+        Add(panel, log, typeof(ApplyProposalCommand), "Aplicar\npropuesta", "A", Accent,
+            "Consulta ahora si hay una propuesta aceptada por tu equipo y la aplica en este modelo (el add-in lo hace solo cada pocos segundos).");
     }
 
     private static void Add(RibbonPanel panel, Log log, Type command, string text, string glyph, Color color, string tooltip)

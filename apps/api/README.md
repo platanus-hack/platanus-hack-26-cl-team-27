@@ -49,7 +49,7 @@ Todas cuelgan de `/api`. Los POST responden 201, salvo los que dicen 204. Los er
 | `POST /stale/acknowledge` | 204. `{ revisionId, note }`: el dueño del documento confirma sin cambio; la nota es obligatoria |
 | `GET /changes?limit=20` | Los cambios más recientes (hasta 50), cada uno con su `impact`, sus `notifications` y su `proposal` |
 | `GET /aps/viewer-token` | `{ access_token, expires_in }`: un token 2-legged de APS con solo `viewables:read`, para el visor del navegador. Se cachea hasta un minuto antes de vencer y va con `Cache-Control: no-store`. 503 `aps_not_configured` sin `APS_CLIENT_ID` y `APS_CLIENT_SECRET`; 503 `aps_unavailable` si APS no lo entrega |
-| `GET /aps/models` | `{ models: { file, discipline, urn }[] }`: los modelos de `models/models.json` con la traducción lista. `discipline`: `architectural`, `site`, `structural`, `plumbing`, `hvac`, `electrical` u `other`. Sin catálogo, `models: []` |
+| `GET /aps/models` | `{ models: { file, discipline, urn }[] }`: los modelos traducidos del bucket `APS_BUCKET_KEY`, que la API le pide a APS y guarda en memoria 5 minutos, ordenados por archivo. `discipline`: `architectural`, `site`, `structural`, `plumbing`, `hvac`, `electrical` u `other`. 503 `aps_not_configured` sin `APS_CLIENT_ID`, `APS_CLIENT_SECRET` o `APS_BUCKET_KEY`; 503 `aps_unavailable` si APS no entrega la lista |
 | `GET /changes/:id` | Un cambio con su impacto, sus avisos y su propuesta; 404 si no existe |
 
 Cabeceras:
@@ -59,7 +59,7 @@ Cabeceras:
 - `x-act-as: <castId>`, junto con la clave, hace actuar como ese asiento del elenco en todas las acciones de asiento (ingesta, minuta de Revit, votos, reabrir, retirar, descartar, confirmar sin cambio y bandeja). Si una persona tiene el asiento (latido de los últimos 20 s), 409 `seat_held`; si el asiento no existe, 404 `not_found`. El token de asiento manda sobre `x-act-as`. Sin la clave, `x-act-as` no sirve.
 - `x-action-id: <id>` hace idempotentes la ingesta, la minuta y los votos: la misma acción devuelve la respuesta de la primera. Se guarda en memoria del proceso (hasta 500) y el reinicio la limpia.
 
-Tipos de evento (`kind`, repetido en `type`; cada uno trae `message` en español para el ticker y `refs` con los ids que toca): `revision.received`, `minute.received`, `proposal.opened`, `proposal.disputed`, `proposal.reopened`, `proposal.merged`, `proposal.withdrawn`, `proposal.replaced`, `review.approved`, `discrepancy.opened`, `discrepancy.backed`, `discrepancy.dismissed`, `overlap.detected`, `overlap.voted`, `overlap.cleared`, `overlap.confirmed`, `overlap.resolved`, `stale.detected`, `stale.acknowledged`, `consensus.sealed`, `seat.claimed`, `seat.released`, `lake.seeded` y `room.reset`. Las transiciones del orquestador los insertan en su misma transacción.
+Tipos de evento (`kind`, repetido en `type`; cada uno trae `message` en español para el ticker y `refs` con los ids que toca): `revision.received`, `minute.received`, `proposal.opened`, `proposal.disputed`, `proposal.reopened`, `proposal.merged`, `proposal.withdrawn`, `proposal.replaced`, `review.approved`, `discrepancy.opened`, `discrepancy.backed`, `discrepancy.dismissed`, `overlap.detected`, `overlap.voted`, `overlap.cleared`, `overlap.confirmed`, `overlap.resolved`, `stale.detected`, `stale.acknowledged`, `consensus.sealed`, `seat.claimed`, `seat.released`, `lake.seeded`, `room.reset` y los del flujo (`flow.minute.received`, `flow.clash.detected`, `flow.fix.proposed`, `flow.presence`, `flow.fix.accepted`, `flow.fix.applied`, `flow.resolved`, `flow.fix.rejected` y `flow.reset`). Las transiciones del orquestador los insertan en su misma transacción.
 
 Cursor y época: `reset: true` (sin eventos) si `epoch` no es la actual o `after` va por delante del servidor; sin `after`, la respuesta trae solo el cursor actual; sin novedades, `events: []` y 200.
 
@@ -89,6 +89,25 @@ Errores de negocio:
 - Los ids de propuestas, avisos, discrepancias, revisiones y cambios son UUID.
 - Cada acción de escritura corre en una transacción de Postgres bajo un advisory lock; el voto además bloquea la fila de la propuesta con `SELECT … FOR UPDATE`.
 
+## El flujo del caso P-12
+
+`modules/flow` es el flujo de cuatro pasos del pitch: una persona cambia un elemento, Vigente detecta el choque y propone un arreglo, y la dueña del elemento afectado decide. El estado vive en memoria (se resiembra solo si cambia la época de la sala) y la lógica espacial es pura, de [`@team27/context-lake`](../../context/lake/README.md#dominio-espacial). El caso (elementos, reglas de holgura, partida de costo y textos) está en `src/scenario/caso-p12.ts`: Paula Rojas mueve el pilar P-12 40 cm al norte y pisa la bandeja E-B-03 de Camila Vera.
+
+Los actores salen de `SeatsService`: token de asiento, o `x-presenter-key` más `x-act-as`. Los eventos `flow.*` van a la tabla de eventos de la sala y los entrega `GET /events`.
+
+| Ruta | Responde |
+| ---- | -------- |
+| `GET /flow` | El `FlowState`: `epoch`, `case`, `elements` (`id`, `name`, `discipline`, `ownerId`, `ownerName`, `box: { min, max }` en metros, `movable`), `change`, `clash`, `proposal` y `presence` |
+| `POST /flow/minutes` | 201 `FlowState`. `{ minuteId, source: 'sala' \| 'revit', model: { title, discipline }, changes: [{ elementId, attribute: 'location', delta: { dx, dy, dz }, reason }] }` (un solo cambio). Corre la detección y la propuesta. 403 `not_owner` si el actor no es dueño del elemento; 404 si no existe; 409 `change_open` si ya hay otro cambio abierto. Idempotente por `minuteId` |
+| `POST /flow/proposals/:id/accept` | 200 `FlowState`. Solo la dueña de la propuesta (403 `not_owner`). Aplica el arreglo, vuelve a detectar y deja la propuesta `resuelta` con `decidedBy`. Idempotente; 409 si ya se rechazó |
+| `POST /flow/proposals/:id/reject` | 200 `FlowState`. `{ reason }`. Solo la dueña. Deja la propuesta `rechazada` con su motivo |
+| `POST /flow/presence` | 200 `FlowState`. `{ viewing: 'plano' \| 'propuesta' \| null }`. Registra qué mira la persona; el primer `propuesta` de la dueña emite `flow.presence` |
+| `POST /flow/reset` | 200 `FlowState`. Resiembra el caso y emite `flow.reset`. Con `x-presenter-key` |
+
+La frontera es deliberada: el lago aporta la geometría pura (`detectClashes`, `proposeFix`, `canAdvance`) y `flow-engine.ts` orquesta el estado en memoria del caso, la idempotencia por `minuteId`, la dueña de cada acción y los textos; el caso vive en la API y no en un contexto porque es un solo caso fijo y no se persiste.
+
+Estados de la propuesta: `propuesta`, `aceptada`, `aplicada`, `resuelta` y `rechazada`. El choque lleva `status` `detectada` o `resuelta`, y `noAutoFix: true` si ningún candidato de hasta 1,0 m sirve (entonces no hay `proposal`). `change` trae `summary` (el texto de la pantalla de quien cambia) y `waiting`; `proposal` trae `texts` (`title`, `why`, `proposal`, `cost`, `footer`), `appliedText` y `resolvedText` (nulos hasta que ocurren).
+
 ## Estructura
 
 ```
@@ -97,10 +116,13 @@ src/
 ├── app.setup.ts                  prefijo /api, validación con schemas y filtro de errores (también los usan los tests)
 ├── app.module.ts                 los módulos de la app
 ├── config/                       variables de entorno validadas con zod
-├── common/provide-use-case.ts    registra un caso de uso de un contexto como provider de Nest
+├── common/
+│   ├── provide-use-case.ts       registra un caso de uso de un contexto como provider de Nest
+│   └── api-root.ts               la carpeta de la API (la de su package.json), la misma desde src/ que desde dist/
 ├── scenario/
 │   ├── los-aromos.ts             modelo base, grafo del proyecto y elenco (con Fernanda, que no recibe avisos)
 │   ├── areas.ts                  niveles, grilla de ejes, sistemas y la huella de cada elemento (el modelo de áreas)
+│   ├── caso-p12.ts               el caso P-12 / bandeja E-B-03: elementos, reglas de holgura, costo y los textos de las pantallas
 │   └── documents.ts              espacios, sujetos, atributos con su unidad y el registro de documentos con su dueño (incluidos el modelo de Revit y el IS-301)
 └── modules/
     ├── database/                 el PrismaClient (token PRISMA_CLIENT), global, y UnitOfWork (transacción con lock)
@@ -109,10 +131,10 @@ src/
     ├── impact/                   adapters y casos de uso de context-impact: el grafo (sale de la definición del proyecto), el `ClaimReader` (Claude o respuestas fijas, con caché de archivos), el vocabulario del proyecto y `ExtractClaims`
     ├── notification/             adapters y casos de uso de context-notification
     ├── coordination/             orquesta la cadena y expone las rutas de datos; `revision-body.ts` valida la ingesta genérica y la carga inicial, `chunk-reader.ts` lee los fragmentos de texto libre, `revit-minute.ts` valida la minuta de Revit y la convierte en hechos, y `integrations.controller.ts` la recibe
+    ├── flow/                     el flujo de 4 pasos del caso P-12: flow-engine (estado en memoria, transiciones, idempotencia, dueñas y textos), controller, service y módulo
     ├── room/                     asientos, eventos, reinicio (módulo de la API, no un contexto)
     ├── integrations/             los conectores de context-integrations: la vista y el OAuth de Google, las planillas vinculadas, el sondeo y CoordinationRevisionSink, que entrega cada lectura a la cadena
-    └── aps/                      Autodesk Platform Services: ApsAuth (token 2-legged cacheado por scopes), el catálogo models/models.json y las rutas del visor
-scripts/                          aps-check.ts y aps-models.ts (pnpm aps:check y pnpm aps:models); Node los ejecuta sin compilar
+    └── aps/                      Autodesk Platform Services (módulo de la API, no un contexto): ApsAuth (token 2-legged cacheado por scopes), ModelsCatalog (los modelos traducidos del bucket) y las rutas del visor
 tests/                            replica src/: Vitest, sin base de datos
 ```
 
@@ -129,19 +151,10 @@ tests/                            replica src/: Vitest, sin base de datos
 
 ## Modelos BIM (APS)
 
-Los modelos de Revit se ven con el visor de Autodesk Platform Services. Las credenciales (`APS_CLIENT_ID`, `APS_CLIENT_SECRET`) viven solo en el `.env` de la raíz y solo las usa el servidor: el navegador recibe un token de `viewables:read` por `GET /api/aps/viewer-token`.
+Los modelos de Revit se ven con el visor de Autodesk Platform Services. Las credenciales (`APS_CLIENT_ID`, `APS_CLIENT_SECRET`) y el bucket (`APS_BUCKET_KEY`) entran por el entorno y solo los usa el servidor: el navegador recibe un token de `viewables:read` por `GET /api/aps/viewer-token`.
 
-```sh
-pnpm aps:check                        # pide un token: imprime solo éxito o fallo y el HTTP
-pnpm aps:models [--force]             # sube y traduce models/*.rvt y escribe models/models.json
-```
+La API no guarda un catálogo. `ModelsCatalog` lista los objetos del bucket en OSS (todas las páginas, con un token de `data:read`), pide el manifiesto de cada uno a Model Derivative y entrega los que están traducidos, con la URN y la disciplina que sale del nombre del archivo (`caso-estructura` queda en `structural` y `caso-electrico` en `electrical`). Un manifiesto que no existe es un modelo sin traducir. La lista se guarda en memoria 5 minutos, dos pedidos a la par comparten la misma consulta y un error de APS no se guarda.
 
-`aps:models` usa los SDK oficiales (`@aps_sdk/oss`, `@aps_sdk/model-derivative`):
-
-1. Crea el bucket si no existe (`persistent`, región US). Su clave es `APS_BUCKET_KEY` o, si no está, `vigente-` más 16 hex del SHA-256 del client id.
-2. Por cada `.rvt` de `models/`, lo sube a OSS si no está o cambió de tamaño, y pide la traducción a SVF2 (vistas 2D y 3D) con `generateMasterViews`: una vista 3D por fase de Revit con todos los elementos del modelo, aunque el archivo no traiga vistas 3D propias (el de Site de Snowdon Towers solo trae planos). Se salta el que ya está traducido con el mismo tamaño; `--force` lo vuelve a traducir.
-3. Consulta el manifiesto cada 15 s (hasta 45 min) y guarda en `models/models.json` el archivo, la disciplina (sale del nombre), la URN, el estado y los mensajes del manifiesto (y un aviso si no quedó ninguna vista 3D). Si un archivo falla, sigue con los demás; el script termina con código 1 si alguno no quedó traducido.
-
-`models/models.json` no lleva secretos y se versiona. Los `.rvt` no se versionan (`.gitignore`).
+Un bucket es de la app de APS que lo creó: la API corre con las mismas credenciales con que se subieron los modelos ([despliegue](../../docs/despliegue.md)). Quien sube y traduce es la CLI [`apps/aps`](../aps/README.md) (`pnpm aps:models`).
 
 Variables, cómo se compone un contexto y por qué Node ejecuta los paquetes del workspace como TypeScript: [arquitectura](../../docs/arquitectura.md).

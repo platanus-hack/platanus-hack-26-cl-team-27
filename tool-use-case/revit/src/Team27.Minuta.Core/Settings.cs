@@ -39,6 +39,8 @@ public sealed record Settings
 
     public IReadOnlyList<SubjectInfo>? Subjects { get; init; }
 
+    public FlowSettings Flow { get; init; } = new();
+
     public static Settings Load(string path)
     {
         if (!File.Exists(path))
@@ -95,6 +97,7 @@ public sealed record Settings
             TimeoutSeconds = Timeout(raw.TimeoutSeconds, defaults.TimeoutSeconds),
             Categories = ParseCategories(raw.Categories, defaults.Categories),
             Subjects = ParseSubjects(raw.Subjects),
+            Flow = ParseFlow(raw.Flow),
         };
         return settings;
     }
@@ -171,6 +174,58 @@ public sealed record Settings
         return result;
     }
 
+    private static FlowSettings ParseFlow(RawFlow? value)
+    {
+        if (value is null)
+        {
+            return new FlowSettings();
+        }
+        var defaults = new FlowSettings();
+        var pollSeconds = value.PollSeconds ?? defaults.PollSeconds;
+        if (pollSeconds is < 1 or > 60)
+        {
+            throw new SettingsException("flow.pollSeconds debe estar entre 1 y 60 segundos.");
+        }
+        var models = new List<FlowModelSetting>();
+        foreach (var item in value.Models ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(item.TitleContains) || string.IsNullOrWhiteSpace(item.Seat))
+            {
+                throw new SettingsException("Cada elemento de flow.models necesita titleContains y seat.");
+            }
+            models.Add(new FlowModelSetting(
+                item.TitleContains.Trim(),
+                item.Seat.Trim(),
+                string.IsNullOrWhiteSpace(item.Discipline) ? "estructura" : item.Discipline.Trim(),
+                string.IsNullOrWhiteSpace(item.Reason) ? null : item.Reason.Trim(),
+                item.Sends ?? true,
+                item.Applies ?? true));
+        }
+        return new FlowSettings
+        {
+            Enabled = value.Enabled ?? defaults.Enabled,
+            PollSeconds = pollSeconds,
+            Models = value.Models is null ? defaults.Models : models,
+        };
+    }
+
+    private sealed class RawFlow
+    {
+        public bool? Enabled { get; set; }
+        public int? PollSeconds { get; set; }
+        public List<RawFlowModel>? Models { get; set; }
+    }
+
+    private sealed class RawFlowModel
+    {
+        public string? TitleContains { get; set; }
+        public string? Seat { get; set; }
+        public string? Discipline { get; set; }
+        public string? Reason { get; set; }
+        public bool? Sends { get; set; }
+        public bool? Applies { get; set; }
+    }
+
     private sealed class Raw
     {
         public string? ApiUrl { get; set; }
@@ -184,6 +239,7 @@ public sealed record Settings
         public int? TimeoutSeconds { get; set; }
         public List<string>? Categories { get; set; }
         public List<RawSubject>? Subjects { get; set; }
+        public RawFlow? Flow { get; set; }
     }
 
     private sealed class RawSubject

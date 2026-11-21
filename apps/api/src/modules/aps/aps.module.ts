@@ -4,8 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../config/index.ts';
 import { ApsAuth } from './aps-auth.ts';
 import { ApsController } from './aps.controller.ts';
-import { APS_AUTH, MODELS_CATALOG_READER } from './aps.tokens.ts';
-import { readCatalog } from './models-catalog.ts';
+import { APS_AUTH, MODELS_CATALOG } from './aps.tokens.ts';
+import { createModelsCatalog } from './models-catalog.ts';
 
 @Module({
   controllers: [ApsController],
@@ -21,7 +21,14 @@ import { readCatalog } from './models-catalog.ts';
           : null;
       },
     },
-    { provide: MODELS_CATALOG_READER, useValue: () => readCatalog() },
+    {
+      provide: MODELS_CATALOG,
+      inject: [APS_AUTH, ConfigService],
+      useFactory: (auth: ApsAuth | null, config: ConfigService<Env, true>) => {
+        const bucketKey = config.get('APS_BUCKET_KEY', { infer: true });
+        return auth && bucketKey ? createModelsCatalog(auth, bucketKey) : null;
+      },
+    },
   ],
 })
 export class ApsModule {}

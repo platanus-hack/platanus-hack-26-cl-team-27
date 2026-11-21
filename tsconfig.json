@@ -28,6 +28,9 @@
       "path": "./apps/etl"
     },
     {
+      "path": "./apps/aps"
+    },
+    {
       "path": "./context/integrations"
     }
   ]

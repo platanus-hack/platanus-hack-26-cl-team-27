@@ -17,13 +17,7 @@ interface CachedToken {
 
 export const VIEWER_SCOPES: readonly Scopes[] = ['viewables:read'];
 
-export const INTERNAL_SCOPES: readonly Scopes[] = [
-  'bucket:create',
-  'bucket:read',
-  'data:read',
-  'data:write',
-  'data:create',
-];
+export const CATALOG_SCOPES: readonly Scopes[] = ['data:read'];
 
 const REFRESH_MARGIN_MS = 60_000;
 
@@ -103,12 +97,4 @@ export const apsErrorStatus = (error: unknown): number | null => {
     return candidate.httpStatusCode();
   }
   return candidate.axiosError?.response?.status ?? null;
-};
-
-export const readApsCredentials = (
-  env: Readonly<Record<string, string | undefined>>,
-): ApsCredentials | null => {
-  const clientId = env['APS_CLIENT_ID']?.trim();
-  const clientSecret = env['APS_CLIENT_SECRET']?.trim();
-  return clientId && clientSecret ? { clientId, clientSecret } : null;
 };

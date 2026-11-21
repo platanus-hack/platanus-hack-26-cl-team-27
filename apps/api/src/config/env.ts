@@ -35,6 +35,7 @@ export const envSchema = z
       .transform((value) => (value && value.trim() !== '' ? value : undefined)),
     APS_CLIENT_ID: optionalText,
     APS_CLIENT_SECRET: optionalText,
+    APS_BUCKET_KEY: optionalText,
     GOOGLE_CLIENT_ID: optionalText,
     GOOGLE_CLIENT_SECRET: optionalText,
     GOOGLE_REDIRECT_URI: z

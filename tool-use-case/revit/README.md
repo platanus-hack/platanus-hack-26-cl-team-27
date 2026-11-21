@@ -96,6 +96,92 @@ Es un JSON con el modelo, el guardado y los cambios, cada uno con su valor anter
 | 400, 403, 422 `minute_empty` y otros 409  | La mueve a `rechazadas` con el motivo y te lo muestra                  |
 | 401, 404, 5xx, sin conexión o sin respuesta | La deja pendiente, te dice qué revisar y la reintenta después          |
 
+## El flujo de la muestra: pilar P-12 y bandeja E-B-03
+
+Además de la minuta escalar, el add-in conecta dos modelos de Revit con el [flujo de 4 pasos](../../docs/spec/fuente-de-verdad.md): el modelo de estructura manda el movimiento de un pilar y el modelo eléctrico aplica la propuesta que acepta su dueña.
+
+```mermaid
+sequenceDiagram
+  participant E as Revit estructura (Paula)
+  participant P as API
+  participant C as Pantalla de Camila
+  participant L as Revit eléctrico (Camila)
+  E->>P: POST /api/flow/minutes (P-12, delta en metros)
+  P-->>C: choque con E-B-03 y propuesta
+  C->>P: Aceptar propuesta
+  L->>P: GET /api/flow cada 2 s
+  P-->>L: proposal aceptada, E-B-03, delta
+  L->>L: MoveElements en «Vigente: propuesta aceptada»
+  L->>L: «Vigente aplicó la propuesta aceptada por Camila Vera»
+```
+
+**Salida (estructura).** Al guardar, el add-in compara la posición (`LocationPoint`) de cada pilar estructural con el guardado anterior. Los pilares se identifican por su Marca (`Mark`, parámetro «Marca»), por ejemplo `P-12`. Un movimiento de al menos 1 mm sale como un cambio `location` con el delta en metros (Revit trabaja en pies; se convierte). La minuta escalar sigue funcionando igual y no se ve afectada.
+
+```
+POST {apiUrl}/flow/minutes
+x-presenter-key: <presenterKey>
+x-act-as: paula-rojas
+x-action-id: <minuteId>
+```
+
+El cuerpo es [`contract/flow-minute.example.json`](./contract/flow-minute.example.json); un test lo compara con lo que arma el add-in. El `minuteId` es único por minuta y la API es idempotente por él: si la API no responde, la minuta queda pendiente en memoria y se reintenta con el mismo `minuteId` cada vez que corre la consulta (cada 2 s) y en el siguiente guardado.
+
+| Respuesta | Qué hace el add-in |
+| --------- | ------------------ |
+| 2xx | Muestra «Vigente recibió tu cambio» |
+| 401, 404, 5xx, sin conexión | Queda pendiente y reintenta; el motivo va a `minuta.log` |
+| 403 | Muestra que el asiento configurado no es dueño del elemento |
+| 409 | Muestra que ya hay un cambio abierto: reinicia el caso desde la sala |
+
+**Entrada (eléctrico).** Un temporizador consulta cada `pollSeconds` (2 por defecto) `GET {apiUrl}/flow` con `x-presenter-key` y `x-act-as: camila-vera`. El temporizador solo hace HTTP; todo lo que toca la API de Revit corre en el hilo principal por un `ExternalEvent`. Si `proposal.status` es `aceptada`, `aplicada` o `resuelta`, el delta no es cero y esa propuesta no se aplicó todavía en ese documento, el add-in:
+
+1. busca los elementos del modelo cuya Marca es `proposal.elementId` (por ejemplo `E-B-03`, cualquier categoría);
+2. los traslada `proposal.delta` (metros a pies) con `ElementTransformUtils.MoveElements`, en una transacción llamada «Vigente: propuesta aceptada»;
+3. actualiza la base de cambios de ese pilar, para que el siguiente guardado no informe el movimiento aplicado como un cambio nuevo;
+4. muestra «Vigente aplicó la propuesta aceptada por Camila Vera».
+
+Cada propuesta se aplica una sola vez por modelo: el add-in anota los ids aplicados en `%LOCALAPPDATA%\Team27\Minuta\flow-applied.txt`, así que reabrir Revit no la repite (un reinicio del caso crea otra propuesta con otro id). Si el movimiento falla o ningún elemento tiene esa Marca, avisa una vez, no la anota y no vuelve a insistir sola. El botón **Aplicar propuesta** de la cinta consulta ahora y reintenta las que fallaron.
+
+### Configuración del flujo
+
+En `minuta.config.json`, la sección `flow`. `apiUrl` y `presenterKey` son las de arriba. Cada entrada de `models` liga un modelo, por el título del archivo, con el asiento que actúa:
+
+```json
+"flow": {
+  "enabled": true,
+  "pollSeconds": 2,
+  "models": [
+    { "titleContains": "_EST", "seat": "paula-rojas", "discipline": "estructura",
+      "reason": "Alinear con el muro de corte M-6 y bajar la torsión", "sends": true, "applies": false },
+    { "titleContains": "_ELEC", "seat": "camila-vera", "discipline": "electricas",
+      "sends": false, "applies": true }
+  ]
+}
+```
+
+| Clave | Qué es |
+| ----- | ------ |
+| `enabled` | Con `false`, el flujo no se activa |
+| `pollSeconds` | Cada cuántos segundos consulta la propuesta, de 1 a 60 |
+| `titleContains` | Texto del título del modelo (sin distinguir mayúsculas); gana la primera entrada que calce. `LosAromos_EST.rvt` calza con `_EST` |
+| `seat` | El asiento del elenco que actúa (`x-act-as`): quien envía debe ser dueño del elemento |
+| `discipline` | La disciplina del modelo que viaja en la minuta |
+| `reason` | Motivo que acompaña cada cambio de ese modelo; la API lo exige, así que sin uno sale «Cambio de ubicación hecho en Revit» |
+| `sends` / `applies` | Si el modelo envía movimientos de pilares y si aplica propuestas aceptadas (ambos `true` por defecto) |
+
+### Lista para la demo en un PC con Revit
+
+1. API y web corriendo y alcanzables desde Windows (`apiUrl` y `presenterKey` correctos en el `minuta.config.json` instalado).
+2. Dos modelos abiertos, `LosAromos_EST.rvt` y `LosAromos_ELEC.rvt` (o dos instancias de Revit). En el de estructura, un pilar estructural con Marca `P-12`; en el eléctrico, una bandeja con Marca `E-B-03`. El add-in solo mira modelos cuyo título calce con `flow.models`.
+3. En la sala, caso reiniciado (sin cambio abierto).
+4. Estructura: mueve P-12 0,40 m al norte (+Y del modelo) y guarda. Debe salir «Vigente recibió tu cambio: P-12 se movió 0,40 m al norte».
+5. Pantalla de Camila: aparece el choque con la propuesta; pulsa «Aceptar propuesta».
+6. En unos 2 s, Revit eléctrico muestra «Vigente aplicó la propuesta aceptada por Camila Vera» y E-B-03 se corre 0,40 m al norte; se ve en «Deshacer» como «Vigente: propuesta aceptada».
+7. Pantalla de Paula: «Resuelto por Camila Vera a las HH:MM».
+8. Guarda el modelo eléctrico: no debe salir ninguna minuta nueva por el movimiento aplicado.
+
+Qué no se probó sin Revit (el build y los tests corren en contenedor): lo que toca la API de Revit, es decir la lectura de Marca y `LocationPoint`, `MoveElements` sobre una bandeja (si está fijada o es de un tipo que no admite traslación, falla y el add-in lo muestra), el `ExternalEvent` y los diálogos; y el viaje HTTP real contra la API del flujo (los tests comparan el JSON con el contrato). Límites: se traslada el elemento completo, no un tramo de 6 m (la bandeja de la demo tiene que ser un elemento corto con esa Marca); el eje Y del modelo debe apuntar al norte del caso.
+
 ## Los botones
 
 | Botón             | Qué hace                                                                                                                         |
@@ -104,6 +190,7 @@ Es un JSON con el modelo, el guardado y los cambios, cada uno con su valor anter
 | Minuta pendiente  | Muestra lo que enviará el próximo guardado, sin enviar nada                                                                       |
 | Enviar pendientes | Reintenta las minutas que no llegaron                                                                                             |
 | Publicar estado   | Manda todos los valores vinculados; la obra abre propuestas donde difieran de lo vigente. No cambia la base del próximo guardado |
+| Aplicar propuesta | Consulta ya si hay una propuesta aceptada del flujo y la aplica en el modelo que corresponda                                     |
 
 ## Preparar un modelo para la muestra
 
@@ -148,9 +235,9 @@ Todo queda en `%LOCALAPPDATA%\Team27\Minuta`:
 
 ```
 tool-use-case/revit/
-├── contract/                       el contrato de la minuta y del recibo
+├── contract/                       el contrato de la minuta, del recibo y del flujo
 ├── src/Team27.Minuta.Core/         sin Revit: catálogo, foto del modelo, minuta, JSON, cliente, cola, configuración y textos
-├── src/Team27.Minuta.Revit/        el add-in: App (eventos y cinta), ChangeTracker, SnapshotReader, SubjectParameter, comandos y diálogos
+├── src/Team27.Minuta.Revit/        el add-in: App (eventos y cinta), ChangeTracker, SnapshotReader, ColumnReader, FlowService, SubjectParameter, comandos y diálogos
 └── tests/Team27.Minuta.Core.Tests/ xUnit sobre el Core
 ```
 

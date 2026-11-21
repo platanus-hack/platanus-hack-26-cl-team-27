@@ -20,13 +20,15 @@ pnpm nx run @team27/web:test          # Vitest: los *.spec.ts de src/
 | `/sala`                          | El telón del proyector, solo lectura; propuestas, valores y documentos se abren en un panel                  |
 | `/asiento/[castId]`              | La bandeja del jugador (mobile-first, 430 px), con pestañas Pendientes y Respondidos y el look de su canal    |
 | `/presentador`                   | La consola de Fernanda: requieren atención, propuestas (activas e historial), asientos y reinicio            |
+| `/caso/[castId]`                 | La pantalla de una persona del caso P-12: `paula-rojas` (plano, «Mover P-12 40 cm al norte» y línea de tiempo) o `camila-vera` (plano y tarjeta de la propuesta, con «Aceptar propuesta» y «Tengo un problema»). Toma el asiento sola si no lo tiene |
+| `/caso`                          | Vista del presentador del caso: las dos pantallas lado a lado, el hilo de eventos `flow.*` y «Reiniciar caso» (pide la clave del presentador; actúa como cada persona con `x-act-as`) |
 | `/espacios`                      | Espacios y documentos; el documento se abre en un panel. Acepta `?espacio=`, `?documento=` y `?revision=`    |
 | `/cambios/[id]`                  | Detalle de una propuesta; acepta `?para=<stakeholderId>`                                                     |
-| `/modelos`                       | El visor de APS con todas las disciplinas de `models/models.json` en una escena: abre con Arquitectura y carga las demás al encenderlas, con un interruptor por disciplina y las propiedades del elemento seleccionado |
+| `/modelos`                       | El visor de APS con todas las disciplinas del catálogo de la API (`GET /api/aps/models`) en una escena: abre con Arquitectura y carga las demás al encenderlas, con un interruptor por disciplina y las propiedades del elemento seleccionado |
 | `/conectores`                    | Los conectores (con la clave del presentador): conectar la cuenta de Google, vincular la planilla del presupuesto por su link, ver por planilla la última revisión, la última versión que llegó a la sala, las celdas que no entraron y el error, «Revisar ahora» y desvincular. Autodesk aparece como próximamente. Vuelve de Google con `?google=conectado` o `?google=error&motivo=` |
 | `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                                                             |
 
-Los route groups `(site)`, `(sala)` y `(asiento)` dan a cada pantalla su propio layout: el sitio con encabezado y navegación (marca la sección actual), el telón sin márgenes y el celular en una columna de 430 px. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
+Los route groups `(site)`, `(sala)`, `(asiento)` y `(caso)` dan a cada pantalla su propio layout: el sitio con encabezado y navegación (marca la sección actual), el telón sin márgenes y el celular en una columna de 430 px y el caso a todo el ancho. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
 
 Qué muestra cada pantalla y por qué está ordenada así: [multijugador, «La web»](../../docs/multijugador.md#la-web).
 
@@ -91,6 +93,17 @@ La lógica de las pantallas vive en `lib`, pura y con tests:
 
 Los formatos (`format.ts`) son es-CL: pesos sin decimales (`$3.636.500`), `1 día` y `4 días`, coma decimal (`8,5 m`), el antes y el después con flecha (`15 cm → 20 cm`) y el tiempo relativo («Hace 2 min»), que `useNow` refresca cada 15 s.
 
+## El flujo del caso
+
+Todo el acceso a `/api/flow` vive en `lib/flow-api.ts` (tipos y llamadas: `getFlow`, `postMinute`, `acceptProposal`, `rejectProposal`, `postPresence`, `resetFlow`). `useFlow` lo mantiene vivo con `useLive`: cada evento de la sala vuelve a pedir `GET /api/flow`.
+
+- `lib/case-plan.ts`: geometría pura del plano (metros a coordenadas SVG, con el norte arriba, 100 unidades por metro), choque entre cajas y desplazamiento de la bandeja.
+- `lib/case-view.ts`: textos y formatos del caso (`describeMove`, `formatCostLine`, la línea de tiempo de Paula).
+- `components/caso/CasePlan.tsx`: el plano en SVG con `viewBox`. Dibuja los ejes 5, 6 y B, P-12 (con su posición anterior punteada), la bandeja E-B-03, el colector B2, el choque achurado en rojo y el arreglo propuesto como fantasma verde. Al aceptarse la propuesta, el tramo de 6 m se desliza a su nueva posición y se une al tramo fijo con dos quiebres de 45°. La API entrega solo el tramo movible; el tramo fijo se dibuja desde x = 24,9 m, a la derecha del colector (`fixedTrayRange` en `lib/case-plan.ts`).
+- `CamilaView` avisa su presencia (`viewing: 'propuesta'` mientras la tarjeta está a la vista, `'plano'` si no) cada 8 s y al volver a la pestaña. Solo con asiento propio; la vista del presentador no la envía y muestra la presencia de Camila a partir de `flow.presence`. El paso 3 de la línea de tiempo de Paula requiere el asiento real de Camila abierto en su dispositivo.
+- Si el token de un asiento deja de valer (401 al actuar o al avisar presencia), `CaseScreen` lo borra y vuelve a tomar el asiento solo. «Reiniciar caso» deja el hilo del presentador en el último `flow.reset`.
+- El caso no muestra bots.
+
 ## Tiempo real
 
 `useRoomPulse` consulta `GET /api/events?after=<seq>&epoch=<n>&seat=<castId>` cada 700 ms en `/sala` y cada 1000 ms en el resto, con ±150 ms de jitter. Manda `x-seat-token` si el visitante tiene asiento: es su latido. La lógica pura vive en `lib/pulse.ts`:
@@ -113,6 +126,30 @@ Los formatos (`format.ts`) son es-CL: pesos sin decimales (`$3.636.500`), `1 dí
 - `getProperties`, `select`, `isolate` (vacío muestra todo), `highlight` (color RGBA de 0 a 1), `clearHighlights`, `fitTo` y `reset`.
 
 `onSelectionChange` entrega la selección con la misma forma.
+
+## Visor del caso
+
+`CaseModelView` (`components/caso`) muestra el paso 5 del flujo en el visor de APS: el pilar P-12 y la bandeja E-B-03 en sus modelos. Recibe el `FlowState` (`flow`, o `null`) y, opcionalmente, `models`, `externalIds` (id del caso a `uniqueId` de Revit) y `axes`. La lógica vive en `lib/aps-viewer-flow.ts`:
+
+- `selectCaseModels` busca en `GET /api/aps/models` los archivos que empiezan con `caso-estructura` (disciplina `structural`) y `caso-electrico` (`electrical`). Si no están, el componente muestra «Modelos del caso no cargados: se muestra el plano 2D» y no abre el visor. Cada pantalla de `/caso/[castId]` lo pone debajo de su vista con `hideWhenMissing`: sin modelos del caso, o si el visor falla, no muestra nada y basta el plano SVG. La vista del presentador no lo carga.
+- `planScene` decide, solo desde el `FlowState`, qué hacer: P-12 se mueve el delta del cambio cuando hay cambio; E-B-03 se mueve el delta de la propuesta cuando está `aplicada` o `resuelta`; el par en choque (`detectada`) va en rojo, y la bandeja aplicada en verde. Si la propuesta se rechaza, la bandeja no se mueve.
+- `createCaseScene` abre estructura primero (fija el `globalOffset`), espera `geometryLoaded` (20 s como tope) y entrega `apply(plan)`, que desliza el elemento 0,9 s y repinta. Cada pantalla reaplica el estado completo, sin depender de lo que hizo la otra.
+- Un elemento se busca por `externalIds[id]` y, si no, por la propiedad `Mark` (`findByMark`, con coincidencia exacta). `getWorldBoundsMeters` devuelve la caja en metros, con el `globalOffset` y la unidad del modelo.
+- Los deltas del caso están en metros, x este, y norte, z arriba. `axes` (`axesRotatedBy(grados)`) los gira si el norte de Revit no coincide con el eje y del visor.
+- El visor no clona geometría: la posición propuesta (antes de aceptar) no se dibuja en 3D; el plano SVG muestra el fantasma.
+
+Llamadas del visor «a verificar» contra una corrida real en el navegador:
+
+- `Model.search(text, onSuccess, onError, ['Mark', 'Marca'])` y que `Mark` sea la propiedad de la marca.
+- `Model.getObjectTree`, `InstanceTree.enumNodeFragments(dbId, cb, true)` y `FragmentList.getWorldBounds`.
+- `FragmentList.updateAnimTransform(fragId, undefined, undefined, translation)` para mover, y `updateAnimTransform(fragId)` sin argumentos para devolver; `viewer.impl.sceneUpdated(true)`.
+- Que la traslación esté en unidades del modelo y no en metros, y que no la afecte el `globalOffset`.
+- `Model.getUnitScale()` (metros por unidad) y `getUnitString()`.
+- Que `getWorldBounds` no incluya la traslación animada.
+- El evento `geometryLoaded` y que el `externalId` del modelo traducido sea el `UniqueId` de Revit.
+- La orientación de «norte» respecto del eje y del visor (`axes`).
+
+Para cargar los modelos del caso: subir a APS `caso-estructura.rvt` (con el pilar de marca `P-12`) y `caso-electrico.rvt` (con la bandeja de marca `E-B-03`) como los demás (`pnpm aps:models`), de modo que `GET /api/aps/models` los liste con la disciplina correcta.
 
 ## Almacenamiento
 

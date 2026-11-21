@@ -1,0 +1,38 @@
+name: mirror
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    if: github.repository == 'platanus-hack/platanus-hack-26-cl-team-27'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      MIRROR_REPO: agustin-rios/hack-team-27
+      MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
+    steps:
+      - if: env.MIRROR_TOKEN == ''
+        run: echo "::warning::Falta el secret MIRROR_TOKEN, así que main no llegó a $MIRROR_REPO. Corre git pull && git push desde un clon con el doble push."
+      - if: env.MIRROR_TOKEN != ''
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - if: env.MIRROR_TOKEN != ''
+        run: |
+          git remote add mirror "https://x-access-token:${MIRROR_TOKEN}@github.com/${MIRROR_REPO}.git"
+          git fetch --quiet mirror main
+          if git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "$MIRROR_REPO ya tiene $GITHUB_SHA."
+          else
+            git push mirror "$GITHUB_SHA:refs/heads/main"
+          fi

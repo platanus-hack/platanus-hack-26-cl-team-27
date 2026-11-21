@@ -35,6 +35,15 @@ export const EVENT_KINDS = [
   'seat.released',
   'lake.seeded',
   'room.reset',
+  'flow.minute.received',
+  'flow.clash.detected',
+  'flow.fix.proposed',
+  'flow.presence',
+  'flow.fix.accepted',
+  'flow.fix.applied',
+  'flow.resolved',
+  'flow.fix.rejected',
+  'flow.reset',
 ] as const;
 
 export type EventKind = (typeof EVENT_KINDS)[number];

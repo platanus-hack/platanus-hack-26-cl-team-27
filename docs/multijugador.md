@@ -8,6 +8,10 @@ Detrás de los documentos hay un repositorio de cambios, un lago con procedencia
 
 Multiplayer es el núcleo, no una función. La verdad del proyecto no la decide nadie en solitario: es el acuerdo de personas con intereses distintos, cada una dueña de un espacio y de sus documentos. Cada documento que suelta una persona deja desfasado o en disputa el de otra, y la verdad solo converge cuando todas actúan. En la muestra, el público toma los asientos del elenco desde su celular; los asientos vacíos los juega el ETL como un cliente más (clave de presentador más `x-act-as`), de modo que una sola persona puede presentar todo. La API no sabe que existe una demo: recibe revisiones de documentos por una puerta genérica, igual que las recibiría de un conector real.
 
+## El flujo de 4 pasos
+
+El camino del pitch es un solo caso con dos personas reales y sin bots: Paula Rojas mueve el pilar P-12, Vigente detecta que pisa la bandeja E-B-03 de Camila Vera y propone correrla 40 cm, y Camila acepta. Corre en `/caso/paula-rojas`, `/caso/camila-vera` y `/caso` (presentador), sobre `/api/flow`. El caso, los textos y las cifras están en [docs/spec/fuente-de-verdad.md](spec/fuente-de-verdad.md); la API, en [apps/api/README.md](../apps/api/README.md); la web, en [apps/web/README.md](../apps/web/README.md).
+
 ## Principios
 
 1. **Multiplayer es el núcleo.** Ninguna acción individual mueve lo vigente por sí sola.
