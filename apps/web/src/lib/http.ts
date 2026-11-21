@@ -106,6 +106,19 @@ export const describeError = (error: unknown): string => {
         return 'Alguien se te adelantó con ese asiento.';
       case 'seat_held':
         return 'Ese asiento lo tiene otra persona.';
+      case 'login_required':
+      case 'invalid_token':
+        return 'Tu sesión venció. Vuelve a entrar.';
+      case 'email_not_verified':
+        return 'Confirma tu correo antes de entrar.';
+      case 'auth_not_configured':
+        return 'Las cuentas no están configuradas en la API.';
+      case 'admin_required':
+        return 'Solo un administrador de la organización puede invitar.';
+      case 'not_a_member':
+        return 'No eres parte de esa organización.';
+      case 'already_member':
+        return 'Esa persona ya es parte de la organización.';
       default:
     }
     if (error.status === 401) return 'Tu asiento o tu clave ya no son válidos.';

@@ -44,6 +44,10 @@ Todas cuelgan de `/api`. Los POST responden 201, salvo los que dicen 204. Los er
 | `GET /aps/viewer-token` | `{ access_token, expires_in }`: un token 2-legged de APS con solo `viewables:read`, para el visor del navegador. Se cachea hasta un minuto antes de vencer y va con `Cache-Control: no-store`. 503 `aps_not_configured` sin `APS_CLIENT_ID` y `APS_CLIENT_SECRET`; 503 `aps_unavailable` si APS no lo entrega |
 | `GET /aps/models` | `{ models: { file, discipline, urn }[] }`: los modelos traducidos del bucket `APS_BUCKET_KEY`, que la API le pide a APS y guarda en memoria 5 minutos, ordenados por archivo. `discipline`: `architectural`, `site`, `structural`, `plumbing`, `hvac`, `electrical` u `other`. 503 `aps_not_configured` sin `APS_CLIENT_ID`, `APS_CLIENT_SECRET` o `APS_BUCKET_KEY`; 503 `aps_unavailable` si APS no entrega la lista |
 | `GET /changes/:id` | Un cambio con su impacto, sus avisos y su propuesta; 404 si no existe |
+| `GET /me` | Con `Authorization: Bearer <token de Auth0>`. `{ user: { id, email, name }, organizations: { id, name, role }[] }`. La primera vez registra a la persona con el correo de su perfil (403 `email_not_verified` si no lo confirmó) y en cada entrada acepta las invitaciones pendientes a su correo. 401 `login_required` sin token, 401 `invalid_token` si no vale, 503 `auth_not_configured` sin `AUTH0_DOMAIN` y `AUTH0_AUDIENCE` |
+| `GET /projects` | Con token. `{ projects: { id, organizationId, name, location, description }[] }`: solo los de sus organizaciones |
+| `GET /organizations/:id/members` | Con token y siendo parte de la organización (403 `not_a_member`). `{ members: { userId, email, name, role }[], invitations: { id, email, role, createdAt }[] }` (las pendientes) |
+| `POST /organizations/:id/invitations` | Con token y rol `admin` (403 `admin_required`). `{ email, role: 'admin' \| 'member' }`. Crea o actualiza la invitación; 409 `already_member` si ya es parte. Se acepta sola cuando esa persona entra |
 
 Cabeceras:
 
@@ -148,6 +152,16 @@ tests/                            replica src/: Vitest, sin base de datos
 - **Lectura de texto libre.** Con `ANTHROPIC_API_KEY`, el `ClaimReader` es `CachedClaimReader(ClaudeClaimReader)` y la primera respuesta queda grabada; sin clave, `CachedClaimReader(FixtureClaimReader)` con las respuestas fijas de la muestra (WhatsApp mensajes 1 y 2, folios 41 y 44, acta 12, con confianza 0,9). La caché es `inference-cache/`, una carpeta versionada de la API con un JSON por consulta: la demo reproduce lo grabado sin red. Sin clave no sale nada a la red.
 - **El proyecto.** `ProjectModule` lee de la base el proyecto de `PROJECT_ID` (o el único que hay), lo valida con `project-schema.ts` y entrega un `ProjectCatalog`. Sin proyecto, con varios y sin `PROJECT_ID`, o con uno mal formado, la API no arranca y dice por qué. En local, `pnpm db:seed` siembra Los Aromos. Los servicios lo reciben por `PROJECT_CATALOG`; las vistas, dentro del `LakeSnapshot`; y `buildLake`, `buildImpact` y `buildNotification`, como argumento. Cada adapter Prisma recibe `project.id` y filtra por él. Un cambio en la definición se ve al reiniciar la API.
 - **Modelo de áreas.** Sale de la definición del proyecto: los niveles, los ejes longitudinales con sus metros, los transversales, los sistemas y la huella de cada sujeto. Una huella es una regla en datos: el tipo (`soporte` u `ocupante`), los niveles, las celdas (`all`, las de un eje transversal, o la del tramo donde cae un atributo de posición sobre un eje) y los sistemas. En Los Aromos, las losas son soporte; el shaft S1, las ventanas y el colector B2 son ocupantes; y las partidas y el proyecto no ocupan espacio. El lago recibe el modelo como `project.footprintModel`.
+
+## Cuentas, organizaciones y roles
+
+Las rutas del producto (`/me`, `/projects`, `/organizations/*`) piden una cuenta; las de la sala y la muestra siguen con el token de asiento y `PRESENTER_KEY`, sin cuentas.
+
+- **Auth0 solo dice quién es.** `AccountGuard` lee el `Bearer`, y `Auth0Identity` lo valida con `jose` contra las llaves públicas del tenant (`https://<AUTH0_DOMAIN>/.well-known/jwks.json`), el emisor y la audiencia `AUTH0_AUDIENCE`, en RS256. La primera vez que llega un `sub`, pide el perfil a `/userinfo` para tener el correo confirmado.
+- **Lo demás vive en Postgres.** `users` (por `auth_subject` y correo), `organizations`, `memberships` con su rol e `invitations` por correo. Cada proyecto es de una organización.
+- **Roles.** `admin` configura la organización e invita; `member` es parte del equipo y ve sus proyectos. Autor y afectado no son roles: cambian de un cambio a otro ([negocio](../../docs/negocio.md#actores)).
+- **Se entra por invitación.** Un administrador invita un correo; quien entra con ese correo confirmado queda como miembro con el rol de la invitación. En local, `SEED_ADMIN_EMAIL=<tu correo> pnpm db:seed` te invita como administrador de Inmobiliaria Los Aromos.
+- **Sin Auth0 configurado** la API arranca igual y esas rutas responden 503 `auth_not_configured`.
 
 ## Modelos BIM (APS)
 

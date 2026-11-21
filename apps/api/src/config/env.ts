@@ -34,6 +34,8 @@ export const envSchema = z
       .string()
       .optional()
       .transform((value) => (value && value.trim() !== '' ? value : undefined)),
+    AUTH0_DOMAIN: optionalText,
+    AUTH0_AUDIENCE: optionalText,
     APS_CLIENT_ID: optionalText,
     APS_CLIENT_SECRET: optionalText,
     APS_BUCKET_KEY: optionalText,

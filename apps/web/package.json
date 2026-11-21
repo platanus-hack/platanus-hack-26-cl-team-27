@@ -13,6 +13,7 @@
     "sourceRoot": "apps/web/src"
   },
   "dependencies": {
+    "@auth0/nextjs-auth0": "4.33.0",
     "@team27/ui": "workspace:*",
     "next": "~16.4.6",
     "qrcode.react": "4.2.0",

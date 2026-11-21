@@ -23,17 +23,23 @@ Prisma 7 sobre PostgreSQL 18. Contiene el schema (`prisma/schema.prisma`), las m
 | `Seat` (`seats`) | API (sala) | Un asiento tomado: el hash SHA-256 del token y el último latido |
 | `RoomEvent` (`room_events`) | API (sala) | Los eventos del ticker: `seq` autoincremental, época, tipo, mensaje en español y referencias |
 | `RoomState` (`room_state`) | API (sala) | Una fila por proyecto: la época |
-| `Project` (`projects`) | API (proyecto) | Un proyecto: nombre, lugar, descripción, autor, dueños del costo y del plazo, el documento del modelo de Revit y los ejes de la grilla |
+| `Organization` (`organizations`) | API (cuentas) | Un cliente: id y nombre. Tiene sus proyectos, miembros e invitaciones |
+| `User` (`users`) | API (cuentas) | Una persona con cuenta: el `sub` de Auth0 (`auth_subject`), su correo confirmado y su nombre. Únicos el `sub` y el correo |
+| `Membership` (`memberships`) | API (cuentas) | Una persona en una organización con su rol (`admin` o `member`). Clave `(organization_id, user_id)` |
+| `Invitation` (`invitations`) | API (cuentas) | Un correo invitado a una organización con un rol; `accepted_at` cuando esa persona entra. Única por organización y correo |
+| `Project` (`projects`) | API (proyecto) | Un proyecto de una organización (`organization_id`, que no se puede borrar mientras tenga proyectos): nombre, lugar, descripción, autor, dueños del costo y del plazo, el documento del modelo de Revit y los ejes de la grilla |
 | `ProjectMember`, `ProjectSpace`, `ProjectDocument`, `ProjectAttribute`, `ProjectSubject`, `ModelElement`, `BudgetItem`, `ScheduleTask`, `ProjectDependency`, `ProjectLevel`, `ProjectSystem` (`project_*`, `model_elements`, `budget_items`, `schedule_tasks`) | API (proyecto) | La definición del proyecto: elenco, espacios, documentos con su dueño, atributos, sujetos (sección, categoría, atributos con unidad y huella en JSON), elementos del modelo, partidas, tareas, dependencias, niveles y sistemas. Clave `(project_id, id)` y `position` para el orden |
 
 - Cada tabla es de un solo contexto, salvo las de la sala y el proyecto, que son de la API. No hay llaves foráneas entre tablas de contextos distintos: los ids viajan como valores.
 - Las tablas de la sala, el lago, los cambios, los impactos y los avisos llevan `project_id` (sin llave foránea), y sus claves compuestas lo incluyen: una revisión es única por proyecto, documento y etiqueta; lo vigente, por proyecto, sujeto y atributo; un asiento, por proyecto y elenco. `reviews` y `overlap_votes` lo heredan de su propuesta o solapamiento.
 - La migración `proyecto_en_cada_tabla` vació esas tablas: después de aplicarla, recarga la muestra con `pnpm etl reiniciar`.
+- La migración `cuentas_y_organizaciones` borró las definiciones de proyecto (no tenían organización): después de aplicarla, `pnpm db:seed`. El lago y la sala no se tocan.
 - Las tablas y columnas van en `snake_case` con `@@map` y `@map`; los modelos y campos, en `camelCase`.
 
 ## El proyecto
 
 - **`ProjectDefinition`** ([`project/definition.ts`](project/definition.ts)) es la definición completa de un proyecto como datos planos. La API la valida al cargarla.
+- **`saveOrganization(prisma, organización)`** crea o actualiza una organización, que tiene que existir antes que sus proyectos; **`inviteToOrganization(prisma, { organizationId, email, role })`** invita un correo.
 - **`saveProjectDefinition(prisma, definición)`** la guarda en una transacción: crea o actualiza la fila de `projects` y reemplaza sus filas hijas. No toca el lago, la sala ni los avisos.
 - **`loadProjectDefinition(prisma, id)`** la lee en el orden de `position`, y **`listProjectIds(prisma)`** lista los proyectos por fecha de creación.
 - **La semilla** ([`seed/los-aromos.ts`](seed/los-aromos.ts)) es el Edificio Los Aromos de la [muestra](../../docs/muestra.md#el-proyecto-edificio-los-aromos). Los tests de la API la importan desde `@team27/data-main/seed`.
@@ -46,7 +52,8 @@ cp .env.example .env                      # en la raíz: DATABASE_URL
 pnpm db:up                                # Postgres de docker compose en :5427
 pnpm --filter @team27/data-main migrate:dev -- --name <nombre>   # crea y aplica una migración desde el schema
 pnpm db:migrate                           # aplica las migraciones pendientes (prisma migrate deploy)
-pnpm db:seed                              # siembra Los Aromos; si ya está, reemplaza su definición
+pnpm db:seed                              # siembra Inmobiliaria Los Aromos y su proyecto; si ya está, reemplaza su definición
+SEED_ADMIN_EMAIL=<correo> pnpm db:seed    # además invita ese correo como administrador de la organización
 pnpm --filter @team27/data-main exec node seed/main.ts --si-no-hay   # siembra solo si la base no tiene proyectos (así arranca la imagen de la API)
 pnpm db:studio                            # Prisma Studio
 pnpm nx run @team27/data-main:generate    # el cliente; lo corren solas las tareas que dependen de él
