@@ -1,6 +1,6 @@
 # @team27/context-integrations
 
-Los conectores reales. **Google Sheets** es un canal de conexión y escucha: conecta la cuenta de Google de una persona, vincula planillas a un proyecto por su link y avisa cuando cambian, con las celdas que cambiaron. De **Autodesk** recibe los webhooks de APS, descarta los repetidos y avisa cada cambio ([Autodesk](#autodesk)). No interpreta lo que escucha ni lo entrega a la cadena de la obra: eso queda para los PR que vienen. La spec, con lo que sigue, está en [docs/spec/integraciones.md](../../docs/spec/integraciones.md).
+Los conectores reales. **Google Sheets** es un canal de conexión y escucha: conecta la cuenta de Google de una persona, vincula planillas a un proyecto por su link y avisa cuando cambian, con las celdas que cambiaron. De **Autodesk** recibe los webhooks de APS, descarta los repetidos y avisa cada cambio ([Autodesk](#autodesk)). No interpreta lo que escucha ni lo entrega a la cadena de la obra: ver [lo que el canal no hace](#lo-que-el-canal-no-hace).
 
 ## De quién es cada cosa
 
@@ -68,6 +68,13 @@ Con `GOOGLE_WEBHOOK_URL`, **Google avisa** cada vez que alguien edita la planill
 - `GET /api/integrations/projects/:projectId` dice si los avisos están activos (`google.push`) y, por planilla, quién hizo el último cambio (`changedBy`) y hasta cuándo vale su suscripción (`push`). `/conectores` lo muestra.
 
 Drive avisa que **cambió el archivo**, no qué celda ni quién: eso sale de la revisión. Tampoco avisa cuando alguien solo abre o mira la planilla; la API de Drive no da presencia.
+
+## Lo que el canal no hace
+
+- **No interpreta la planilla** (por ejemplo, como presupuesto) ni la entrega a la obra como revisión. Para eso falta un `ChangeListener` que la lea con un lector por formato. Un primer lector del presupuesto está en el commit `7f33caa`.
+- **No guarda lo que escucha.** Las celdas que cambiaron quedan en el log y en memoria; en `integration_sources` solo queda cuándo cambió y quién (`changed_at`, `changed_by`).
+- **No escucha Excel** en Drive, OneDrive ni SharePoint, ni presupuestos de ACC ([PH-39](https://linear.app/ph-team-27/issue/PH-39/conector-de-presupuestos-de-acc-cost-management)).
+- **Los avisos usan `drive.metadata.readonly`**, un permiso restringido que sirve en modo de prueba (hasta 100 usuarios, con permisos que vencen a los 7 días). Para publicar la app, el camino es el selector de Google (Picker) con `drive.file`, que evita la verificación de permisos restringidos.
 
 ## Configurar Google
 

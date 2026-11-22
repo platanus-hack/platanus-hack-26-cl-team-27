@@ -1,19 +1,17 @@
 # Spec para agentes
 
-Contexto operativo para un agente que va a construir sobre Vigente. Lee antes el `CLAUDE.md` de la raíz y el doc del área que vas a tocar. La versión para el equipo, con el backlog y las decisiones abiertas, está en [README.md](README.md).
+Contexto operativo para un agente que va a construir sobre Vigente. Lee antes el `CLAUDE.md` de la raíz y el doc del área que vas a tocar. La versión para el equipo está en [README.md](README.md).
 
 ## Invariantes
 
 No se negocian. Si una tarea parece pedir romper una, detente y pregunta.
 
 1. **El stack es fijo.** Nx 24 + pnpm 10, Next.js 16 + React 19 + Tailwind 4, NestJS 12 (Express), Prisma 7 + PostgreSQL 18, Vitest 5, TypeScript 6.0. No introduzcas Turborepo, Fastify, Drizzle, otro ORM ni otro framework. Una librería que corre dentro de este stack (el SDK de Sentry, el de un proveedor de canal, pg-boss) se agrega solo si la tarea la pide.
-2. **Capas hexagonales.** En `context/<ctx>/src/`, `domain/` importa solo `domain/`; `application/` importa `domain/` y `application/`; `infra/adapters/` implementa puertos y sale por el subpath `/adapters`; `index.ts` nunca exporta infra. Un contexto nunca importa a otro: compone la API. ESLint lo exige.
-3. **Sintaxis borrable** en `context/*` y `data/main`: sin `enum`, sin parameter properties, sin `namespace`, con `import type`. Imports relativos con `.ts`.
-4. **Las cifras salen de reglas.** Un modelo de lenguaje solo lee texto libre y escribe razones; nunca calcula costo, plazo ni probabilidad.
-5. **Sin datos inventados en el producto.** Nada de proyectos, personas ni guiones ficticios en `apps/api` ni en `apps/web`. Un proyecto de ejemplo completo vive solo en los tests (`apps/api/tests/fixtures/los-aromos.ts`).
-6. **Toda escritura corre en `UnitOfWork.run`** (transacción con `pg_advisory_xact_lock`), y sus eventos se insertan en `project_events` en la misma transacción con `CoordinationService.track`.
-7. **El código no lleva comentarios.** Los textos de UI van en español de Chile, con tuteo; los identificadores, en inglés y con los nombres del [glosario](../negocio.md#glosario).
-8. **Cierre de una tarea:** tests, el doc del área al día en el mismo cambio y `pnpm check` en verde. Trabaja en una rama, nunca en `main`.
+2. **Las convenciones del `CLAUDE.md`**: capas hexagonales, fronteras por tags, sintaxis borrable, sin comentarios y textos de UI en español de Chile. Los identificadores usan los nombres del [glosario](../negocio.md#glosario).
+3. **Las cifras salen de reglas.** Un modelo de lenguaje solo lee texto libre y escribe razones; nunca calcula costo, plazo ni probabilidad.
+4. **Sin datos inventados en el producto.** Nada de proyectos, personas ni guiones ficticios en `apps/api` ni en `apps/web`. Un proyecto de ejemplo completo vive solo en los tests (`apps/api/tests/fixtures/los-aromos.ts`).
+5. **Toda escritura corre en `UnitOfWork.run`** (transacción con `pg_advisory_xact_lock`), y sus eventos se insertan en `project_events` en la misma transacción con `CoordinationService.track`.
+6. **Cierre de una tarea:** tests, el doc del área al día en el mismo cambio y `pnpm check` en verde. Trabaja en una rama, nunca en `main`.
 
 ## Mapa del código
 
@@ -58,133 +56,32 @@ Lo que hace `POST /api/projects/:projectId/revisions`:
 
 ## Las 26 tareas
 
-Estado de cada tarea del plan original frente al código, con su evidencia y lo que falta. Estados: `hecho`, `distinto` (resuelto de otra forma), `parcial`, `falta`.
+Estado de cada tarea del plan original frente al código: `hecho`, `distinto` (resuelto de otra forma), `parcial` o `falta`. El backlog con su detalle vive en Linear.
 
-### Fundaciones
-
-**1 · Monorepo y CI** · `distinto`
-
-- Hay: Nx 24 (`nx.json`), pnpm 10, ESLint 9 con fronteras por tags (`eslint.config.mjs`), Prettier, Vitest, `.github/workflows/check.yml` con `pnpm check`.
-- Falta: Sentry. Va como `@sentry/nestjs` en `apps/api/src/main.ts` y `@sentry/nextjs` en `apps/web`, con el DSN validado en `apps/api/src/config/env.ts` como opcional.
-- Listo cuando: un error lanzado a propósito en la API y en la web llega a Sentry, y sin DSN nada cambia.
-
-**2 · Modelo de datos** · `parcial`
-
-- Hay: Prisma 7, `data/main/prisma/schema.prisma` y sus migraciones. El proyecto vive en la base: `projects` con su organización, y `project_id` en las tablas del proyecto, el lago, los avisos y los eventos. La API carga el proyecto de cada pedido (`ProjectCatalogs.load` en `apps/api/src/modules/project/project.module.ts`) y arma con él `InMemoryProjectGraph` e `InMemoryStakeholderDirectory`.
-- Falta: cargar la definición de un proyecto creado desde la web. Ver la receta [el proyecto en la base](#el-proyecto-en-la-base).
-
-**3 · Autenticación** · `distinto`
-
-- Hay: Auth0 para la identidad (`apps/web/src/lib/auth0.ts` en la web; `accounts.service.ts` valida el token en la API) y, en Postgres, `organizations`, `users`, `memberships` e `invitations`, con los roles `admin` y `member` (`AccountGuard`, `requireAdmin`). Es opcional: sin las variables `AUTH0_*` la API arranca, las rutas con cuenta no funcionan y la web avisa que las cuentas no están configuradas.
-- El motor también va con la cuenta: el actor es el usuario, que es su id en el equipo del proyecto. Los superadmins vienen de `SUPERADMIN_EMAILS` y entran sin invitación.
-
-**4 · Infraestructura y despliegue** · `parcial`
-
-- Hay: `docker-compose.yml`, `render.yaml` (API Docker y Postgres administrado), `apps/web/vercel.json`, `apps/api/Dockerfile`. Ver [despliegue](../despliegue.md).
-- Falta: un ambiente de staging (segundo servicio y base en Render, preview en Vercel).
-
-### Integración con Autodesk
-
-**5 · OAuth con APS** · `parcial`
-
-- Hay: `apps/api/src/modules/integrations/aps/`. Un administrador autoriza (`POST /api/organizations/:organizationId/integrations/aps/authorize`), `GET /api/integrations/aps/callback` guarda la cuenta de Autodesk de la organización, y los tokens van cifrados con AES-256-GCM (`token-cipher.ts`, `APS_TOKEN_KEY`) en `aps_connections` por el puerto `TokenVault` (`prisma-token-vault.ts`). La web la muestra en `components/cuenta/AutodeskCard.tsx`, dentro de `/cuenta`.
-- Falta: que algo use esos tokens para leer ACC. Hoy nada los consume.
-
-**6 · Webhooks de APS** · `parcial`
-
-- Hay: `POST /api/integrations/autodesk/webhooks` (`apps/api/src/modules/integrations/autodesk-webhooks.controller.ts` y `autodesk-webhooks.service.ts`). Verifica `x-adsk-signature` con `APS_WEBHOOK_SECRET` sobre el cuerpo crudo (`rawBody` de Nest, `APP_OPTIONS` en `app.setup.ts`), y `ReceiveAutodeskEvent` de `context/integrations` traduce el aviso, descarta los repetidos con la tabla `autodesk_events` (`PrismaAutodeskEventRepository`) y avisa los nuevos a `LoggingAutodeskListener`, que los deja en el log. Detalle: [cambios-autodesk.md](cambios-autodesk.md#el-receptor).
-- Falta: registrar los webhooks en Autodesk por cada carpeta de proyecto vinculada, y un listener que encole en la outbox (tarea 10), en la misma transacción que la llave, el diff de AEC Data Model para terminar en la misma ingesta.
-
-**7 · Spike de AEC Data Model** · `distinto`
-
-- Hay: el cambio por elemento. `diffSnapshots` compara dos versiones del modelo y `DetectChanges` lo convierte en `Change`, pero ningún conector le entrega versiones.
-- Spike hecho: [aec-data-model.md](aec-data-model.md). ACC lo entrega con `diffElementGroupByVersionWithLatest`, por versión sincronizada o publicada y no por guardado, y solo con el modelo en un hub de ACC con AEC Data Model activado.
-- Falta: comprobarlo con un hub real (la lista está al final del spike) y, si sirve, un conector que arme el diff de cada versión y lo mande como revisión a `POST /api/projects/:projectId/revisions`.
-
-**8 · Parser de Presto o S10** · `falta`
-
-- Hay: el conector de Google Sheets, que conecta y escucha las planillas, pero no las lee: ver [integraciones](integraciones.md).
-- Falta: el formato real (Presto exporta FIEBDC-3, `.bc3`). Ver la receta [agregar un conector o un parser](#agregar-un-conector-o-un-parser).
-
-**9 · Parser de P6 o MS Project** · `falta`
-
-- Falta: los formatos reales (XER de P6, XML de MS Project). Misma receta.
-
-### Núcleo
-
-**10 · Worker y colas** · `falta`
-
-- Hay: la cadena sincrónica en `coordination.service.ts`.
-- Falta: ver la receta [una tarea diferida](#una-tarea-diferida). La cadena no se vuelve asíncrona: solo lo que sale al mundo.
-
-**11 · Detector de cambios** · `hecho`
-
-- `context/lake/src/domain/classifyClaims.ts`, `Authority.ts` y `diffSnapshots.ts`; `IngestRevision` y `DetectChanges`.
-
-**12 · Resolvedor de dependencias** · `hecho`
-
-- `context/impact/src/domain/analyzeChange.ts` sobre `ProjectGraph.dependencies` (`watches`, `measures`). El grafo se lee de la base en cada pedido: `InMemoryProjectGraph` desde `ProjectCatalog`.
-- Pendiente aparte: conectar `SuggestAffected` a la API.
-
-**13 · Detector de conflictos** · `hecho`
-
-- `context/lake/src/domain/detectOverlaps.ts`, `Overlap.ts`; `OpenOverlaps`, `VoteOverlap`, `SettleOverlaps`. Las áreas salen del proyecto (`project_levels`, `project_systems` y los ejes de `projects`). Ver [solapamientos](../solapamientos.md).
-
-**14 · Calculador de costo y plazo** · `hecho`
-
-- `context/impact/src/domain/quantities.ts` y `schedule.ts` (`criticalPath`, holgura).
-
-**15 · Redactor de avisos** · `parcial`
-
-- Hay: `draftNotifications` en `context/notification/src/domain/Notification.ts` (un aviso por afectado, hallazgos con `summary`, `details` y `action`), guardado con su canal.
-- Falta: una función pura de dominio que rinda el texto por canal y rol (asunto y cuerpo de correo, plantilla de WhatsApp, tarjeta de Teams), con tests.
-
-**16 · Seguimiento** · `parcial`
-
-- Hay: la API dice quién aprobó, disputó o falta (`GET /api/projects/:projectId/proposals` y la bandeja `GET /api/projects/:projectId/inbox`, con «tus propuestas»); `ReopenProposal` y `WithdrawProposal`.
-- Falta: la vista del autor en la web, «No me afecta» (receta [un tipo de respuesta](#un-tipo-de-respuesta)), recordatorios y escalamiento (receta [una tarea diferida](#una-tarea-diferida)).
-
-### Canales
-
-**17 · Correo con Resend** · `falta` · **18 · WhatsApp** · `falta` · **19 · Teams** · `falta` · **20 · ACC Issues** · `falta`
-
-- Hay: el aviso se guarda con su canal y el afectado lo responde en el detalle del cambio, en la web; nada sale por un canal.
-- Falta: ver la receta [un canal real](#un-canal-real). Teams y ACC Issues además suman un valor a `CHANNELS`. WhatsApp necesita un webhook de entrada que convierta la respuesta en voto.
-- Slack y Teams reales son nice to have: van después del correo y WhatsApp.
-
-### Web
-
-**21 · Onboarding del administrador** · `parcial`
-
-- Hay: crear un proyecto desde la web (`/proyectos/nuevo`, `components/proyectos/NewProjectForm.tsx`; `POST /api/projects` y `GET /api/projects` en `accounts.controller.ts`), que lo deja en la organización de quien lo crea, con esa persona como único miembro. `/proyectos/[projectId]` lo muestra.
-- Falta: espacios, documentos, sujetos, modelo, equipo y mapa de dependencias del proyecto nuevo, y conectar ACC. Sin eso, el motor no tiene nada que procesar en el proyecto ([motor](../motor.md#por-proyecto-y-con-tu-cuenta)).
-
-**22 · Editor del mapa de dependencias** · `falta`
-
-- Hay: el grafo en la base (`project_dependencies`, `budget_items`, `schedule_tasks`), sin forma de cargarlo desde la web.
-- Falta: el editor.
-
-**23 · Detalle y respuesta del aviso** · `parcial`
-
-- Hay: `apps/web/src/app/(site)/proyectos/[projectId]/cambios/`, `components/cambios/ChangeDetailBody.tsx`, `ChangeResponse.tsx` y `VoteForm.tsx`; `POST /api/projects/:projectId/notifications/:id/response`, con la cuenta.
-- Falta: la bandeja de cada persona en la web (`GET /api/projects/:projectId/inbox` ya existe).
-
-**24 · Vista de estado** · `falta`
-
-- Hay: las lecturas de la API por proyecto (propuestas, solapamientos, lo vigente, consenso y cambios).
-- Falta: la vista en la web, y las acciones del autor (reabrir, retirar), descartar una discrepancia, confirmar sin cambio y votar un solapamiento, que hoy solo existen en la API.
-
-### Piloto
-
-**25 · Proyecto de prueba y punta a punta** · `parcial`
-
-- Hay: un proyecto completo de ejemplo en los tests de la API (`apps/api/tests/fixtures/los-aromos.ts`).
-- Falta: tests contra Postgres (votos simultáneos, la cadena completa) y un proyecto en ACC.
-
-**26 · Métricas del piloto** · `falta`
-
-- Hay: `notifications` guarda `channel`, `sent_at`, `response` y `responded_at`.
-- Falta: un caso de uso de lectura en `notification` (tiempo de respuesta, respuesta por canal) y su vista. La tasa de «no me afecta» depende de la tarea 16.
+| #     | Tarea                                | Estado     | Dónde está o qué falta                                                                                                                                                                 |
+| ----- | ------------------------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Monorepo y CI                        | `distinto` | Falta Sentry: `@sentry/nestjs` en `apps/api/src/main.ts` y `@sentry/nextjs` en `apps/web`, con el DSN opcional en `apps/api/src/config/env.ts`                                         |
+| 2     | Modelo de datos                      | `parcial`  | La API carga el proyecto de cada pedido (`ProjectCatalogs.load`). Falta cargar la definición de uno creado desde la web: [el proyecto en la base](#el-proyecto-en-la-base)             |
+| 3     | Autenticación                        | `distinto` | Auth0 más organizaciones y roles `admin` y `member` en Postgres. El actor del motor es el usuario; los superadmins vienen de `SUPERADMIN_EMAILS`                                       |
+| 4     | Infraestructura y despliegue         | `parcial`  | Falta staging. Ver [despliegue](../despliegue.md)                                                                                                                                      |
+| 5     | OAuth con APS                        | `parcial`  | `apps/api/src/modules/integrations/aps/` guarda los tokens cifrados en `aps_connections`; nada los consume todavía                                                                     |
+| 6     | Webhooks de APS                      | `parcial`  | Falta registrarlos por carpeta y encolar el diff de AEC Data Model en la outbox. Ver [cambios-autodesk](cambios-autodesk.md#lo-que-falta)                                              |
+| 7     | Spike de AEC Data Model              | `distinto` | `diffSnapshots` y `DetectChanges` comparan versiones, pero ningún conector se las entrega. El spike está en [cambios-autodesk](cambios-autodesk.md#dentro-de-un-modelo-aec-data-model) |
+| 8, 9  | Parsers de presupuesto y Gantt       | `falta`    | Faltan FIEBDC-3 (`.bc3`) de Presto, XER de P6 y el XML de MS Project: [un parser](#agregar-un-conector-o-un-parser). Google Sheets escucha planillas, pero no las lee                  |
+| 10    | Worker y colas                       | `falta`    | Receta [una tarea diferida](#una-tarea-diferida). La cadena no se vuelve asíncrona: solo lo que sale al mundo                                                                          |
+| 11    | Detector de cambios                  | `hecho`    | `classifyClaims`, `Authority` y `diffSnapshots` en `context/lake`; `IngestRevision` y `DetectChanges`                                                                                  |
+| 12    | Resolvedor de dependencias           | `hecho`    | `analyzeChange` sobre `ProjectGraph`, leído de la base en cada pedido. Falta conectar `SuggestAffected` a la API                                                                       |
+| 13    | Detector de conflictos               | `hecho`    | `detectOverlaps`, `OpenOverlaps`, `VoteOverlap` y `SettleOverlaps`. Ver [solapamientos](../solapamientos.md)                                                                           |
+| 14    | Costo y plazo                        | `hecho`    | `quantities.ts` y `schedule.ts` (`criticalPath`, holgura) en `context/impact`                                                                                                          |
+| 15    | Redactor de avisos                   | `parcial`  | `draftNotifications` existe; falta una función pura que rinda el texto por canal y rol                                                                                                 |
+| 16    | Seguimiento                          | `parcial`  | La API dice quién aprobó, disputó o falta. Faltan la vista del autor en la web, «No me afecta» ([un tipo de respuesta](#un-tipo-de-respuesta)), recordatorios y escalamiento           |
+| 17–20 | Correo, WhatsApp, Teams y ACC Issues | `falta`    | Nada sale por un canal. Receta [un canal real](#un-canal-real); WhatsApp necesita un webhook de entrada que convierta la respuesta en voto. Slack y Teams reales son nice to have      |
+| 21    | Onboarding del administrador         | `parcial`  | Crear un proyecto ya existe (`/proyectos/nuevo`); faltan espacios, documentos, sujetos, modelo, equipo y dependencias ([motor](../motor.md#por-proyecto-y-con-tu-cuenta))              |
+| 22    | Editor del mapa de dependencias      | `falta`    | El grafo está en `project_dependencies`, sin forma de cargarlo desde la web                                                                                                            |
+| 23    | Detalle y respuesta del aviso        | `parcial`  | `(site)/proyectos/[projectId]/cambios/`, `ChangeResponse.tsx` y `VoteForm.tsx`. Falta la bandeja de cada persona en la web (`GET /api/projects/:projectId/inbox` ya existe)            |
+| 24    | Vista de estado                      | `falta`    | Las lecturas por proyecto existen en la API. Faltan la vista y las acciones del autor, de discrepancias y de solapamientos en la web                                                   |
+| 25    | Proyecto de prueba                   | `parcial`  | Un proyecto de ejemplo en `apps/api/tests/fixtures/los-aromos.ts`. Faltan tests contra Postgres de la cadena completa y un proyecto en ACC                                             |
+| 26    | Métricas del piloto                  | `falta`    | `notifications` ya guarda canal, envío y respuesta; falta la lectura en `notification` y su vista                                                                                      |
 
 ## Recetas
 

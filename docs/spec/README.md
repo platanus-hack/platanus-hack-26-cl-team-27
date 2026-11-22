@@ -1,14 +1,12 @@
 # Spec de Vigente
 
-Esta carpeta junta en un solo lugar qué es Vigente, qué está construido, cómo se compara con el plan de 26 tareas y qué falta. Todo lo que falta se construye sobre el stack actual. Tiene cuatro lecturas y dos diagramas:
+Esta carpeta junta en un solo lugar qué es Vigente, qué está construido y cómo se compara con el plan. Todo lo que falta se construye sobre el stack actual. Tiene tres lecturas y dos diagramas:
 
 | Archivo                                      | Para quién          | Qué trae                                                                                                                 |
 | -------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| [README.md](README.md)                       | El equipo           | La síntesis, el contraste con el plan, el backlog para Linear y las decisiones abiertas                                  |
+| [README.md](README.md)                       | El equipo           | La síntesis, dónde entra en una obra con BIM, el flujo, la arquitectura y el contraste con el plan                       |
 | [ia.md](ia.md)                               | Un agente de código | Invariantes, mapa del código, la cadena de un cambio, cada tarea con su evidencia y recetas para construir               |
-| [integraciones.md](integraciones.md)         | El equipo           | Los conectores de Google Sheets y ACC: conectar y escuchar, lo construido y lo que sigue                                  |
-| [cambios-autodesk.md](cambios-autodesk.md)   | El equipo           | Todo lo que puede cambiar en Autodesk, por dónde se entera Vigente y cómo lo traduce                              |
-| [aec-data-model.md](aec-data-model.md)       | El equipo           | El spike de la tarea 7: si ACC da desde la nube el diff de cada versión del modelo, con sus límites y el ejemplo de la losa N3    |
+| [cambios-autodesk.md](cambios-autodesk.md)   | El equipo           | Todo lo que puede cambiar en Autodesk, por dónde se entera Vigente, cómo lo traduce y el spike de AEC Data Model         |
 | [flujo-usuario.drawio](flujo-usuario.drawio) | Todos               | El flujo de usuario de un cambio, desde que el autor guarda hasta «Obra consensuada»                                     |
 | [arquitectura.drawio](arquitectura.drawio)   | Todos               | La arquitectura de software, con lo construido y lo que falta                                                            |
 
@@ -116,81 +114,16 @@ El flujo propuesto también difiere del construido en tres puntos:
 - **El conflicto no es un aviso aparte.** Un solapamiento abre una validación conjunta para el autor de la revisión que llega y el dueño del otro documento. Además existen la discrepancia (fuente sin autoridad) y el desfase (documento que usa un valor viejo), que la propuesta no contempla.
 - **El final.** La propuesta termina en «cambio coordinado». El código sigue: fusiona a lo vigente, marca los documentos desfasados con su dueño y, cuando no queda nada pendiente, deja el proyecto consensuado.
 
-## Las 26 tareas frente al código
+## Lo que el código tiene y el plan no
 
-**Hecho** está construido como dice la tarea. **Distinto** está resuelto de otra forma. **Parcial** tiene una parte. **Falta** no existe. Quedan 4 hechas, 3 distintas, 9 parciales y 10 por hacer. La evidencia de cada una, con rutas, está en [ia.md](ia.md#las-26-tareas).
-
-| #  | Tarea                                           | Estado   | Qué hay                                                                                                        | Qué falta                                                                    |
-| -- | ----------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| 1  | Monorepo y CI                                   | Distinto | Nx 24 + pnpm 10, ESLint 9, Prettier, Vitest y `pnpm check` en GitHub Actions                                   | Sentry                                                                       |
-| 2  | Modelo de datos en Postgres                     | Parcial  | Prisma 7; el proyecto vive en la base, con organización y `project_id` en cada tabla; la API carga el proyecto de cada pedido | Cargar la definición de un proyecto creado desde la web                      |
-| 3  | Autenticación con Auth0                         | Distinto | Auth0 para la identidad; organizaciones y roles `admin` y `member` en Postgres                                 | —                                                                            |
-| 4  | Infraestructura y despliegue                    | Parcial  | Compose en local; Render (API y Postgres administrado) y Vercel                                                | Staging                                                                      |
-| 5  | OAuth con APS                                   | Parcial  | OAuth de tres patas por organización, con los tokens cifrados en `aps_connections`                             | Que algo use esos tokens para leer ACC                                       |
-| 6  | Receptor de webhooks de APS                     | Parcial  | `POST /api/integrations/autodesk/webhooks`: firma sobre el cuerpo crudo, repetidos en `autodesk_events` y log  | Registrar los webhooks por carpeta y encolar el diff de AEC Data Model       |
-| 7  | Spike de diff con AEC Data Model                | Distinto | El cambio por elemento ya existe en `lake` (`diffSnapshots` y `DetectChanges`), sin un conector que lo alimente | Spike hecho ([aec-data-model](aec-data-model.md)): sí, con límites; falta un hub de ACC |
-| 8  | Parser de presupuesto Presto o S10              | Falta    | El canal de Google Sheets escucha las planillas, sin leerlas                                                   | Los formatos reales                                                          |
-| 9  | Parser de cronograma P6 o MS Project            | Falta    | —                                                                                                              | Los formatos reales                                                          |
-| 10 | Worker y colas                                  | Falta    | Cadena sincrónica y transaccional                                                                              | Outbox, worker y reintentos                                                  |
-| 11 | Detector de cambios                             | Hecho    | `lake`: compara con lo vigente según la autoridad de cada tipo de documento; un `Change` por elemento          | —                                                                            |
-| 12 | Resolvedor de dependencias                      | Hecho    | `impact`: dependencias por atributo y filtrados con su razón; la capa de probabilidad existe sin conectar      | Que el grafo se pueda editar                                                 |
-| 13 | Detector de conflictos                          | Hecho    | Solapamientos en anillos (mismo elemento, misma área, simultáneo) y validación conjunta                        | Choques geométricos                                                          |
-| 14 | Calculador de costo y plazo                     | Hecho    | Cantidad por precio unitario, y ruta crítica con holgura                                                       | —                                                                            |
-| 15 | Redactor de avisos                              | Parcial  | Un aviso por afectado con sus hallazgos (resumen, detalle y qué hacer), guardado con su canal                  | Plantillas de texto por canal                                                |
-| 16 | Seguimiento                                     | Parcial  | La API dice quién aprobó, disputó o falta, y deja reabrir o retirar; la web no lo muestra                      | La vista del autor, «No me afecta», recordatorios y escalamiento             |
-| 17 | Correo con Resend                               | Falta    | El aviso se guarda con el canal `email`                                                                        | El envío real                                                                |
-| 18 | WhatsApp con Meta Cloud API                     | Falta    | El aviso se guarda con el canal `whatsapp`                                                                     | Envío, plantillas aprobadas y recepción de respuestas                        |
-| 19 | Teams con Graph API                             | Falta    | Los canales son `email`, `whatsapp` y `slack`                                                                  | Nice to have: el canal `teams` y su envío                                    |
-| 20 | ACC Issues                                      | Falta    | —                                                                                                              | Todo                                                                         |
-| 21 | Onboarding del administrador                    | Parcial  | Crear un proyecto desde la web, en una organización de quien lo crea                                           | Espacios, documentos, sujetos, modelo, equipo y la conexión con ACC          |
-| 22 | Editor del mapa de dependencias                 | Falta    | El grafo está en la base (`project_dependencies`)                                                              | El editor                                                                    |
-| 23 | Detalle y respuesta del aviso                   | Parcial  | `/proyectos/[projectId]/cambios/[id]`, con «Revisado» o «Tengo un problema» y nota, con tu cuenta               | La bandeja de cada persona en la web (la API ya la entrega)                  |
-| 24 | Vista de estado del autor y el jefe de proyecto | Falta    | La API entrega propuestas, solapamientos, desfases y consenso por proyecto                                     | La vista                                                                     |
-| 25 | Proyecto de prueba y punta a punta              | Parcial  | Los tests de la API usan un proyecto completo de ejemplo (`apps/api/tests/fixtures/los-aromos.ts`)              | Un proyecto en ACC y tests contra Postgres |
-| 26 | Métricas del piloto                             | Falta    | Los avisos guardan canal, envío y respuesta: alcanza para medir                                                | La vista; la tasa de «no me afecta» necesita esa respuesta                   |
-
-### Lo que el código tiene y el plan no
-
-El plan describe un notificador. El código, además, ya construyó lo que la [auditoría](../auditoria.md#veredicto) marcó como lo valioso:
+El plan describe un notificador. El código, además, ya construyó:
 
 - **Lo vigente consensuado.** Cada revisión con autoridad abre una propuesta, y lo vigente cambia solo cuando todos sus revisores aprueban.
 - **Autoridad por tipo de documento.** Un plano manda sobre el diseño, una cotización sobre el precio y una Carta Gantt sobre las fechas. Un WhatsApp o un folio no mandan sobre nada: abren una discrepancia.
 - **Desfase y procedencia.** Cada documento que usa un valor viejo queda marcado con su dueño, y cada valor responde de dónde salió.
 - **Lectura de texto libre.** Claude lee WhatsApp, folios y actas, con su confianza.
-- **Capa de probabilidad (Mano alzada).** Estima quién más puede estar afectado. Existe en `impact` y falta conectarla a la API.
+- **Capa de probabilidad ([Mano alzada](../negocio.md#mano-alzada)).** Estima quién más puede estar afectado. Existe en `impact` y falta conectarla a la API.
 
-## Backlog para Linear
+## Lo que falta
 
-Todo vive en un solo proyecto de Linear, «Vigente», y cada issue lleva una etiqueta: **Producto** (el plan) o **Nice to have**. Las dependencias entre tareas están cargadas como bloqueos. Las tareas del plan que ya están construidas están en Done, asignadas a quien las hizo.
-
-### Producto
-
-Las tareas del plan, reescritas para el stack actual y en el orden en que se destraban. Entre paréntesis, la tarea original.
-
-| Tarea                                | Qué es                                                                                                                                                                                                                                                        | Depende de                  |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| El proyecto en la base (2)           | Construido: el proyecto, el equipo, el grafo, los documentos y las áreas están en Postgres, con `project_id` en cada tabla, y la API carga el proyecto de cada pedido. Queda cargar la definición de uno creado desde la web, que no trae grilla ni documentos | —                           |
-| Cuentas y organizaciones (3)         | Construido: Auth0, organizaciones, miembros, invitaciones y roles `admin` y `member`, opcional con las variables `AUTH0_*`                                                                                                                                    | El proyecto en la base      |
-| Observabilidad (1)                   | Sentry en la API y la web                                                                                                                                                                                                                                     | —                           |
-| Staging (4)                          | Un segundo servicio y una segunda base en Render, y la web de preview en Vercel                                                                                                                                                                               | —                           |
-| Outbox y worker (10)                 | Una tabla outbox en Prisma, escrita en la misma transacción de la cadena, y un worker de Nest que la procesa con reintentos                                                                                                                                   | —                           |
-| Plantillas por canal (15)            | El texto de cada aviso según su canal y el rol del afectado, en el dominio de `notification`                                                                                                                                                                  | —                           |
-| Correo con Resend (17)               | Primer adapter del puerto `ChannelSender`                                                                                                                                                                                                                     | Outbox, plantillas          |
-| WhatsApp (18)                        | Meta Cloud API con plantillas aprobadas, y un webhook que convierte la respuesta en voto                                                                                                                                                                      | Outbox, plantillas          |
-| Slack y Teams (19), nice to have     | Un adapter para cada uno (la API de Slack y Graph API), y `teams` en los canales                                                                                                                                                                              | Outbox, plantillas          |
-| ACC Issues (20)                      | El aviso como issue en ACC                                                                                                                                                                                                                                    | Conexión con APS, outbox    |
-| Seguimiento (16)                     | «No me afecta» como respuesta, recordatorios y escalamiento                                                                                                                                                                                                   | Outbox                      |
-| Conexión con APS (5)                 | Construido: OAuth de tres patas por organización y tokens cifrados en Postgres. Queda usarlos para leer ACC                                                                                                                                                   | Cuentas                     |
-| Webhooks de APS (6)                  | Construido: la ruta con firma validada y los repetidos en `autodesk_events`. Queda registrar los webhooks por carpeta y encolar el diff, que termina en la ingesta                                                                                            | Conexión con APS, outbox    |
-| Conector de AEC Data Model (7)       | Comprobar el [spike](aec-data-model.md) en un hub de ACC y, si se confirma, armar el diff del modelo desde la nube                                                                                                                                                     | Conexión con APS            |
-| Presupuesto de Presto o S10 (8)      | Parser de la exportación real hacia fragmentos con hechos, con test de oro                                                                                                                                                                                    | —                           |
-| Cronograma de P6 o MS Project (9)    | Parser de la exportación real hacia fragmentos con hechos, con test de oro                                                                                                                                                                                    | —                           |
-| Onboarding del administrador (21)    | Crear el proyecto ya existe. Queda sumar espacios y documentos, conectar ACC y elegir las carpetas de presupuesto y cronograma                                                                                                                                | El proyecto en la base, APS |
-| Editor del mapa de dependencias (22) | Editar el grafo, que ya está en la base, e importar uno inicial                                                                                                                                                                                               | El proyecto en la base      |
-| Piloto en ACC y punta a punta (25)   | Un proyecto de prueba en ACC y el camino feliz automatizado contra Postgres                                                                                                                                                                                   | APS, webhooks               |
-| Métricas del piloto (26)             | Tiempo de respuesta, respuesta por canal y tasa de «no me afecta», derivados de los avisos                                                                                                                                                                    | Seguimiento                 |
-
-## Decisiones abiertas
-
-1. **¿Outbox propia o pg-boss?** Las dos corren sobre el mismo Postgres. La outbox no suma dependencias; pg-boss trae reintentos y programación hechos.
-2. **¿Se adopta Mano alzada?** Suma «me afecta», que es la otra cara de «no me afecta» (ver [auditoría](../auditoria.md#decisiones-para-el-equipo)).
+El estado de cada tarea del plan y el backlog viven en Linear, en el proyecto «Vigente»: cada issue lleva la etiqueta **Producto** o **Nice to have**, con sus dependencias cargadas como bloqueos. Para un agente, la evidencia en el código de cada tarea está en [ia.md](ia.md#las-26-tareas).

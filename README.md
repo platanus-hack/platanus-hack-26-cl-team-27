@@ -14,6 +14,8 @@ En construcción, muchos equipos toman decisiones interdependientes con herramie
 
 Nos conectamos al software que el proyecto ya usa (BIM, planificación, costos, gestión documental) y capturamos cada cambio apenas ocurre. Identificamos qué elementos, decisiones y equipos quedan afectados, y a cada uno le llevamos solo lo que le impacta (resumen, impacto estimado en costo y plazo, enlace al detalle) al canal donde ya trabaja: correo, Slack/Teams, WhatsApp o su propia herramienta. Sin reemplazar herramientas ni centralizar datos.
 
+Cada cambio es una propuesta contra la versión vigente del proyecto: lo vigente cambia solo cuando confirman todos los afectados, y cada valor sabe de dónde salió.
+
 Actores, historias de usuario y glosario: [docs/negocio.md](docs/negocio.md).
 
 ## Equipo
