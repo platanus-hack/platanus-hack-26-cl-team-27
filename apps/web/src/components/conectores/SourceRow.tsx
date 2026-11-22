@@ -4,6 +4,7 @@ import { Button, Notice, StatusBadge } from '@team27/ui';
 
 import { textLink } from '@/components/common/link-styles';
 import { RelativeTime } from '@/components/common/RelativeTime';
+import { formatClock } from '@/lib/format';
 import { type SourceView, sourceState } from '@/lib/integrations-api';
 
 export function SourceRow({
@@ -48,6 +49,20 @@ export function SourceRow({
           ) : (
             'Ninguno desde que la vinculamos'
           )}
+        </dd>
+        {source.changedBy && (
+          <>
+            <dt className="text-ink-2">Lo editó</dt>
+            <dd className="text-ink">
+              {source.changedBy.name ?? source.changedBy.email}
+            </dd>
+          </>
+        )}
+        <dt className="text-ink-2">Avisos de Google</dt>
+        <dd className="text-ink">
+          {source.push.active && source.push.expiresAt
+            ? `Al instante (suscripción vigente hasta las ${formatClock(source.push.expiresAt)})`
+            : 'Revisión periódica'}
         </dd>
       </dl>
 

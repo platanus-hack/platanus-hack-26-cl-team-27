@@ -63,7 +63,7 @@ describe('parseAutodeskWebhook', () => {
       occurredAt: '2026-11-21T20:15:03.000Z',
       actorId: 'AUTODESK-USER-1',
       needsElementDiff: true,
-      dedupeKey: `dm.version.added|${LINEAGE}|v8`,
+      dedupeKey: `hook-1|dm.version.added|${LINEAGE}|v8`,
     });
     expect(change.resource).toEqual({
       kind: 'model',
@@ -97,6 +97,80 @@ describe('parseAutodeskWebhook', () => {
   it('el mismo evento repetido da la misma llave para descartar duplicados', () => {
     expect(parseAutodeskWebhook(versionAdded).dedupeKey).toBe(
       parseAutodeskWebhook(structuredClone(versionAdded)).dedupeKey,
+    );
+  });
+
+  it('una versión nueva repetida con otra hora sigue siendo la misma', () => {
+    const later = {
+      ...versionAdded,
+      payload: {
+        ...versionAdded.payload,
+        modifiedTime: '2026-11-21T20:20:00Z',
+      },
+    };
+    expect(parseAutodeskWebhook(later).dedupeKey).toBe(
+      parseAutodeskWebhook(versionAdded).dedupeKey,
+    );
+  });
+
+  it('dos ediciones de la misma versión no son repetidos', () => {
+    const modified = (modifiedTime: string) => ({
+      ...versionAdded,
+      hook: { ...versionAdded.hook, event: 'dm.version.modified' },
+      payload: { ...versionAdded.payload, modifiedTime },
+    });
+    const first = parseAutodeskWebhook(modified('2026-11-21T20:15:03Z'));
+    const second = parseAutodeskWebhook(modified('2026-11-21T20:30:00Z'));
+
+    expect(first.dedupeKey).toBe(
+      `hook-1|dm.version.modified|${LINEAGE}|v8@2026-11-21T20:15:03.000Z`,
+    );
+    expect(second.dedupeKey).not.toBe(first.dedupeKey);
+  });
+
+  it('el mismo evento desde otro hook tiene otra llave', () => {
+    const other = {
+      ...versionAdded,
+      hook: { ...versionAdded.hook, hookId: 'hook-9' },
+    };
+    expect(parseAutodeskWebhook(other).dedupeKey).not.toBe(
+      parseAutodeskWebhook(versionAdded).dedupeKey,
+    );
+  });
+
+  it('sin versión ni hora, la llave sale de la huella del cuerpo', () => {
+    const extraction = (status: string, progress: string) => ({
+      resourceUrn: 'dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6bW9kZWw',
+      hook: {
+        hookId: 'hook-4',
+        system: 'derivative',
+        event: 'extraction.updated',
+        createdDate: '2026-11-01T10:00:00.000+0000',
+      },
+      payload: { Status: status, Progress: progress },
+    });
+    const first = parseAutodeskWebhook(extraction('inprogress', '20%'));
+
+    expect(first.occurredAt).toBeNull();
+    expect(first.dedupeKey).toMatch(/\|h[0-9a-f]{16}$/);
+    expect(
+      parseAutodeskWebhook(extraction('inprogress', '20%')).dedupeKey,
+    ).toBe(first.dedupeKey);
+    expect(
+      parseAutodeskWebhook(extraction('inprogress', '60%')).dedupeKey,
+    ).not.toBe(first.dedupeKey);
+    expect(
+      parseAutodeskWebhook(extraction('success', '100%')).dedupeKey,
+    ).not.toBe(first.dedupeKey);
+  });
+
+  it('sin recurso, el destino de la llave también es la huella', () => {
+    const bare = (name: string) => ({
+      hook: { hookId: 'hook-5', system: 'data', event: 'dm.folder.added' },
+      payload: { name },
+    });
+    expect(parseAutodeskWebhook(bare('Planos')).dedupeKey).not.toBe(
+      parseAutodeskWebhook(bare('Cálculo')).dedupeKey,
     );
   });
 

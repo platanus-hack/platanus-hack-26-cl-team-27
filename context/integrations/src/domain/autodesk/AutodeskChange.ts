@@ -83,6 +83,57 @@ const isoOf = (value: string | null): string | null => {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
+const VERSIONED_OCCURRENCE_EVENTS: readonly string[] = [
+  'dm.version.added',
+  'dm.version.deleted',
+  'model.sync',
+  'model.publish',
+  'extraction.finished',
+];
+
+const canonicalJson = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
+  }
+  if (isRecord(value)) {
+    const entries = Object.keys(value)
+      .filter((key) => value[key] !== undefined)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`);
+    return `{${entries.join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+};
+
+const FNV_OFFSET = 0xcbf29ce484222325n;
+const FNV_PRIME = 0x100000001b3n;
+const UINT64 = 0xffffffffffffffffn;
+
+const fingerprintOf = (value: unknown): string => {
+  const text = canonicalJson(value);
+  let hash = FNV_OFFSET;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= BigInt(text.charCodeAt(index));
+    hash = (hash * FNV_PRIME) & UINT64;
+  }
+  return `h${hash.toString(16).padStart(16, '0')}`;
+};
+
+const momentOf = (
+  event: string,
+  version: number | null,
+  occurredAt: string | null,
+  body: Json,
+): string => {
+  if (version !== null && VERSIONED_OCCURRENCE_EVENTS.includes(event)) {
+    return `v${version}`;
+  }
+  const parts = [version !== null ? `v${version}` : null, occurredAt].filter(
+    (part) => part !== null,
+  );
+  return parts.length > 0 ? parts.join('@') : fingerprintOf(body);
+};
+
 export class AutodeskEventError extends Error {
   constructor(message: string) {
     super(message);
@@ -126,26 +177,26 @@ export const parseAutodeskWebhook = (body: unknown): AutodeskChange => {
     projectId: textAt(payload, 'project', 'projectId', 'containerId'),
   };
   const occurredAt = isoOf(
-    textAt(payload, 'modifiedTime', 'updatedAt', 'createdTime', 'createdAt') ??
-      textAt(hook, 'createdDate'),
+    textAt(payload, 'modifiedTime', 'updatedAt', 'createdTime', 'createdAt'),
   );
   const actorId =
     textAt(recordAt(payload, 'user_info'), 'id') ??
     textAt(payload, 'modifiedBy', 'updatedBy', 'creator', 'createdBy');
+  const hookId = textAt(hook, 'hookId');
   const target =
-    lineageUrn ?? urn ?? textAt(body, 'resourceUrn') ?? 'sin-recurso';
-  const moment = version !== null ? `v${version}` : (occurredAt ?? 'sin-hora');
+    lineageUrn ?? urn ?? textAt(body, 'resourceUrn') ?? fingerprintOf(body);
+  const moment = momentOf(event, version, occurredAt, body);
   return {
     kind: definition.kind,
     event,
     source: definition.source,
     description: definition.description,
-    hookId: textAt(hook, 'hookId'),
+    hookId,
     occurredAt,
     actorId,
     resource,
     needsElementDiff:
       isModelFile && ELEMENT_DIFF_KINDS.includes(definition.kind),
-    dedupeKey: `${event}|${target}|${moment}`,
+    dedupeKey: `${hookId ?? 'sin-hook'}|${event}|${target}|${moment}`,
   };
 };

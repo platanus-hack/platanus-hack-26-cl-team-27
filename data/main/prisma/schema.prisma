@@ -542,19 +542,24 @@ model IntegrationConnection {
 }
 
 model IntegrationSource {
-  id           String                 @id @default(uuid()) @db.Uuid
-  projectId    String                 @map("project_id")
-  connectionId String?                @map("connection_id") @db.Uuid
-  provider     String
-  externalId   String                 @map("external_id")
-  title        String
-  pointer      String
-  contentHash  String?                @map("content_hash")
-  checkedAt    DateTime?              @map("checked_at")
-  changedAt    DateTime?              @map("changed_at")
-  lastError    Json?                  @map("last_error")
-  createdAt    DateTime               @default(now()) @map("created_at")
-  connection   IntegrationConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  id              String                 @id @default(uuid()) @db.Uuid
+  projectId       String                 @map("project_id")
+  connectionId    String?                @map("connection_id") @db.Uuid
+  provider        String
+  externalId      String                 @map("external_id")
+  title           String
+  pointer         String
+  contentHash     String?                @map("content_hash")
+  checkedAt       DateTime?              @map("checked_at")
+  changedAt       DateTime?              @map("changed_at")
+  changedBy       Json?                  @map("changed_by")
+  lastError       Json?                  @map("last_error")
+  watchChannelId  String?                @unique @map("watch_channel_id")
+  watchResourceId String?                @map("watch_resource_id")
+  watchToken      String?                @map("watch_token")
+  watchExpiresAt  DateTime?              @map("watch_expires_at")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  connection      IntegrationConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
 
   @@unique([projectId, externalId])
   @@index([connectionId])
@@ -580,4 +585,27 @@ model ApsConnection {
 
   @@index([connectedById])
   @@map("aps_connections")
+}
+
+model AutodeskEvent {
+  id               String    @id @default(uuid()) @db.Uuid
+  dedupeKey        String    @unique @map("dedupe_key")
+  event            String
+  kind             String
+  source           String
+  hookId           String?   @map("hook_id")
+  resourceKind     String    @map("resource_kind")
+  resourceUrn      String?   @map("resource_urn")
+  lineageUrn       String?   @map("lineage_urn")
+  name             String?
+  version          Int?
+  folderUrn        String?   @map("folder_urn")
+  projectId        String?   @map("project_id")
+  actorId          String?   @map("actor_id")
+  occurredAt       DateTime? @map("occurred_at")
+  needsElementDiff Boolean   @map("needs_element_diff")
+  receivedAt       DateTime  @default(now()) @map("received_at")
+
+  @@index([lineageUrn])
+  @@map("autodesk_events")
 }

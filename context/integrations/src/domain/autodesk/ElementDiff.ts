@@ -247,10 +247,7 @@ export interface MinuteChange {
 }
 
 export type IgnoredReason =
-  | 'sin_clave'
-  | 'sin_atributo_seguido'
-  | 'unidad_desconocida'
-  | 'sin_identificador_revit';
+  'no_subject' | 'untracked_attribute' | 'unknown_unit' | 'no_revit_id';
 
 export interface IgnoredElementChange {
   readonly elementId: string;
@@ -307,11 +304,11 @@ export const toMinuteChanges = (
   };
   for (const change of elementChanges) {
     if (!change.subjectId) {
-      ignore(change, 'sin_clave');
+      ignore(change, 'no_subject');
       continue;
     }
     if (change.revitId === null || !change.uniqueId) {
-      ignore(change, 'sin_identificador_revit');
+      ignore(change, 'no_revit_id');
       continue;
     }
     const element: MinuteElement = {
@@ -359,9 +356,9 @@ export const toMinuteChanges = (
       }
       pending.set(key, entry);
     }
-    if (unknownUnit) ignore(change, 'unidad_desconocida');
+    if (unknownUnit) ignore(change, 'unknown_unit');
     else if (!tracked && change.type === 'modified')
-      ignore(change, 'sin_atributo_seguido');
+      ignore(change, 'untracked_attribute');
   }
   const changes: MinuteChange[] = [...pending.entries()].map(([key, entry]) => {
     const [subjectId = '', attribute = ''] = key.split('\u0000');

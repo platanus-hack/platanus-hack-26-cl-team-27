@@ -21,7 +21,7 @@ Los `.drawio` se abren en [draw.io](https://app.diagrams.net) o con la extensió
 - **Propuesta de valor.** Convertimos el efecto de cada cambio en una respuesta coordinada antes de que afecte decisiones, costos o plazos ([negocio](../negocio.md#propuesta-de-valor)).
 - **Solución.** Nos conectamos al software que el proyecto ya usa, capturamos cada cambio apenas ocurre, calculamos a quién afecta y con qué costo y plazo, y se lo llevamos a cada afectado en su canal. No reemplazamos herramientas ni centralizamos archivos.
 - **La tesis del código** va más allá de avisar. Cada revisión de un documento es un PR contra **lo vigente**, la versión consensuada del proyecto: lo vigente cambia solo cuando confirman todos los afectados, y cada valor sabe de dónde salió ([solapamientos](../solapamientos.md), [multijugador](../multijugador.md)).
-- **Lo que hay hoy** es una muestra para el pitch, no un MVP: un proyecto ficticio (Edificio Los Aromos), un elenco fijo, canales simulados dentro de la web y un ETL que hace de conectores. El único conector real de la ingesta es el add-in de Revit ([muestra](../muestra.md)). Aparte, hay una capa de cuentas opcional (Auth0, organizaciones y roles), la conexión de una organización con Autodesk y un canal que escucha planillas de Google Sheets sin entregarlas a la cadena: se activan con sus variables y no tocan la sala ni el flujo de 4 pasos, que no tienen usuarios.
+- **Lo que hay hoy** es una muestra para el pitch, no un MVP: un proyecto ficticio (Edificio Los Aromos), un elenco fijo, canales simulados dentro de la web y un ETL que hace de conectores. El único conector real de la ingesta es el add-in de Revit ([muestra](../muestra.md)). Aparte, hay una capa de cuentas opcional (Auth0, organizaciones y roles), la conexión de una organización con Autodesk, un receptor de los webhooks de Autodesk y un canal que escucha planillas de Google Sheets, sin entregar nada a la cadena: se activan con sus variables y no tocan la sala ni el flujo de 4 pasos, que no tienen usuarios.
 
 ## Dónde entra en una obra con BIM
 
@@ -78,12 +78,15 @@ El detalle, con las rutas y lo que falta, está en [arquitectura.drawio](arquite
 5. La web reenvía `/api/*` a la API y sondea `GET /api/events` para moverse en vivo.
 6. Los celulares, el telón y la presentadora entran a la web por HTTPS.
 7. Por construir: un worker lee una outbox en Postgres y entrega por los canales reales.
+8. Google Sheets avisa por Drive (`files.watch`) cuando cambia una planilla vinculada, con un sondeo de respaldo; sin avisos, la API la sondea.
+9. La API recibe los webhooks de Autodesk en `POST /api/integrations/autodesk/webhooks`, pero todavía no están registrados en Autodesk.
 
 ```mermaid
 flowchart LR
   revit["Revit + add-in"] -->|minuta| api
   etl["ETL de la muestra"] -->|POST /revisions| api
   acc["ACC · APS"] -.->|webhooks| api
+  google["Google Sheets · Drive"] -->|push y sondeo| api
   personas["Celulares, telón y presentadora"] -->|HTTPS| web["Web · Next.js 16"]
   web -->|/api/*| api["API · NestJS 12<br/>coordination · room · integrations"]
   api --> ctx["lake · impact · notification"]
@@ -102,10 +105,10 @@ flowchart LR
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Turborepo                                   | Nx 24 con workspaces de pnpm 10                                                                 | Se queda Nx                                                                                                               |
 | API en Fastify                              | NestJS 12, sobre Express                                                                        | Se queda Nest                                                                                                             |
-| Drizzle                                     | Prisma 7, con doce migraciones                                                                  | Se queda Prisma                                                                                                           |
+| Drizzle                                     | Prisma 7, con quince migraciones                                                                | Se queda Prisma                                                                                                           |
 | Worker con pg-boss                          | La cadena corre sincrónica dentro de la API, en una transacción con advisory lock               | La cadena sigue sincrónica. Lo diferido (envío por canal, reintentos, recordatorios) va a una outbox en el mismo Postgres |
 | Auth0 con organizaciones y login sin clave  | Auth0 para la identidad; organizaciones y roles en Postgres. La sala sigue con token de asiento | Opcional: sin `AUTH0_*`, las rutas con cuenta no funcionan y la web avisa que no hay cuentas                              |
-| Webhooks de APS                             | El add-in de Revit y la ingesta genérica `POST /api/revisions`                                  | Un webhook es un conector más que termina en la misma ingesta                                                             |
+| Webhooks de APS                             | Un receptor con firma y repetidos en Postgres que hoy solo deja cada aviso en el log            | Un webhook es un conector más que termina en la misma ingesta                                                             |
 | Resend, WhatsApp, Teams y ACC Issues        | Maquetas de correo, WhatsApp y Slack dentro de la web                                           | Un puerto `ChannelSender` en `notification`, con un adapter por proveedor                                                 |
 | Sentry                                      | Nada                                                                                            | Se agrega a la API y la web: es una librería, no un cambio de stack                                                       |
 | Desarrollo y staging, Postgres administrado | Docker compose en local; API y Postgres en Render y web en Vercel; un solo ambiente             | Falta staging                                                                                                             |
@@ -119,16 +122,16 @@ El flujo propuesto también difiere del construido en tres puntos:
 
 ## Las 26 tareas frente al código
 
-**Hecho** está construido como dice la tarea. **Distinto** está resuelto de otra forma. **Parcial** tiene una parte. **Falta** no existe. Quedan 6 hechas, 6 distintas, 6 parciales y 8 por hacer. La evidencia de cada una, con rutas, está en [ia.md](ia.md#las-26-tareas).
+**Hecho** está construido como dice la tarea. **Distinto** está resuelto de otra forma. **Parcial** tiene una parte. **Falta** no existe. Quedan 6 hechas, 6 distintas, 7 parciales y 7 por hacer. La evidencia de cada una, con rutas, está en [ia.md](ia.md#las-26-tareas).
 
 | #  | Tarea                                           | Estado   | Qué hay                                                                                                        | Qué falta                                                                    |
 | -- | ----------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | 1  | Monorepo y CI                                   | Distinto | Nx 24 + pnpm 10, ESLint 9, Prettier, Vitest y `pnpm check` en GitHub Actions                                   | Sentry                                                                       |
-| 2  | Modelo de datos en Postgres                     | Parcial  | Prisma 7 con doce migraciones; el proyecto vive en la base, con organización y `project_id` en cada tabla      | Que la API sirva más de un proyecto: hoy carga uno al arrancar               |
+| 2  | Modelo de datos en Postgres                     | Parcial  | Prisma 7 con quince migraciones; el proyecto vive en la base, con organización y `project_id` en cada tabla      | Que la API sirva más de un proyecto: hoy carga uno al arrancar               |
 | 3  | Autenticación con Auth0                         | Distinto | Auth0 para la identidad; organizaciones y roles `admin` y `member` en Postgres                                 | —                                                                            |
 | 4  | Infraestructura y despliegue                    | Parcial  | Compose en local; Render (API y Postgres administrado) y Vercel; la clave la genera Render                     | Staging                                                                      |
 | 5  | OAuth con APS                                   | Parcial  | OAuth de tres patas por organización, con los tokens cifrados en `aps_connections`                             | Que algo use esos tokens para leer ACC                                       |
-| 6  | Receptor de webhooks de APS                     | Falta    | Ingesta genérica e idempotencia por `x-action-id`, en memoria                                                  | Firma, idempotencia persistente y encolado                                   |
+| 6  | Receptor de webhooks de APS                     | Parcial  | `POST /api/integrations/autodesk/webhooks`: firma sobre el cuerpo crudo, repetidos en `autodesk_events` y log  | Registrar los webhooks por carpeta y encolar el diff de AEC Data Model       |
 | 7  | Spike de diff con AEC Data Model                | Distinto | El cambio por elemento ya existe: el add-in compara cada guardado y `lake` lo convierte en `Change`            | Spike hecho ([aec-data-model](aec-data-model.md)): sí, con límites; falta un hub de ACC |
 | 8  | Parser de presupuesto Presto o S10              | Distinto | Parser determinista del presupuesto en CSV ficticio                                                            | Los formatos reales                                                          |
 | 9  | Parser de cronograma P6 o MS Project            | Distinto | Parser determinista de la Carta Gantt en CSV ficticio                                                          | Los formatos reales                                                          |
@@ -198,7 +201,7 @@ Las tareas del plan, reescritas para el stack actual y en el orden en que se des
 | ACC Issues (20)                      | El aviso como issue en ACC                                                                                                                                                                                                                                    | Conexión con APS, outbox    |
 | Seguimiento (16)                     | «No me afecta» como respuesta, recordatorios y escalamiento                                                                                                                                                                                                   | Outbox                      |
 | Conexión con APS (5)                 | Construido: OAuth de tres patas por organización y tokens cifrados en Postgres. Queda usarlos para leer ACC                                                                                                                                                   | Cuentas                     |
-| Webhooks de APS (6)                  | Una ruta de Nest con firma validada e idempotencia persistente, que encola y termina en la ingesta                                                                                                                                                            | Conexión con APS, outbox    |
+| Webhooks de APS (6)                  | Construido: la ruta con firma validada y los repetidos en `autodesk_events`. Queda registrar los webhooks por carpeta y encolar el diff, que termina en la ingesta                                                                                            | Conexión con APS, outbox    |
 | Conector de AEC Data Model (7)       | Comprobar el [spike](aec-data-model.md) en un hub de ACC y, si se confirma, armar la minuta desde la nube                                                                                                                                                     | Conexión con APS            |
 | Presupuesto de Presto o S10 (8)      | Parser de la exportación real hacia fragmentos con hechos, con test de oro                                                                                                                                                                                    | —                           |
 | Cronograma de P6 o MS Project (9)    | Parser de la exportación real hacia fragmentos con hechos, con test de oro                                                                                                                                                                                    | —                           |

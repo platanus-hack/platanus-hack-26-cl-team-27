@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
-import { setupApp } from '../../../../src/app.setup.ts';
+import { APP_OPTIONS, setupApp } from '../../../../src/app.setup.ts';
 import { AccountGuard } from '../../../../src/modules/accounts/account.guard.ts';
 import {
   type Account,
@@ -46,7 +46,7 @@ const start = async (
     ],
   }).compile();
   const app: INestApplication = setupApp(
-    moduleRef.createNestApplication({ logger: false }),
+    moduleRef.createNestApplication({ ...APP_OPTIONS, logger: false }),
   );
   await app.listen(0);
   return { app, base: `${await app.getUrl()}/api` };

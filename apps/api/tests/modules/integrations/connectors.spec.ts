@@ -7,7 +7,7 @@ import {
   type SourceLink,
 } from '@team27/context-integrations';
 
-import { setupApp } from '../../../src/app.setup.ts';
+import { APP_OPTIONS, setupApp } from '../../../src/app.setup.ts';
 import { AccountGuard } from '../../../src/modules/accounts/account.guard.ts';
 import {
   type Account,
@@ -19,6 +19,7 @@ import {
   GOOGLE_SETUP,
   type GoogleSetup,
   INTEGRATIONS_CONFIG,
+  renewalEveryMs,
   IntegrationsService,
 } from '../../../src/modules/integrations/integrations.service.ts';
 import { OAuthStates } from '../../../src/modules/integrations/oauth-states.ts';
@@ -57,7 +58,9 @@ const SOURCE: SourceLink = {
   contentHash: 'a'.repeat(64),
   checkedAt: new Date('2026-11-21T10:00:00Z'),
   changedAt: null,
+  changedBy: null,
   lastError: null,
+  channel: null,
   createdAt: new Date('2026-11-21T10:00:00Z'),
 };
 
@@ -122,10 +125,58 @@ const fakeSetup = () => {
         cells: 1,
       })),
     },
+    push: null as null | {
+      subscribe: { execute: ReturnType<typeof vi.fn> };
+      unsubscribe: { execute: ReturnType<typeof vi.fn> };
+      receive: { execute: ReturnType<typeof vi.fn> };
+    },
   };
 };
 
-const start = async (setup: ReturnType<typeof fakeSetup> | null) => {
+const PUSH = {
+  address: 'https://vigente.example/api/integrations/google/notifications',
+  ttlMs: 86_400_000,
+  renewMarginMs: 7_200_000,
+  fallbackMs: 900_000,
+  debounceMs: 10,
+};
+
+const withPush = (setup: ReturnType<typeof fakeSetup>) => {
+  const push = {
+    subscribe: {
+      execute: vi.fn(async (id: string) => ({
+        status: 'subscribed' as const,
+        source: {
+          ...SOURCE,
+          id,
+          channel: {
+            id: 'ch-1',
+            resourceId: 'res-1',
+            token: 'secret-1',
+            expiresAt: new Date(Date.now() + 86_400_000),
+          },
+        },
+        message: 'Google avisa los cambios',
+      })),
+    },
+    unsubscribe: { execute: vi.fn(async () => true) },
+    receive: {
+      execute: vi.fn(
+        async (): Promise<{ kind: string; sourceId?: string }> => ({
+          kind: 'check',
+          sourceId: SOURCE_ID,
+        }),
+      ),
+    },
+  };
+  setup.push = push;
+  return push;
+};
+
+const start = async (
+  setup: ReturnType<typeof fakeSetup> | null,
+  push: typeof PUSH | null = null,
+) => {
   const accounts = fakeAccounts();
   const moduleRef = await Test.createTestingModule({
     controllers: [ConnectorsController],
@@ -143,12 +194,13 @@ const start = async (setup: ReturnType<typeof fakeSetup> | null) => {
         useValue: {
           pollMs: 0,
           redirectUri: 'http://localhost:3000/api/integrations/google/callback',
+          push,
         },
       },
     ],
   }).compile();
   const app: INestApplication = setupApp(
-    moduleRef.createNestApplication({ logger: false }),
+    moduleRef.createNestApplication({ ...APP_OPTIONS, logger: false }),
   );
   await app.listen(0);
   const base = `${await app.getUrl()}/api/integrations`;
@@ -249,6 +301,12 @@ describe('ConnectorsController', () => {
           connectedAt: '2026-11-21T10:00:00.000Z',
         },
         pollSeconds: 0,
+        push: {
+          enabled: false,
+          reason:
+            'Sin GOOGLE_WEBHOOK_URL: la API le pregunta a Google cada cierto tiempo',
+          fallbackSeconds: null,
+        },
       },
       sources: [],
     });
@@ -262,7 +320,12 @@ describe('ConnectorsController', () => {
 
     const overview = await started.call('/projects/los-aromos');
     expect(await overview.json()).toEqual({
-      google: { configured: false, connection: null, pollSeconds: 0 },
+      google: {
+        configured: false,
+        connection: null,
+        pollSeconds: 0,
+        push: { enabled: false, reason: null, fallbackSeconds: null },
+      },
       sources: [],
     });
     const authorize = await started.call('/google/authorize', {
@@ -352,8 +415,10 @@ describe('ConnectorsController', () => {
         pointer: SHEET_URL,
         checkedAt: '2026-11-21T10:00:00.000Z',
         changedAt: null,
+        changedBy: null,
         createdAt: '2026-11-21T10:00:00.000Z',
         lastError: null,
+        push: { active: false, expiresAt: null },
       },
     });
     expect(setup.link.execute).toHaveBeenCalledWith({
@@ -425,5 +490,150 @@ describe('ConnectorsController', () => {
       { method: 'POST' },
     );
     expect(check.status).toBe(404);
+  });
+
+  describe('avisos de Google Drive', () => {
+    const notify = (
+      call: Call,
+      headers: Record<string, string>,
+    ): Promise<Response> =>
+      call('/google/notifications', {
+        method: 'POST',
+        headers: { authorization: '', ...headers },
+      });
+
+    const NOTICE = {
+      'x-goog-channel-id': 'ch-1',
+      'x-goog-channel-token': 'secret-1',
+      'x-goog-resource-id': 'res-1',
+      'x-goog-resource-state': 'update',
+      'x-goog-changed': 'content',
+    };
+
+    it('al vincular, pide a Google que avise los cambios', async () => {
+      const setup = fakeSetup();
+      const push = withPush(setup);
+      const started = await start(setup, PUSH);
+      app = started.app;
+
+      const response = await linkIn(started.call, 'los-aromos');
+
+      expect(response.status).toBe(201);
+      expect(push.subscribe.execute).toHaveBeenCalledWith(SOURCE_ID, PUSH);
+      expect(await response.json()).toMatchObject({
+        source: { push: { active: true } },
+      });
+    });
+
+    it('un aviso válido revisa la planilla sin pedir cuenta', async () => {
+      const setup = fakeSetup();
+      const push = withPush(setup);
+      const started = await start(setup, PUSH);
+      app = started.app;
+
+      const response = await notify(started.call, NOTICE);
+
+      expect(response.status).toBe(204);
+      expect(push.receive.execute).toHaveBeenCalledWith({
+        channelId: 'ch-1',
+        resourceId: 'res-1',
+        token: 'secret-1',
+        state: 'update',
+        changed: ['content'],
+      });
+      await vi.waitFor(() =>
+        expect(setup.watch.execute).toHaveBeenCalledWith(SOURCE_ID),
+      );
+    });
+
+    it('junta una ráfaga de avisos en una sola revisión', async () => {
+      const setup = fakeSetup();
+      withPush(setup);
+      const started = await start(setup, PUSH);
+      app = started.app;
+
+      await Promise.all([
+        notify(started.call, NOTICE),
+        notify(started.call, NOTICE),
+        notify(started.call, NOTICE),
+      ]);
+
+      await vi.waitFor(() => expect(setup.watch.execute).toHaveBeenCalled());
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(setup.watch.execute).toHaveBeenCalledTimes(1);
+    });
+
+    it('rechaza un aviso con un secreto que no calza', async () => {
+      const setup = fakeSetup();
+      const push = withPush(setup);
+      push.receive.execute.mockResolvedValueOnce({ kind: 'rejected' });
+      const started = await start(setup, PUSH);
+      app = started.app;
+
+      const response = await notify(started.call, NOTICE);
+
+      expect(response.status).toBe(403);
+      expect(setup.watch.execute).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un pedido que no es un aviso de Drive', async () => {
+      const setup = fakeSetup();
+      withPush(setup);
+      const started = await start(setup, PUSH);
+      app = started.app;
+
+      const response = await notify(started.call, {});
+
+      expect(response.status).toBe(400);
+    });
+
+    it('al desvincular, cierra la suscripción en Google', async () => {
+      const setup = fakeSetup();
+      const push = withPush(setup);
+      setup.linked.push(SOURCE);
+      const started = await start(setup, PUSH);
+      app = started.app;
+
+      const response = await started.call(
+        `/projects/los-aromos/sources/${SOURCE_ID}`,
+        { method: 'DELETE' },
+      );
+
+      expect(response.status).toBe(204);
+      expect(push.unsubscribe.execute).toHaveBeenCalledWith(SOURCE_ID);
+    });
+
+    it('sin sondeo, igual suscribe al arrancar las planillas ya vinculadas', async () => {
+      const setup = fakeSetup();
+      const push = withPush(setup);
+      setup.linked.push(SOURCE);
+      const started = await start(setup, PUSH);
+      app = started.app;
+
+      await vi.waitFor(
+        () =>
+          expect(push.subscribe.execute).toHaveBeenCalledWith(SOURCE_ID, PUSH),
+        { timeout: 3000 },
+      );
+      expect(setup.watch.execute).not.toHaveBeenCalled();
+    });
+
+    it('la renovación corre antes de que venza el margen', () => {
+      expect(renewalEveryMs(PUSH)).toBe(3_600_000);
+      expect(
+        renewalEveryMs({ ...PUSH, ttlMs: 3_600_000, renewMarginMs: 900_000 }),
+      ).toBe(450_000);
+    });
+
+    it('sin GOOGLE_WEBHOOK_URL lo dice en el estado', async () => {
+      const started = await start(fakeSetup());
+      app = started.app;
+
+      const response = await started.call('/projects/los-aromos');
+
+      expect(await response.json()).toMatchObject({
+        google: { push: { enabled: false } },
+      });
+    });
   });
 });

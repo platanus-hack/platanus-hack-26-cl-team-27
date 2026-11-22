@@ -291,10 +291,10 @@ describe('toMinuteChanges', () => {
     );
     expect(draft.changes).toEqual([]);
     expect(draft.ignored.map((item) => item.reason)).toEqual([
-      'sin_clave',
-      'sin_atributo_seguido',
-      'unidad_desconocida',
-      'sin_identificador_revit',
+      'no_subject',
+      'untracked_attribute',
+      'unknown_unit',
+      'no_revit_id',
     ]);
   });
 
