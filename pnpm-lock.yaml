@@ -107,6 +107,9 @@ importers:
       '@team27/context-impact':
         specifier: workspace:*
         version: link:../../context/impact
+      '@team27/context-integrations':
+        specifier: workspace:*
+        version: link:../../context/integrations
       '@team27/context-lake':
         specifier: workspace:*
         version: link:../../context/lake
@@ -221,6 +224,12 @@ importers:
       zod:
         specifier: ^4.6.7
         version: 4.6.7
+
+  context/integrations:
+    dependencies:
+      '@team27/data-main':
+        specifier: workspace:*
+        version: link:../../data/main
 
   context/lake:
     dependencies:

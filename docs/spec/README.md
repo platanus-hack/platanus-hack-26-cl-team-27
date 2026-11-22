@@ -1,12 +1,13 @@
 # Spec de Vigente
 
-Esta carpeta junta en un solo lugar qué es Vigente, qué está construido, cómo se compara con el plan de 26 tareas y qué falta. Todo lo que falta se construye sobre el stack actual. Tiene tres lecturas y dos diagramas:
+Esta carpeta junta en un solo lugar qué es Vigente, qué está construido, cómo se compara con el plan de 26 tareas y qué falta. Todo lo que falta se construye sobre el stack actual. Tiene cuatro lecturas y dos diagramas:
 
 | Archivo                                      | Para quién          | Qué trae                                                                                                                 |
 | -------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | [README.md](README.md)                       | El equipo           | La síntesis, el contraste con el plan, el backlog para Linear y las decisiones abiertas                                  |
 | [ia.md](ia.md)                               | Un agente de código | Invariantes, mapa del código, la cadena de un cambio, cada tarea con su evidencia y recetas para construir               |
 | [fuente-de-verdad.md](fuente-de-verdad.md)   | Todos               | El flujo de 4 pasos del pitch: el caso P-12 y la bandeja E-B-03, la verdad central, el choque, la propuesta y sus textos |
+| [integraciones.md](integraciones.md)         | El equipo           | Los conectores de Google Sheets y ACC: conectar y escuchar, lo construido y lo que sigue                                  |
 | [flujo-usuario.drawio](flujo-usuario.drawio) | Todos               | El flujo de usuario de un cambio, desde que el autor guarda hasta «Obra consensuada»                                     |
 | [arquitectura.drawio](arquitectura.drawio)   | Todos               | La arquitectura de software, con lo construido, lo simulado y lo que falta                                               |
 

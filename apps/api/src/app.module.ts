@@ -9,6 +9,7 @@ import { ProjectModule } from './modules/project/project.module.ts';
 import { RoomModule } from './modules/room/room.module.ts';
 import { FlowModule } from './modules/flow/flow.module.ts';
 import { HealthModule } from './modules/health/health.module.ts';
+import { IntegrationsModule } from './modules/integrations/integrations.module.ts';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { HealthModule } from './modules/health/health.module.ts';
     ApsModule,
     FlowModule,
     AccountsModule,
+    IntegrationsModule,
   ],
 })
 export class AppModule {}

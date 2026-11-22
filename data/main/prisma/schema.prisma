@@ -524,3 +524,33 @@ model ProjectSystem {
   @@id([projectId, id])
   @@map("project_systems")
 }
+
+model IntegrationConnection {
+  id                 String              @id @default(uuid()) @db.Uuid
+  provider           String              @unique
+  accountEmail       String              @map("account_email")
+  scopes             String[]
+  refreshTokenSealed String              @map("refresh_token_sealed")
+  connectedAt        DateTime            @default(now()) @map("connected_at")
+  sources            IntegrationSource[]
+
+  @@map("integration_connections")
+}
+
+model IntegrationSource {
+  id           String                @id @default(uuid()) @db.Uuid
+  connectionId String                @map("connection_id") @db.Uuid
+  provider     String
+  externalId   String                @unique @map("external_id")
+  title        String
+  pointer      String
+  contentHash  String?               @map("content_hash")
+  checkedAt    DateTime?             @map("checked_at")
+  changedAt    DateTime?             @map("changed_at")
+  lastError    Json?                 @map("last_error")
+  createdAt    DateTime              @default(now()) @map("created_at")
+  connection   IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId])
+  @@map("integration_sources")
+}

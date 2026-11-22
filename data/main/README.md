@@ -29,11 +29,14 @@ Prisma 7 sobre PostgreSQL 18. Contiene el schema (`prisma/schema.prisma`), las m
 | `Invitation` (`invitations`) | API (cuentas) | Un correo invitado a una organización con un rol; `accepted_at` cuando esa persona entra. Única por organización y correo |
 | `Project` (`projects`) | API (proyecto) | Un proyecto de una organización (`organization_id`, que no se puede borrar mientras tenga proyectos): nombre, lugar, descripción, autor, dueños del costo y del plazo, el documento del modelo de Revit y los ejes de la grilla |
 | `ProjectMember`, `ProjectSpace`, `ProjectDocument`, `ProjectAttribute`, `ProjectSubject`, `ModelElement`, `BudgetItem`, `ScheduleTask`, `ProjectDependency`, `ProjectLevel`, `ProjectSystem` (`project_*`, `model_elements`, `budget_items`, `schedule_tasks`) | API (proyecto) | La definición del proyecto: elenco, espacios, documentos con su dueño, atributos, sujetos (sección, categoría, atributos con unidad y huella en JSON), elementos del modelo, partidas, tareas, dependencias, niveles y sistemas. Clave `(project_id, id)` y `position` para el orden |
+| `IntegrationConnection` (`integration_connections`) | `integrations` | Una cuenta conectada por proveedor (`google`): el correo, los permisos y el refresh token cifrado con `INTEGRATIONS_ENCRYPTION_KEY` |
+| `IntegrationSource` (`integration_sources`) | `integrations` | Una planilla vinculada (única por id externo): el título, el link, el hash de sus celdas, la última revisión, el último cambio y el último error. Lo que cambió no se guarda. Se borra con su conexión |
 
 - Cada tabla es de un solo contexto, salvo las de la sala y el proyecto, que son de la API. No hay llaves foráneas entre tablas de contextos distintos: los ids viajan como valores.
 - Las tablas de la sala, el lago, los cambios, los impactos y los avisos llevan `project_id` (sin llave foránea), y sus claves compuestas lo incluyen: una revisión es única por proyecto, documento y etiqueta; lo vigente, por proyecto, sujeto y atributo; un asiento, por proyecto y elenco. `reviews` y `overlap_votes` lo heredan de su propuesta o solapamiento.
 - La migración `proyecto_en_cada_tabla` vació esas tablas: después de aplicarla, recarga la muestra con `pnpm etl reiniciar`.
 - La migración `cuentas_y_organizaciones` borró las definiciones de proyecto (no tenían organización): después de aplicarla, `pnpm db:seed`. El lago y la sala no se tocan.
+- El reinicio de la sala no toca las tablas de `integrations`: las cuentas y las planillas vinculadas sobreviven.
 - Las tablas y columnas van en `snake_case` con `@@map` y `@map`; los modelos y campos, en `camelCase`.
 
 ## El proyecto

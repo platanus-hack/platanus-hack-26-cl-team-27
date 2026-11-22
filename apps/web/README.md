@@ -25,6 +25,7 @@ pnpm nx run @team27/web:test          # Vitest: los *.spec.ts de src/
 | `/espacios`                      | Espacios y documentos; el documento se abre en un panel. Acepta `?espacio=`, `?documento=` y `?revision=`    |
 | `/cambios/[id]`                  | Detalle de una propuesta; acepta `?para=<stakeholderId>`                                                     |
 | `/modelos`                       | El visor de APS con todas las disciplinas del catálogo de la API (`GET /api/aps/models`) en una escena: abre con Arquitectura y carga las demás al encenderlas, con un interruptor por disciplina y las propiedades del elemento seleccionado |
+| `/conectores`                    | Los conectores (con la clave del presentador): conectar la cuenta de Google, vincular planillas por su link y ver por cada una la última revisión, el último cambio y el error, con «Revisar ahora» y «Desvincular». Autodesk aparece como próximamente. Vuelve de Google con `?google=conectado` o `?google=error&motivo=` |
 | `/cuenta` | Tu cuenta: entrar con tu correo (sin contraseña, con Auth0), tus organizaciones con tu rol, sus proyectos, el equipo con las invitaciones pendientes y, si eres administrador, invitar un correo. Sin Auth0 configurado, avisa que las cuentas no están activas |
 | `/valor/[subjectId]/[attribute]` | Procedencia completa de un valor                                                                             |
 
@@ -47,6 +48,7 @@ src/
 │   ├── asiento/           SeatScreen, Channel (marco y aviso por canal), InboxBodies (voto, respondido,
 │   │                      discrepancia, desfase, filtrado), VoteForm, AuthorActions, PresenceBadge
 │   ├── presentador/       PresenterConsole, KeyGate, AttentionList, ProposalTable, SeatList
+│   ├── conectores/        ConnectorsConsole, SourceRow, LinkSheetForm
 │   ├── espacios/          SpaceExplorer, DocumentDrawer, RevisionFacts
 │   ├── cambios/           ChangeDetailBody (el detalle, compartido), ChangeResponse, ChangeDetailView,
 │   │                      ProposalDrawer
@@ -79,6 +81,7 @@ Cada módulo declara los tipos de las respuestas y las funciones que las piden. 
 | `votes-api.ts`       | `POST /api/notifications/:id/response` con `{ kind, note? }`, `POST /api/discrepancies/:id/dismiss`, `POST /api/stale/acknowledge` con `{ revisionId, note }` |
 | `aps-api.ts`         | `GET /api/aps/models`, `GET /api/aps/viewer-token`                                                         |
 | `changes-api.ts`     | `GET /api/changes/:id`                                                                                     |
+| `integrations-api.ts` | `GET /api/integrations`, `POST /api/integrations/google/authorize`, `DELETE /api/integrations/google`, `POST /api/integrations/sources`, `POST /api/integrations/sources/:id/check`, `DELETE /api/integrations/sources/:id`; y lo puro: los avisos de cada acción y el estado de cada planilla |
 | `accounts-api.ts`    | `GET /api/me`, `GET /api/projects`, `GET /api/organizations/:id/members`, `POST /api/organizations/:id/invitations`, y `projectsByOrganization` (los proyectos bajo cada organización) |
 
 Con el lago vacío (`lake.empty`), `/sala`, `/presentador` y el celular muestran «Esperando la carga inicial» hasta que el ETL carga lo vigente. La web no sube documentos: la tarjeta de desfase dice «Sube la revisión nueva a tu carpeta y la leemos solos» y ofrece «Confirmo sin cambio».

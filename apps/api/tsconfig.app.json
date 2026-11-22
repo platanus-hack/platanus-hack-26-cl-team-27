@@ -27,6 +27,9 @@
       "path": "../../context/lake/tsconfig.lib.json"
     },
     {
+      "path": "../../context/integrations/tsconfig.lib.json"
+    },
+    {
       "path": "../../context/impact/tsconfig.lib.json"
     }
   ]
