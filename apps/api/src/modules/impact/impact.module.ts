@@ -33,8 +33,10 @@ export const buildImpact = (db: PrismaClient, project: ProjectCatalog) => {
       provide: CLAIM_READER,
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) =>
-        chooseClaimReader(config.get('ANTHROPIC_API_KEY', { infer: true }))
-          .reader,
+        chooseClaimReader(config.get('ANTHROPIC_API_KEY', { infer: true }), {
+          apiKey: config.get('GEMINI_API_KEY', { infer: true }),
+          model: config.get('GEMINI_MODEL', { infer: true }),
+        }).reader,
     },
     provideUseCase(ExtractClaims, [CLAIM_READER]),
   ],

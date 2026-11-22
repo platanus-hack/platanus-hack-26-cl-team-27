@@ -12,7 +12,7 @@ import {
   type ClaudeOptions,
 } from './claudeRequest.ts';
 
-const ClaimsSchema = z.object({
+export const ClaimsSchema = z.object({
   claims: z.array(
     z.object({
       subject: z.string(),
