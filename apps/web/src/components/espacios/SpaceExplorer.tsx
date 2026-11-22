@@ -203,7 +203,7 @@ export function SpaceExplorer({
                       </th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="stagger">
                     {active.documents.map((item) => {
                       const revision = latestRevision(item);
                       return (
@@ -215,8 +215,9 @@ export function SpaceExplorer({
                             <button
                               type="button"
                               onClick={() => openDoc(item.id)}
-                              className="text-left text-sm leading-5 font-medium text-ink after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-accent"
+                              className="flex items-start gap-2 text-left text-sm leading-5 font-medium text-ink after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-accent"
                             >
+                              <Icon name="file" className="mt-0.5 text-ink-3" />
                               {item.title}
                             </button>
                             <p className="text-xs text-ink-2 sm:hidden">

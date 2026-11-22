@@ -18,14 +18,14 @@ export default async function SiteLayout({
 }) {
   return (
     <>
-      <header className="border-b border-hairline bg-surface">
+      <header className="sticky top-0 z-30 border-b border-hairline bg-surface/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-stretch justify-between gap-4 px-4 sm:px-8">
           <Link
             href="/"
-            className="flex items-center gap-2.5"
+            className="group flex items-center gap-2.5"
             aria-label="Vigente, inicio"
           >
-            <BrandMark className="size-7 text-accent-text" />
+            <BrandMark className="size-7 text-accent-text transition-transform duration-500 group-hover:-rotate-6 group-hover:scale-110" />
             <BrandWordmark className="h-5 w-auto text-ink" />
             <span className="hidden border-l border-hairline pl-2.5 text-xs text-ink-2 md:block">
               {APP_TAGLINE}

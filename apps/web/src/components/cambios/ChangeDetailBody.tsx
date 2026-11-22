@@ -2,7 +2,8 @@ import { cx } from '@team27/ui';
 import type { ReactNode } from 'react';
 
 import { Avatar } from '@/components/common/Avatar';
-import { Icon } from '@/components/common/Icon';
+import { Icon, type IconName } from '@/components/common/Icon';
+import { ChangedValue, IconBadge, Meter } from '@/components/common/IconBadge';
 import { RelativeTime } from '@/components/common/RelativeTime';
 import { ProposalStatusChip } from '@/components/common/status';
 import type { ChangeDetail, Finding } from '@/lib/changes-api';
@@ -17,22 +18,33 @@ const DECISION_LABEL = {
   none: 'Falta su respuesta',
 } as const;
 
+const DECISION_ICON: Record<keyof typeof DECISION_LABEL, IconName> = {
+  approve: 'userCheck',
+  dispute: 'alert',
+  none: 'hourglass',
+};
+
 const diffsOf = (change: ChangeDetail): readonly ProposalDiff[] =>
   change.proposal?.diffs ?? change.diffs;
 
 function Block({
   title,
+  icon,
   meta,
   children,
 }: {
   readonly title: string;
+  readonly icon: IconName;
   readonly meta?: ReactNode;
   readonly children: ReactNode;
 }) {
   return (
     <section className="border-t border-hairline pt-5">
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <IconBadge icon={icon} size="sm" />
+          {title}
+        </h3>
         {meta && <span className="text-sm text-ink-2">{meta}</span>}
       </div>
       {children}
@@ -50,14 +62,17 @@ export function FindingList({
   return (
     <ul className="flex flex-col gap-3 text-sm">
       {findings.map((finding) => (
-        <li key={finding.summary}>
+        <li key={finding.summary} className="border-l-2 border-accent pl-3">
           <p className="font-medium text-ink">{finding.summary}</p>
           {finding.details.map((detail) => (
             <p key={detail} className="text-ink-2">
               {detail}
             </p>
           ))}
-          <p className="mt-1 text-ink">{finding.action}</p>
+          <p className="mt-1 flex items-start gap-1.5 text-ink">
+            <Icon name="arrow" className="mt-0.5 text-accent-text" />
+            {finding.action}
+          </p>
         </li>
       ))}
     </ul>
@@ -92,14 +107,18 @@ export function ChangeDetailBody({
         <div className="flex flex-wrap items-center gap-2">
           {proposal && <ProposalStatusChip status={proposal.status} />}
           {proposal && (
-            <span className="text-sm text-ink-2">
-              Propuesta por {proposal.authorName} ·{' '}
+            <span className="inline-flex items-center gap-1.5 text-sm text-ink-2">
+              <Icon name="user" className="text-ink-3" />
+              <span className="sr-only">Propuesta por</span>
+              {proposal.authorName}
+              <Icon name="clock" className="ml-1 text-ink-3" />
               <RelativeTime at={proposal.openedAt} />
             </span>
           )}
         </div>
         {proposal && proposal.progress.missing.length > 0 && (
-          <p className="text-sm text-ink-2">
+          <p className="flex items-center gap-1.5 text-sm text-ink-2">
+            <Icon name="hourglass" className="text-warning" />
             Falta {joinNames(proposal.progress.missing)}
           </p>
         )}
@@ -107,19 +126,26 @@ export function ChangeDetailBody({
 
       {myFindings.length > 0 && (
         <section className="rounded-lg bg-accent-soft/30 p-4">
-          <h3 className="mb-2 text-sm font-semibold text-ink">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+            <span className="relative inline-grid">
+              <span className="absolute inset-0 animate-ping-soft rounded-md bg-accent" />
+              <IconBadge icon="bellRing" size="sm" className="relative" />
+            </span>
             Esto te toca a ti
           </h3>
           <FindingList findings={myFindings} />
         </section>
       )}
 
-      <Block title="Qué cambia">
+      <Block title="Qué cambia" icon="diff">
         <table className="w-full">
           <thead>
             <tr className="border-b border-hairline">
               <th className={th}>Atributo</th>
               <th className={th}>Antes</th>
+              <th className={th}>
+                <span className="sr-only">Pasa a</span>
+              </th>
               <th className={th}>Después</th>
             </tr>
           </thead>
@@ -130,15 +156,31 @@ export function ChangeDetailBody({
                 className="border-b border-hairline last:border-0"
               >
                 <td className={td}>{diff.label}</td>
-                <td className={cx(td, 'tabular-nums text-ink-2')}>
+                <td
+                  className={cx(
+                    td,
+                    'font-mono tabular-nums text-ink-2',
+                    diff.before !== null && 'line-through decoration-axis',
+                  )}
+                >
                   {diff.before === null
                     ? 'Sin dato'
                     : formatValue(diff.before, diff.unit)}
                 </td>
-                <td className={cx(td, 'font-semibold tabular-nums')}>
-                  {diff.after === null
-                    ? 'Se elimina'
-                    : formatValue(diff.after, diff.unit)}
+                <td className={cx(td, 'w-6 text-ink-3')}>
+                  <Icon name="arrow" />
+                </td>
+                <td className={cx(td, 'tabular-nums')}>
+                  {diff.after === null ? (
+                    <span className="inline-flex items-center gap-1 font-semibold text-critical-text">
+                      <Icon name="trash" />
+                      Se elimina
+                    </span>
+                  ) : (
+                    <ChangedValue>
+                      {formatValue(diff.after, diff.unit)}
+                    </ChangedValue>
+                  )}
                 </td>
               </tr>
             ))}
@@ -149,9 +191,27 @@ export function ChangeDetailBody({
       {proposal && (
         <Block
           title="Revisión y consenso"
-          meta={`${proposal.progress.approved} de ${proposal.progress.required} aprobaron`}
+          icon="users"
+          meta={
+            <span className="inline-flex items-center gap-2">
+              <span className="w-24">
+                <Meter
+                  value={
+                    proposal.progress.required === 0
+                      ? 1
+                      : proposal.progress.approved / proposal.progress.required
+                  }
+                  tone="good"
+                />
+              </span>
+              <span className="font-mono tabular-nums">
+                {proposal.progress.approved}/{proposal.progress.required}
+              </span>
+              <span className="sr-only">aprobaron</span>
+            </span>
+          }
         >
-          <ul className="flex flex-col">
+          <ul className="stagger flex flex-col">
             {proposal.reviewers.map((reviewer) => (
               <li
                 key={reviewer.stakeholderId}
@@ -181,6 +241,7 @@ export function ChangeDetailBody({
                   </div>
                   <p
                     className={cx(
+                      'flex items-center gap-1.5',
                       reviewer.decision === 'dispute'
                         ? 'text-critical-text'
                         : reviewer.decision === 'approve'
@@ -188,6 +249,7 @@ export function ChangeDetailBody({
                           : 'text-ink-2',
                     )}
                   >
+                    <Icon name={DECISION_ICON[reviewer.decision ?? 'none']} />
                     {DECISION_LABEL[reviewer.decision ?? 'none']}
                   </p>
                   {reviewer.note && (
@@ -219,7 +281,10 @@ export function ChangeDetailBody({
                       className="text-xs text-ink-2"
                     />
                   </div>
-                  <p className="text-ink-2">Dice que no le afecta</p>
+                  <p className="flex items-center gap-1.5 text-ink-2">
+                    <Icon name="ban" />
+                    Dice que no le afecta
+                  </p>
                   {person.reason !== 'Dijo que no le afecta' && (
                     <p className="mt-1 text-ink">«{person.reason}»</p>
                   )}
@@ -231,7 +296,7 @@ export function ChangeDetailBody({
       )}
 
       {notNotified.length > 0 && (
-        <Block title="A quién no avisamos">
+        <Block title="A quién no avisamos" icon="userX">
           <ul className="flex flex-col gap-2">
             {notNotified.map((person) => (
               <li

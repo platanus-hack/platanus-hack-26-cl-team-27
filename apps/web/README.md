@@ -116,4 +116,7 @@ El login es de Auth0, con `@auth0/nextjs-auth0` en el servidor de Next: la aplic
 - Los estados siempre llevan icono y texto, nunca solo color (`StatusChip`, `StateMark`).
 - Las tablas esconden columnas en pantallas chicas y pasan ese dato bajo la columna principal: nada se desplaza de lado.
 - La web respeta el modo oscuro del tema de `@team27/ui`.
+- Los íconos son de [lucide](https://lucide.dev) detrás de `Icon` (`components/common/Icon.tsx`), que los nombra por lo que significan (`diff`, `conflict`, `network`, `whatsapp`…). Cada sección del cambio lleva su ícono en `IconBadge`, y los datos (costos, plazos, cotas) van en IBM Plex Mono (`font-mono`).
+- `IconBadge.tsx` también trae `PlanMark` (el plano con el muro en cian que se redibuja, del brand book), `ChangedValue` (el valor nuevo en cian sobre azul tinta, con la onda de 1,2 s) y `Meter` (barra de probabilidad o de consenso).
+- El movimiento vive en `globals.css`: `animate-rise` al entrar a cada página (`app/(site)/template.tsx`), `stagger` para listas, `animate-draw` (600 ms), `animate-wave`, `animate-pop`, `animate-ping-soft` y `skeleton` al cargar. Con `prefers-reduced-motion` todo queda quieto.
 - `next dev` en marcha reescribe `.next/dev/types` y rompe `next build` (`TS6196` en `validator.ts`): detén el `dev` antes de correr el build.

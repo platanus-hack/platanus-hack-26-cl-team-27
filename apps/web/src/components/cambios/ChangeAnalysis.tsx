@@ -4,7 +4,10 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import { useCallback } from 'react';
 
+import { Icon, type IconName } from '@/components/common/Icon';
+import { IconBadge, Meter } from '@/components/common/IconBadge';
 import { textLink } from '@/components/common/link-styles';
+import { Avatar } from '@/components/common/Avatar';
 import { useResource } from '@/hooks/use-resource';
 import {
   type ChangeDetail,
@@ -20,7 +23,7 @@ import {
 } from '@/lib/changes-api';
 import { projectPage } from '@/lib/project-paths';
 
-import { ChangeFollowUp, deliveryText } from './ChangeFollowUp';
+import { ChangeFollowUp, deliveryIcon, deliveryText } from './ChangeFollowUp';
 import { ImpactFigures } from './ImpactFigures';
 import { OverlapVotes } from './OverlapVotes';
 
@@ -32,19 +35,51 @@ const bandText: Record<ProbabilityBand, string> = {
   baja: 'Probabilidad baja',
 };
 
+const bandTone = {
+  alta: 'critical',
+  media: 'warning',
+  baja: 'accent',
+} as const satisfies Record<ProbabilityBand, string>;
+
+function Probability({
+  band,
+  probability,
+}: {
+  readonly band: ProbabilityBand;
+  readonly probability: number;
+}) {
+  return (
+    <span className="flex items-center gap-2 text-xs text-ink-2">
+      <span className="w-20">
+        <Meter
+          value={probability}
+          tone={bandTone[band]}
+          label={bandText[band]}
+        />
+      </span>
+      <span className="font-mono tabular-nums">{percent(probability)}</span>
+    </span>
+  );
+}
+
 function Block({
   title,
+  icon,
   question,
   children,
 }: {
   readonly title: string;
+  readonly icon: IconName;
   readonly question: string;
   readonly children: React.ReactNode;
 }) {
   return (
     <section className="border-t border-hairline pt-5">
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <IconBadge icon={icon} size="sm" />
+          {title}
+        </h3>
         <span className="text-sm text-ink-2">{question}</span>
       </div>
       {children}
@@ -64,23 +99,35 @@ function ConflictItem({
   readonly item: ConflictView;
 }) {
   return (
-    <li className="flex flex-col gap-1">
-      <p className="font-medium text-ink">
-        <Link
-          href={
-            projectPage(projectId, `/cambios/${item.otherChangeId}`) as Route
-          }
-          className={textLink}
-        >
-          {item.otherElement?.name ?? item.otherSummary}
-        </Link>{' '}
-        <span className="text-ink-2">
-          · {bandText[item.band]} ({percent(item.probability)})
-        </span>
-      </p>
-      <p className="text-ink-2">{item.otherSummary}</p>
-      <p className="text-ink">{item.reason}</p>
-      <p className="text-ink">{item.question}</p>
+    <li className="flex gap-3">
+      <IconBadge
+        icon="conflict"
+        tone={item.band === 'alta' ? 'critical' : 'warning'}
+      />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex flex-wrap items-center justify-between gap-x-3">
+          <p className="font-medium text-ink">
+            <Link
+              href={
+                projectPage(
+                  projectId,
+                  `/cambios/${item.otherChangeId}`,
+                ) as Route
+              }
+              className={textLink}
+            >
+              {item.otherElement?.name ?? item.otherSummary}
+            </Link>
+          </p>
+          <Probability band={item.band} probability={item.probability} />
+        </div>
+        <p className="text-ink-2">{item.otherSummary}</p>
+        <p className="text-ink">{item.reason}</p>
+        <p className="flex items-start gap-1.5 text-ink">
+          <Icon name="chat" className="mt-0.5 text-accent-text" />
+          {item.question}
+        </p>
+      </div>
     </li>
   );
 }
@@ -91,25 +138,41 @@ const channelText: Record<NoticeChannel, string> = {
   slack: 'Slack',
 };
 
+const channelIcon: Record<NoticeChannel, IconName> = {
+  email: 'mail',
+  whatsapp: 'whatsapp',
+  slack: 'slack',
+};
+
 function NoticeCard({
   notice,
 }: {
   readonly notice: NoticePreview | ConflictNoticePreview;
 }) {
+  const sent = deliveryIcon(notice.delivery);
   return (
-    <li className="rounded-lg border border-hairline p-4">
-      <p className="text-sm font-medium text-ink">
-        {notice.name}
-        {notice.role ? `, ${notice.role}` : ''}{' '}
-        <span className="font-normal text-ink-2">
-          · {channelText[notice.channel]}
+    <li className="rounded-lg border border-hairline bg-surface p-4 transition-shadow hover:shadow-md">
+      <div className="flex items-center gap-3">
+        <Avatar name={notice.name} size="sm" />
+        <p className="min-w-0 flex-1 text-sm font-medium text-ink">
+          {notice.name}
+          {notice.role && (
+            <span className="font-normal text-ink-2"> · {notice.role}</span>
+          )}
+        </p>
+        <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-ink-2">
+          <Icon name={channelIcon[notice.channel]} className="size-3.5" />
+          {channelText[notice.channel]}
         </span>
-      </p>
+      </div>
       {notice.channel === 'email' && (
-        <p className="mt-2 text-sm text-ink-2">Asunto: {notice.subject}</p>
+        <p className="mt-3 text-sm text-ink-2">Asunto: {notice.subject}</p>
       )}
-      <p className="mt-2 text-sm whitespace-pre-wrap text-ink">{notice.text}</p>
-      <p className="mt-3 border-t border-hairline pt-2 text-sm text-ink-2">
+      <p className="mt-2 rounded-lg bg-surface-2/60 p-3 text-sm whitespace-pre-wrap text-ink">
+        {notice.text}
+      </p>
+      <p className="mt-3 flex items-start gap-1.5 text-sm text-ink-2">
+        <Icon name={sent.icon} className={`mt-0.5 ${sent.className}`} />
         {deliveryText(notice.delivery)}
       </p>
     </li>
@@ -118,24 +181,27 @@ function NoticeCard({
 
 function NoticeGroup({
   title,
+  icon,
   hint,
   empty,
   notices,
 }: {
   readonly title: string;
+  readonly icon: IconName;
   readonly hint: string;
   readonly empty: string;
   readonly notices: readonly (NoticePreview | ConflictNoticePreview)[];
 }) {
   return (
     <div>
-      <h4 className="mb-2 text-sm font-semibold text-ink">
+      <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink">
+        <Icon name={icon} className="text-ink-3" />
         {title} <span className="font-normal text-ink-2">· {hint}</span>
       </h4>
       {notices.length === 0 ? (
         <Muted>{empty}</Muted>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="stagger flex flex-col gap-3">
           {notices.map((notice) => (
             <NoticeCard key={notice.notificationId} notice={notice} />
           ))}
@@ -154,7 +220,8 @@ function CombinedImpact({
 }) {
   return (
     <section className="rounded-lg bg-accent-soft/30 p-4">
-      <h4 className="mb-2 text-sm font-semibold text-ink">
+      <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+        <Icon name="zap" className="text-accent-text" />
         Junto con {withName}
       </h4>
       <ImpactFigures impact={combined} />
@@ -237,7 +304,11 @@ export function ChangeAnalysis({
 
   return (
     <>
-      <Block title="Resolvedor de dependencias" question="¿A quién afecta?">
+      <Block
+        title="Resolvedor de dependencias"
+        icon="network"
+        question="¿A quién afecta?"
+      >
         {suggestions.error ? (
           <Muted>{suggestions.error}</Muted>
         ) : !suggestions.data ? (
@@ -245,24 +316,42 @@ export function ChangeAnalysis({
         ) : asked.length + watched.length === 0 ? (
           <Muted>No vemos a nadie más afectado.</Muted>
         ) : (
-          <ul className="flex flex-col gap-3 text-sm">
+          <ul className="stagger flex flex-col gap-3 text-sm">
             {[...asked, ...watched].map((item) => (
-              <li key={item.stakeholderId} className="flex flex-col gap-1">
-                <p className="font-medium text-ink">
-                  {item.name}
-                  {item.role ? `, ${item.role}` : ''}{' '}
-                  <span className="text-ink-2">
-                    · {bandText[item.band]} ({percent(item.probability)})
-                  </span>
-                </p>
-                <p className="text-ink-2">{item.reason}</p>
-                <p className="text-ink">{item.question}</p>
+              <li key={item.stakeholderId} className="flex gap-3">
+                <Avatar name={item.name} size="sm" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3">
+                    <p className="font-medium text-ink">
+                      {item.name}
+                      {item.role && (
+                        <span className="font-normal text-ink-2">
+                          {' '}
+                          · {item.role}
+                        </span>
+                      )}
+                    </p>
+                    <Probability
+                      band={item.band}
+                      probability={item.probability}
+                    />
+                  </div>
+                  <p className="text-ink-2">{item.reason}</p>
+                  <p className="flex items-start gap-1.5 text-ink">
+                    <Icon name="chat" className="mt-0.5 text-accent-text" />
+                    {item.question}
+                  </p>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </Block>
-      <Block title="Detector de conflictos" question="¿Choca con otro cambio?">
+      <Block
+        title="Detector de conflictos"
+        icon="conflict"
+        question="¿Choca con otro cambio?"
+      >
         {validations.length > 0 && (
           <div className="mb-3 text-sm">
             <OverlapVotes
@@ -301,6 +390,7 @@ export function ChangeAnalysis({
       </Block>
       <Block
         title="Calculador de impacto"
+        icon="calculator"
         question="¿Cuánto cuesta y cuánto atrasa?"
       >
         <div className="flex flex-col gap-4">
@@ -331,7 +421,11 @@ export function ChangeAnalysis({
           ))}
         </div>
       </Block>
-      <Block title="Redactor de avisos" question="¿Qué decir a cada rol?">
+      <Block
+        title="Redactor de avisos"
+        icon="sparkles"
+        question="¿Qué decir a cada rol?"
+      >
         {notices.error ? (
           <Muted>{notices.error}</Muted>
         ) : !notices.data ? (
@@ -344,12 +438,14 @@ export function ChangeAnalysis({
           <div className="flex flex-col gap-5">
             <NoticeGroup
               title="Aviso de cambio"
+              icon="bell"
               hint="Solo a los afectados"
               empty="Este cambio no afecta a nadie más."
               notices={notices.data.notices}
             />
             <NoticeGroup
               title="Aviso de conflicto"
+              icon="conflict"
               hint="A ambos autores y afectados"
               empty="Este cambio no choca con otro."
               notices={notices.data.conflictNotices}
@@ -360,6 +456,7 @@ export function ChangeAnalysis({
       {change.followUp && change.followUp.people.length > 0 && (
         <Block
           title="Seguimiento"
+          icon="listChecks"
           question="¿Quién respondió y a quién le recordamos?"
         >
           <ChangeFollowUp followUp={change.followUp} />

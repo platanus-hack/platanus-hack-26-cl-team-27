@@ -3,6 +3,7 @@
 import { Button, Notice, cx } from '@team27/ui';
 import { useState } from 'react';
 
+import { Icon } from '@/components/common/Icon';
 import { useProjectId } from '@/components/proyectos/ProjectContext';
 import { describeError } from '@/lib/http';
 import {
@@ -69,6 +70,10 @@ export function VoteForm({
           disabled={disabled}
           className="h-13 text-base font-semibold!"
         >
+          <Icon
+            name={busy === 'reviewed' ? 'spinner' : 'check'}
+            className={cx('size-5', busy === 'reviewed' && 'animate-spin')}
+          />
           {busy === 'reviewed' ? 'Enviando…' : 'Revisado'}
         </Button>
         <Button
@@ -77,6 +82,10 @@ export function VoteForm({
           disabled={disabled}
           className="h-13 text-base font-semibold!"
         >
+          <Icon
+            name={busy === 'issue' ? 'spinner' : 'alert'}
+            className={cx('size-5', busy === 'issue' && 'animate-spin')}
+          />
           {busy === 'issue' ? 'Enviando…' : 'Tengo un problema'}
         </Button>
       </div>
@@ -86,6 +95,10 @@ export function VoteForm({
         disabled={disabled}
         className="h-11 text-base"
       >
+        <Icon
+          name={busy === 'not_affected' ? 'spinner' : 'ban'}
+          className={cx(busy === 'not_affected' && 'animate-spin')}
+        />
         {busy === 'not_affected' ? 'Enviando…' : 'No me afecta'}
       </Button>
       {error && <Notice tone="error">{error}</Notice>}
