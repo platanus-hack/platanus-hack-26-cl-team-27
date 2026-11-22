@@ -16,7 +16,7 @@ Las lee del `.env` de la raíz. Si falta alguna, lo dice sin mostrar valores y t
 | Variable                             | Qué es                                                                                                                                                                                    |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `APS_CLIENT_ID`, `APS_CLIENT_SECRET` | La app de APS. Solo se imprime si funcionan o no, con el HTTP                                                                                                                             |
-| `APS_BUCKET_KEY`                     | El bucket de OSS donde viven los modelos, y el mismo que lista la API. Un bucket es de la app que lo creó: otra app no lo ve. `.env.example` trae el del equipo, `vigente-956d852fc0a3c635` |
+| `APS_BUCKET_KEY`                     | El bucket de OSS donde viven los modelos, y el mismo que lista la API. Un bucket es de la app que lo creó: otra app no lo ve. `.env.example` trae el del equipo, `vigente-8b87f1a2b6424d31` |
 
 ## `aps:check`
 

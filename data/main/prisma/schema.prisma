@@ -297,23 +297,25 @@ model RoomState {
 }
 
 model Organization {
-  id          String       @id
-  name        String
-  createdAt   DateTime     @default(now()) @map("created_at")
-  projects    Project[]
-  memberships Membership[]
-  invitations Invitation[]
+  id            String         @id
+  name          String
+  createdAt     DateTime       @default(now()) @map("created_at")
+  projects      Project[]
+  memberships   Membership[]
+  invitations   Invitation[]
+  apsConnection ApsConnection?
 
   @@map("organizations")
 }
 
 model User {
-  id          String       @id @default(uuid()) @db.Uuid
-  authSubject String       @unique @map("auth_subject")
-  email       String       @unique
-  name        String?
-  createdAt   DateTime     @default(now()) @map("created_at")
-  memberships Membership[]
+  id             String          @id @default(uuid()) @db.Uuid
+  authSubject    String          @unique @map("auth_subject")
+  email          String          @unique
+  name           String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+  memberships    Membership[]
+  apsConnections ApsConnection[]
 
   @@map("users")
 }
@@ -553,4 +555,25 @@ model IntegrationSource {
 
   @@index([connectionId])
   @@map("integration_sources")
+}
+
+model ApsConnection {
+  organizationId         String       @id @map("organization_id")
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connectedById          String?      @map("connected_by_id") @db.Uuid
+  connectedBy            User?        @relation(fields: [connectedById], references: [id], onDelete: SetNull)
+  autodeskUserId         String       @map("autodesk_user_id")
+  autodeskEmail          String?      @map("autodesk_email")
+  autodeskName           String?      @map("autodesk_name")
+  scopes                 String
+  accessTokenCiphertext  String       @map("access_token_ciphertext")
+  refreshTokenCiphertext String       @map("refresh_token_ciphertext")
+  expiresAt              DateTime     @map("expires_at")
+  refreshedAt            DateTime     @map("refreshed_at")
+  status                 String
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @updatedAt @map("updated_at")
+
+  @@index([connectedById])
+  @@map("aps_connections")
 }
