@@ -326,4 +326,13 @@ export class CoordinationController {
   ) {
     return this.queries.change(await this.project(account, id), changeId);
   }
+
+  @Get('changes/:id/suggestions')
+  async suggestions(
+    @CurrentAccount() account: Account,
+    @Param('projectId', { schema: projectId }) id: string,
+    @Param('id', { schema: uuid }) changeId: string,
+  ) {
+    return this.queries.suggestions(await this.project(account, id), changeId);
+  }
 }

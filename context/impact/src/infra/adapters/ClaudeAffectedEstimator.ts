@@ -12,7 +12,7 @@ import {
   type ClaudeOptions,
 } from './claudeRequest.ts';
 
-const EstimatesSchema = z.object({
+export const EstimatesSchema = z.object({
   estimates: z.array(
     z.object({
       stakeholderId: z.string(),
