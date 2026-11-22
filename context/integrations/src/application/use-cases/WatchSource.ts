@@ -9,7 +9,7 @@ import type {
   SourceLinkRepository,
   SpreadsheetReader,
 } from '../ports/index.ts';
-import { requireGoogle } from './requireGoogle.ts';
+import { connectionOf, sourceNotFound } from './requireGoogle.ts';
 
 export type WatchStatus = 'changed' | 'unchanged' | 'failed';
 
@@ -63,13 +63,13 @@ export class WatchSource {
     this.now = now;
   }
 
-  async execute(id: string): Promise<WatchResult> {
+  async execute(id: string, projectId?: string): Promise<WatchResult> {
     const source = await this.sources.find(id);
-    if (source === null) {
-      throw new IntegrationError(
-        'source_not_found',
-        'Esa planilla ya no está vinculada',
-      );
+    if (
+      source === null ||
+      (projectId !== undefined && source.projectId !== projectId)
+    ) {
+      throw sourceNotFound();
     }
     try {
       return await this.check(source);
@@ -90,7 +90,7 @@ export class WatchSource {
   }
 
   private async check(source: SourceLink): Promise<WatchResult> {
-    const connection = await requireGoogle(this.connections);
+    const connection = await connectionOf(this.connections, source);
     const token = await this.authorizer.accessToken(connection.refreshToken);
     const content = await this.reader.read(token, source.externalId);
     const at = this.now();

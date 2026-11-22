@@ -7,6 +7,7 @@ import type {
   SourceError,
   SourceLink,
   SourceLinkDraft,
+  SourceRelink,
 } from '../../domain/Connection.ts';
 import type { CellChange, SheetSnapshot } from '../../domain/Sheet.ts';
 
@@ -15,16 +16,24 @@ export interface StoredConnection extends Connection {
 }
 
 export interface ConnectionRepository {
-  find(provider: Provider): Promise<StoredConnection | null>;
+  findForUser(
+    userId: string,
+    provider: Provider,
+  ): Promise<StoredConnection | null>;
+  find(id: string): Promise<StoredConnection | null>;
   save(grant: ConnectionGrant): Promise<Connection>;
-  remove(provider: Provider): Promise<boolean>;
+  remove(userId: string, provider: Provider): Promise<boolean>;
 }
 
 export interface SourceLinkRepository {
-  list(): Promise<SourceLink[]>;
+  list(projectId?: string): Promise<SourceLink[]>;
   find(id: string): Promise<SourceLink | null>;
-  findByExternalId(externalId: string): Promise<SourceLink | null>;
+  findInProject(
+    projectId: string,
+    externalId: string,
+  ): Promise<SourceLink | null>;
   create(draft: SourceLinkDraft): Promise<SourceLink>;
+  relink(id: string, relink: SourceRelink): Promise<SourceLink>;
   recordCheck(id: string, check: SourceCheck): Promise<SourceLink>;
   recordError(id: string, error: SourceError): Promise<SourceLink>;
   remove(id: string): Promise<boolean>;

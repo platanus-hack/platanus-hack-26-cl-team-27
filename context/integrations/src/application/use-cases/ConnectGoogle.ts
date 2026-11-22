@@ -20,8 +20,8 @@ export class ConnectGoogle {
     return this.authorizer.authorizationUrl(state);
   }
 
-  async execute(code: string): Promise<Connection> {
+  async execute(userId: string, code: string): Promise<Connection> {
     const grant = await this.authorizer.exchange(code);
-    return this.connections.save({ provider: 'google', ...grant });
+    return this.connections.save({ userId, provider: 'google', ...grant });
   }
 }

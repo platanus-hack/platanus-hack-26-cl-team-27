@@ -1,27 +1,29 @@
 'use client';
 
-import { Button, Card, Notice, StatusBadge } from '@team27/ui';
+import { Button, Card, Field, Notice, Select, StatusBadge } from '@team27/ui';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { textLink } from '@/components/common/link-styles';
-import { Loading, LoadError } from '@/components/common/LoadState';
+import { Empty, Loading, LoadError } from '@/components/common/LoadState';
 import { RelativeTime } from '@/components/common/RelativeTime';
-import { KeyGate } from '@/components/presentador/KeyGate';
 import { useLive } from '@/hooks/use-live';
-import { usePresenterKey } from '@/hooks/use-presenter-key';
-import { ApiError, describeError } from '@/lib/http';
+import { useResource } from '@/hooks/use-resource';
+import { type AccountProject, getProjects } from '@/lib/accounts-api';
+import { describeError } from '@/lib/http';
 import {
   authorizeGoogle,
   checkFeedback,
   checkSource,
   type ConnectorsOverview,
+  connectorsHref,
   disconnectGoogle,
   type Feedback,
   getConnectors,
   linkFeedback,
   linkSheet,
+  pickProject,
   type SourceView,
   unlinkSource,
 } from '@/lib/integrations-api';
@@ -30,14 +32,54 @@ import { DEFAULT_INTERVAL_MS } from '@/lib/pulse';
 import { LinkSheetForm } from './LinkSheetForm';
 import { SourceRow } from './SourceRow';
 
-const REJECTED = 'La clave no es correcta.';
 const REFRESH_MS = 15_000;
 
 type Confirm =
   | { readonly kind: 'disconnect' }
   | { readonly kind: 'unlink'; readonly source: SourceView };
 
+function ProjectPicker({
+  projects,
+  selected,
+  onSelect,
+}: {
+  readonly projects: readonly AccountProject[];
+  readonly selected: AccountProject;
+  readonly onSelect: (project: AccountProject) => void;
+}) {
+  if (projects.length === 1) {
+    return (
+      <p className="text-sm text-ink-2">
+        Proyecto: <span className="font-medium text-ink">{selected.name}</span>
+      </p>
+    );
+  }
+  return (
+    <Field
+      label="Proyecto"
+      hint="Cada proyecto ve solo las planillas vinculadas a él."
+    >
+      <Select
+        value={selected.id}
+        onChange={(event) => {
+          const project = projects.find(
+            (item) => item.id === event.target.value,
+          );
+          if (project) onSelect(project);
+        }}
+      >
+        {projects.map((project) => (
+          <option key={project.id} value={project.id}>
+            {project.name}
+          </option>
+        ))}
+      </Select>
+    </Field>
+  );
+}
+
 function GoogleSheetsCard({
+  project,
   overview,
   busy,
   onConnect,
@@ -46,6 +88,7 @@ function GoogleSheetsCard({
   onCheck,
   onUnlink,
 }: {
+  readonly project: AccountProject;
   readonly overview: ConnectorsOverview;
   readonly busy: string | null;
   readonly onConnect: () => void;
@@ -66,7 +109,7 @@ function GoogleSheetsCard({
       title="Google Sheets"
       description={
         google.pollSeconds > 0
-          ? `Escuchamos tus planillas: revisamos cada ${google.pollSeconds} s si cambiaron.`
+          ? `Escuchamos las planillas de ${project.name}: revisamos cada ${google.pollSeconds} s si cambiaron.`
           : 'La revisión automática está apagada: usa «Revisar ahora».'
       }
       actions={<StatusBadge tone={status.tone} label={status.label} />}
@@ -78,34 +121,37 @@ function GoogleSheetsCard({
         </Notice>
       )}
 
-      {google.configured && !google.connection && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-ink-2">
-            Conecta la cuenta de Google que tiene acceso a tus planillas. Solo
-            pedimos permiso para leer.
-          </p>
-          <Button disabled={busy === 'connect'} onClick={onConnect}>
-            {busy === 'connect' ? 'Abriendo Google…' : 'Conectar con Google'}
-          </Button>
-        </div>
-      )}
-
-      {google.connection && (
+      {google.configured && (
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-            <p className="text-ink-2">
-              Conectado como{' '}
-              <span className="font-medium text-ink">
-                {google.connection.accountEmail}
-              </span>{' '}
-              · <RelativeTime at={google.connection.connectedAt} />
-            </p>
-            <Button variant="ghost" size="sm" onClick={onDisconnect}>
-              Desconectar
-            </Button>
-          </div>
+          {google.connection ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+              <p className="text-ink-2">
+                Tu cuenta de Google:{' '}
+                <span className="font-medium text-ink">
+                  {google.connection.accountEmail}
+                </span>{' '}
+                · <RelativeTime at={google.connection.connectedAt} />
+              </p>
+              <Button variant="ghost" size="sm" onClick={onDisconnect}>
+                Desconectar
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-ink-2">
+                Conecta tu cuenta de Google para vincular planillas. Leemos cada
+                planilla con la cuenta de quien la vinculó, y solo pedimos
+                permiso para leer.
+              </p>
+              <Button disabled={busy === 'connect'} onClick={onConnect}>
+                {busy === 'connect'
+                  ? 'Abriendo Google…'
+                  : 'Conectar con Google'}
+              </Button>
+            </div>
+          )}
 
-          {sources.length > 0 && (
+          {sources.length > 0 ? (
             <ul className="flex flex-col gap-3">
               {sources.map((source) => (
                 <SourceRow
@@ -117,9 +163,13 @@ function GoogleSheetsCard({
                 />
               ))}
             </ul>
+          ) : (
+            <Empty>{project.name} todavía no tiene planillas vinculadas.</Empty>
           )}
 
-          <LinkSheetForm busy={busy === 'link'} onSubmit={onLink} />
+          {google.connection && (
+            <LinkSheetForm busy={busy === 'link'} onSubmit={onLink} />
+          )}
         </div>
       )}
     </Card>
@@ -145,60 +195,32 @@ function AutodeskCard() {
   );
 }
 
-export function ConnectorsConsole({
+function ProjectConnectors({
+  project,
   initialFeedback,
 }: {
+  readonly project: AccountProject;
   readonly initialFeedback: Feedback | null;
 }) {
-  const { ready, key, save, forget } = usePresenterKey();
-  const [rejected, setRejected] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(initialFeedback);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
 
   const load = useCallback(
-    async (signal: AbortSignal): Promise<ConnectorsOverview | null> => {
-      if (!key) return null;
-      try {
-        return await getConnectors({ presenterKey: key }, signal);
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          forget();
-          setRejected(REJECTED);
-        }
-        throw error;
-      }
-    },
-    [key, forget],
+    (signal: AbortSignal) => getConnectors(project.id, signal),
+    [project.id],
   );
 
   const { data, error, loading, reload } = useLive({
     load,
     intervalMs: DEFAULT_INTERVAL_MS,
-    dependencyKey: key ?? '',
-    enabled: ready && key !== null,
+    dependencyKey: project.id,
   });
 
   useEffect(() => {
-    if (!key) return;
     const timer = setInterval(reload, REFRESH_MS);
     return () => clearInterval(timer);
-  }, [key, reload]);
-
-  if (!ready) return <Loading />;
-  if (!key)
-    return (
-      <KeyGate
-        title="Conectores"
-        message={rejected}
-        onSubmit={(value) => {
-          setRejected(null);
-          save(value);
-        }}
-      />
-    );
-
-  const auth = { presenterKey: key };
+  }, [reload]);
 
   const run = async (
     id: string,
@@ -222,7 +244,7 @@ export function ConnectorsConsole({
 
   const connect = () =>
     void run('connect', async () => {
-      const { url } = await authorizeGoogle(auth);
+      const { url } = await authorizeGoogle(project.id);
       window.location.assign(url);
       return null;
     });
@@ -231,30 +253,20 @@ export function ConnectorsConsole({
     if (!confirm) return;
     if (confirm.kind === 'disconnect') {
       void run('disconnect', async () => {
-        await disconnectGoogle(auth);
+        await disconnectGoogle();
         return { tone: 'info', text: 'Desconectamos tu cuenta de Google.' };
       });
       return;
     }
     const { source } = confirm;
     void run(source.id, async () => {
-      await unlinkSource(source.id, auth);
+      await unlinkSource(project.id, source.id);
       return { tone: 'info', text: `Desvinculamos «${source.title}».` };
     });
   };
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">
-          Conectores
-        </h1>
-        <p className="mt-1 text-sm text-ink-2">
-          Conecta las herramientas donde ya vive la información de la obra y
-          escuchamos cuando algo cambia allá.
-        </p>
-      </header>
-
+    <>
       {feedback && <Notice tone={feedback.tone}>{feedback.text}</Notice>}
       {loading && !data && <Loading />}
       {error && !data && <LoadError message={error} />}
@@ -262,19 +274,20 @@ export function ConnectorsConsole({
       {data && (
         <>
           <GoogleSheetsCard
+            project={project}
             overview={data}
             busy={busy}
             onConnect={connect}
             onDisconnect={() => setConfirm({ kind: 'disconnect' })}
             onLink={(url) =>
               run('link', async () => {
-                const { source } = await linkSheet(url, auth);
+                const { source } = await linkSheet(project.id, url);
                 return linkFeedback(source, data.google.pollSeconds);
               })
             }
             onCheck={(source) =>
               void run(source.id, async () =>
-                checkFeedback(await checkSource(source.id, auth)),
+                checkFeedback(await checkSource(project.id, source.id)),
               )
             }
             onUnlink={(source) => setConfirm({ kind: 'unlink', source })}
@@ -301,9 +314,72 @@ export function ConnectorsConsole({
           onCancel={() => setConfirm(null)}
         >
           {confirm.kind === 'disconnect'
-            ? 'Dejamos de escuchar tus planillas y las desvinculamos.'
-            : 'Dejamos de escuchar esa planilla.'}
+            ? 'Las planillas que vinculaste siguen en sus proyectos, pero nadie las lee hasta que alguien las vuelva a vincular con su cuenta.'
+            : `${project.name} deja de escuchar esa planilla.`}
         </ConfirmDialog>
+      )}
+    </>
+  );
+}
+
+export function ConnectorsConsole({
+  initialProject,
+  initialFeedback,
+}: {
+  readonly initialProject: string | null;
+  readonly initialFeedback: Feedback | null;
+}) {
+  const [requested, setRequested] = useState<string | null>(initialProject);
+  const projects = useResource(
+    async (signal) => (await getProjects(signal)).projects,
+    'projects',
+  );
+
+  const selected = projects.data ? pickProject(projects.data, requested) : null;
+
+  const select = (project: AccountProject) => {
+    setRequested(project.id);
+    window.history.replaceState(null, '', connectorsHref(project.id));
+  };
+
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">
+          Conectores
+        </h1>
+        <p className="mt-1 text-sm text-ink-2">
+          Conecta las herramientas donde ya vive la información de la obra y
+          escuchamos cuando algo cambia allá.
+        </p>
+      </header>
+
+      {projects.error && <LoadError message={projects.error} />}
+      {!projects.data && !projects.error && <Loading />}
+      {projects.data && selected === null && (
+        <Empty>
+          Todavía no tienes proyectos. Pídele a un administrador que invite tu
+          correo a su organización.
+        </Empty>
+      )}
+
+      {projects.data && selected && (
+        <>
+          <ProjectPicker
+            projects={projects.data}
+            selected={selected}
+            onSelect={select}
+          />
+          <ProjectConnectors
+            key={selected.id}
+            project={selected}
+            initialFeedback={
+              selected.id === (initialProject ?? selected.id)
+                ? initialFeedback
+                : null
+            }
+          />
+        </>
       )}
     </div>
   );

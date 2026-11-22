@@ -12,7 +12,13 @@ export const authConfigured = (
   env: Readonly<Record<string, string | undefined>>,
 ): boolean => REQUIRED.every((name) => Boolean(env[name]?.trim()));
 
-const ACCOUNT_API = ['/api/me', '/api/projects', '/api/organizations'];
+const ACCOUNT_API = [
+  '/api/me',
+  '/api/projects',
+  '/api/organizations',
+  '/api/integrations/projects',
+  '/api/integrations/google',
+];
 
 export const needsAccountToken = (pathname: string): boolean =>
   ACCOUNT_API.some(

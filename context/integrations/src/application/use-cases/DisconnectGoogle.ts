@@ -7,7 +7,7 @@ export class DisconnectGoogle {
     this.connections = connections;
   }
 
-  execute(): Promise<boolean> {
-    return this.connections.remove('google');
+  execute(userId: string): Promise<boolean> {
+    return this.connections.remove(userId, 'google');
   }
 }
