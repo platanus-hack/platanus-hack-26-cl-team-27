@@ -51,6 +51,7 @@ const imageQuery = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional(),
   role: z.string().max(32).optional(),
+  shift: z.coerce.number().min(-50).max(50).optional(),
 });
 
 const historyQuery = z.object({
@@ -199,7 +200,10 @@ export class ModelController {
     const role = DEMO_ROLES.find((item) => item.id === query.role);
     const focus: VisualFocus = query.focus ?? role?.focus ?? 'muros';
     const color = query.color ?? role?.color ?? '#256abf';
-    const png = await modelImager().image({ focus, color, caption: '' });
+    const png = await modelImager().image(
+      { focus, color, caption: '' },
+      query.shift ?? 0,
+    );
     if (!png) {
       res.status(404).end();
       return;

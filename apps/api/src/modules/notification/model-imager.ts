@@ -273,13 +273,50 @@ const rasterize = (
   }
 };
 
+export const MAX_SHIFT_M = 6;
+
+const lighten = (rgb: Rgb, amount: number): Rgb => [
+  rgb[0] + (255 - rgb[0]) * amount,
+  rgb[1] + (255 - rgb[1]) * amount,
+  rgb[2] + (255 - rgb[2]) * amount,
+];
+
+const longAxis = (parts: readonly ModelPart[]): 0 | 2 => {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (const part of parts) {
+    const t = part.triangles;
+    for (let i = 0; i < t.length; i += 3) {
+      minX = Math.min(minX, t[i]!);
+      maxX = Math.max(maxX, t[i]!);
+      minZ = Math.min(minZ, t[i + 2]!);
+      maxZ = Math.max(maxZ, t[i + 2]!);
+    }
+  }
+  return maxX - minX >= maxZ - minZ ? 0 : 2;
+};
+
+const shifted = (
+  triangles: Float32Array,
+  axis: 0 | 2,
+  meters: number,
+): Float32Array => {
+  const out = new Float32Array(triangles);
+  for (let i = axis; i < out.length; i += 3) out[i] = out[i]! + meters;
+  return out;
+};
+
 export const renderParts = (
   parts: readonly ModelPart[],
   focus: VisualFocus,
   color: string,
   width = IMAGE_WIDTH,
   height = IMAGE_HEIGHT,
+  shift = 0,
 ): Uint8Array => {
+  const move = Math.max(-MAX_SHIFT_M, Math.min(MAX_SHIFT_M, shift));
   const w = width * SCALE;
   const h = height * SCALE;
   const camera = cameraFor(
@@ -291,9 +328,15 @@ export const renderParts = (
   const context = layer(w * h);
   const kind = FOCUS_KIND[focus];
   const highlight = hexToRgb(color);
+  const axis = longAxis(parts.filter((part) => part.kind !== 'pipes'));
   for (const part of parts) {
     if (part.kind === kind) {
-      rasterize(hot, part.triangles, highlight, camera, w, h);
+      if (move !== 0) {
+        rasterize(hot, part.triangles, lighten(highlight, 0.72), camera, w, h);
+        rasterize(hot, shifted(part.triangles, axis, move), highlight, camera, w, h);
+      } else {
+        rasterize(hot, part.triangles, highlight, camera, w, h);
+      }
     } else if (part.kind !== 'pipes') {
       rasterize(context, part.triangles, CONTEXT, camera, w, h);
     }
@@ -410,12 +453,23 @@ export class ModelImager {
     this.dir = dir;
   }
 
-  image(visual: NoticeVisual): Promise<Uint8Array | null> {
-    const key = `${visual.focus}/${visual.color}`;
+  image(visual: NoticeVisual, shift = 0): Promise<Uint8Array | null> {
+    const move = Math.round(shift * 2) / 2;
+    const key = `${visual.focus}/${visual.color}/${move}`;
     const cached = this.images.get(key);
     if (cached) return cached;
+    if (this.images.size > 120) this.images.clear();
     const started = this.load().then((parts) =>
-      parts ? renderParts(parts, visual.focus, visual.color) : null,
+      parts
+        ? renderParts(
+            parts,
+            visual.focus,
+            visual.color,
+            IMAGE_WIDTH,
+            IMAGE_HEIGHT,
+            move,
+          )
+        : null,
     );
     this.images.set(key, started);
     return started;
