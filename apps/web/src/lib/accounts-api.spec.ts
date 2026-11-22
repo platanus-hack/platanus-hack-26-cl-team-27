@@ -10,6 +10,7 @@ import { ApiError, describeError } from './http';
 
 const me: Me = {
   user: { id: 'u1', email: 'paula@calculo.example', name: 'Paula' },
+  superadmin: false,
   organizations: [
     { id: 'aromos', name: 'Inmobiliaria Los Aromos', role: 'admin' },
     { id: 'vacia', name: 'Sin proyectos', role: 'member' },
@@ -68,7 +69,7 @@ describe('describeError de cuentas', () => {
     [
       'organization_name_taken',
       409,
-      'Ya eres parte de una organización con ese nombre. Elige otro.',
+      'Ya hay una organización con ese nombre. Elige otro.',
     ],
     [
       'organization_has_projects',

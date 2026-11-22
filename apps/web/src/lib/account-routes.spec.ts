@@ -27,6 +27,8 @@ describe('needsAccountToken', () => {
     '/api/organizations/inmobiliaria-los-aromos/members',
     '/api/integrations/projects/los-aromos',
     '/api/integrations/google/authorize',
+    '/api/admin/users',
+    '/api/admin/invitations',
   ])('%s lleva el token de la cuenta', (path) => {
     expect(needsAccountToken(path)).toBe(true);
   });
@@ -37,6 +39,7 @@ describe('needsAccountToken', () => {
     '/api/members',
     '/api/meta',
     '/api/integrations/revit/minutes',
+    '/api/administration',
     '/sala',
   ])('%s no', (path) => {
     expect(needsAccountToken(path)).toBe(false);
