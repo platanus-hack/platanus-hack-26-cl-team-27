@@ -23,6 +23,7 @@ import { elementsFromBaseline } from './elements-from-baseline.ts';
 import { diffEvents, type EventDraft, emitEvents, observe } from './events.ts';
 import { fail } from './http-errors.ts';
 import { underAnalysisOf } from './impact.ts';
+import { overlapClashes } from './notices.ts';
 import {
   checkRevision,
   knownDocument,
@@ -240,6 +241,7 @@ export class CoordinationService {
     });
     const settled = await lake.settleOverlaps.execute();
     resolved.push(...settled.resolved.map((overlap) => overlap.id));
+    await this.attachClashes(db, project, opened);
     const title = revisionTitle(result.revision);
     const events: EventDraft[] = [
       ...lead,
@@ -269,6 +271,37 @@ export class CoordinationService {
       value: { ingested: result, proposals: opened, resolved },
       events,
     };
+  }
+
+  private async attachClashes(
+    db: Db,
+    project: ProjectCatalog,
+    opened: readonly OpenedProposal[],
+  ): Promise<void> {
+    if (opened.every((proposal) => proposal.changeId === null)) return;
+    const lake = buildLake(db, project);
+    const [overlaps, proposals] = await Promise.all([
+      lake.ports.overlaps.list(),
+      lake.ports.proposals.list(),
+    ]);
+    const impacts = await buildImpact(db, project).getImpacts.execute([
+      ...new Set(proposals.flatMap((proposal) => proposal.changeIds)),
+    ]);
+    const notification = buildNotification(db, project);
+    for (const proposal of opened) {
+      if (proposal.changeId === null) continue;
+      await notification.attachClashes.execute({
+        changeId: proposal.changeId,
+        clashes: overlapClashes({
+          project,
+          overlaps,
+          proposals,
+          impacts: new Map(impacts.map((impact) => [impact.changeId, impact])),
+          proposalId: proposal.id,
+          changeId: proposal.changeId,
+        }),
+      });
+    }
   }
 
   private async openProposal(
@@ -324,6 +357,7 @@ export class CoordinationService {
           .map((change) => `${change.element.name} · ${change.summary}`)
           .join(' + '),
         findings,
+        impact: { costDelta, delayDays },
       });
       const notifiedIds = new Set(notified.map((item) => item.stakeholderId));
       reviewerIds = [

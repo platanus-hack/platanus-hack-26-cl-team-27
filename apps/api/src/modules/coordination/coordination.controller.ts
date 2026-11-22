@@ -344,4 +344,13 @@ export class CoordinationController {
   ) {
     return this.queries.conflicts(await this.project(account, id), changeId);
   }
+
+  @Get('changes/:id/notices')
+  async notices(
+    @CurrentAccount() account: Account,
+    @Param('projectId', { schema: projectId }) id: string,
+    @Param('id', { schema: uuid }) changeId: string,
+  ) {
+    return this.queries.notices(await this.project(account, id), changeId);
+  }
 }

@@ -12,6 +12,7 @@ const pending: Notification = {
   findings: [],
   link: '/proyectos/edificio-norte/cambios/c1',
   sentAt: new Date(0),
+  context: null,
   response: null,
 };
 
@@ -25,6 +26,7 @@ const repository = () => ({
   findById: vi
     .fn<NotificationRepository['findById']>()
     .mockResolvedValue(pending),
+  setClashes: vi.fn<NotificationRepository['setClashes']>(),
 });
 
 describe('ReopenResponse', () => {

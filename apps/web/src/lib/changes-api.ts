@@ -186,3 +186,34 @@ export const getChangeConflicts = (
     projectApi(projectId, `/changes/${changeId}/conflicts`),
     { signal },
   );
+
+export type NoticeChannel = 'email' | 'whatsapp' | 'slack';
+
+export interface NoticePreview {
+  readonly notificationId: string;
+  readonly stakeholderId: string;
+  readonly name: string;
+  readonly role: string;
+  readonly noticeRole: 'costos' | 'planificacion' | 'ingenieria';
+  readonly channel: NoticeChannel;
+  readonly subject: string;
+  readonly text: string;
+  readonly why: string;
+  readonly whySource: 'modelo' | 'plantilla';
+}
+
+export interface ChangeNotices {
+  readonly changeId: string;
+  readonly inference: 'ok' | 'unavailable';
+  readonly notices: readonly NoticePreview[];
+}
+
+export const getChangeNotices = (
+  projectId: string,
+  changeId: string,
+  signal?: AbortSignal,
+): Promise<ChangeNotices> =>
+  request<ChangeNotices>(
+    projectApi(projectId, `/changes/${changeId}/notices`),
+    { signal },
+  );

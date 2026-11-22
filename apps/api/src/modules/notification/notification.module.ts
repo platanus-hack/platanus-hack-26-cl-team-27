@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  AttachClashes,
   DeliverNotifications,
   GetNotification,
   ListNotifications,
@@ -29,6 +30,7 @@ export const buildNotification = (
   const notifications = new PrismaNotificationRepository(db, project.id);
   return {
     notifyStakeholders: new NotifyStakeholders(directory, notifications),
+    attachClashes: new AttachClashes(notifications),
     listNotifications: new ListNotifications(notifications),
     getNotification: new GetNotification(notifications),
     respondToNotification: new RespondToNotification(notifications),

@@ -19,6 +19,7 @@ const notification: Notification = {
     },
   ],
   link: '/cambios/c1?para=costos',
+  context: null,
   sentAt: new Date(0),
   response: null,
 };
@@ -49,6 +50,48 @@ describe('renderEmail', () => {
 
     expect(email.html).toContain('Sube el costo &lt;hormigón&gt;');
     expect(email.html).not.toContain('<hormigón>');
+  });
+});
+
+describe('renderEmail con el contexto del aviso', () => {
+  const withContext: Notification = {
+    ...notification,
+    findings: [
+      {
+        topic: 'cost',
+        summary: 'El presupuesto sube $3.636.500',
+        details: [],
+        action: 'Actualiza el presupuesto',
+      },
+    ],
+    context: {
+      role: 'Costos',
+      recipientName: 'Daniela Soto',
+      impact: { costDelta: 3_636_500, delayDays: 1 },
+      clashes: [
+        {
+          with: 'Colector sanitario B2',
+          question: '¿Se topan en nivel 3 · C-D/3?',
+          combined: null,
+        },
+      ],
+    },
+  };
+
+  it('escribe para el rol: costo en el asunto, saludo, impacto y choque', () => {
+    const email = renderEmail(withContext, 'https://vigente.example');
+
+    expect(email.subject).toBe(
+      'Costo +$3.636.500 · Losa nivel 3 · Espesor: 15 cm → 20 cm',
+    );
+    expect(email.text).toContain('Hola Daniela:');
+    expect(email.text).toContain(
+      'Impacto del cambio: costo +$3.636.500 · plazo +1 día',
+    );
+    expect(email.text).toContain(
+      'Puede chocar con Colector sanitario B2. ¿Se topan en nivel 3 · C-D/3?',
+    );
+    expect(email.html).toContain('Puede chocar con Colector sanitario B2.');
   });
 });
 

@@ -1,6 +1,8 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   DetectConflicts,
+  ExplainNotices,
   type Impact,
   SuggestAffected,
 } from '@team27/context-impact';
@@ -11,6 +13,7 @@ import type {
 } from '@team27/context-lake';
 import type { PrismaClient } from '@team27/data-main';
 
+import type { Env } from '../../config/index.ts';
 import { PRISMA_CLIENT } from '../database/database.module.ts';
 import { buildImpact } from '../impact/impact.module.ts';
 import { buildVocabulary } from '../impact/vocabulary.ts';
@@ -19,11 +22,18 @@ import { buildNotification } from '../notification/notification.module.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
 import { fail } from './http-errors.ts';
 import {
+  briefOf,
   CONFLICT_WINDOW,
   detectForChange,
   liveOverlapsOf,
 } from './conflicts.ts';
 import { combinedImpactOf } from './impact.ts';
+import {
+  estimatedClashes,
+  noticePreviews,
+  overlapClashes,
+  reasonsFor,
+} from './notices.ts';
 import { suggestForChange } from './suggestions.ts';
 import {
   areasResponse,
@@ -46,18 +56,106 @@ export class QueryService {
   private readonly prisma: PrismaClient;
   private readonly suggest: SuggestAffected;
   private readonly detect: DetectConflicts;
+  private readonly explain: ExplainNotices;
+  private readonly baseUrl: string;
+  private readonly detecting = new Map<
+    string,
+    ReturnType<QueryService['detectConflicts']>
+  >();
 
   constructor(
     @Inject(PRISMA_CLIENT) prisma: PrismaClient,
     @Inject(SuggestAffected) suggest: SuggestAffected,
     @Inject(DetectConflicts) detect: DetectConflicts,
+    @Inject(ExplainNotices) explain: ExplainNotices,
+    @Inject(ConfigService) config: ConfigService<Env, true>,
   ) {
     this.prisma = prisma;
     this.suggest = suggest;
     this.detect = detect;
+    this.explain = explain;
+    this.baseUrl = config.get('APP_BASE_URL', { infer: true });
   }
 
-  async conflicts(project: ProjectCatalog, id: string) {
+  conflicts(project: ProjectCatalog, id: string) {
+    const key = `${project.id}/${id}`;
+    const running = this.detecting.get(key);
+    if (running) return running;
+    const started = this.detectConflicts(project, id).finally(() => {
+      this.detecting.delete(key);
+    });
+    this.detecting.set(key, started);
+    return started;
+  }
+
+  async notices(project: ProjectCatalog, id: string) {
+    const [analysis, snapshot] = await Promise.all([
+      this.conflicts(project, id),
+      this.snapshot(project),
+    ]);
+    const change = await buildLake(this.prisma, project).getChange.execute(id);
+    if (!change) {
+      throw fail(
+        HttpStatus.NOT_FOUND,
+        'not_found',
+        `No existe el cambio ${id}`,
+      );
+    }
+    const proposal = snapshot.proposals.find((item) =>
+      item.changeIds.includes(change.id),
+    );
+    const notifications = snapshot.notifications
+      .filter((notification) => notification.changeId === change.id)
+      .sort(
+        (a, b) =>
+          project.stakeholders.findIndex(
+            (member) => member.id === a.stakeholderId,
+          ) -
+          project.stakeholders.findIndex(
+            (member) => member.id === b.stakeholderId,
+          ),
+      );
+    const { reasons, inference } = await reasonsFor(
+      this.explain,
+      briefOf(change),
+      project,
+      notifications,
+    );
+    const impact = snapshot.impacts.get(change.id);
+    return {
+      changeId: change.id,
+      inference,
+      notices: noticePreviews({
+        project,
+        notifications,
+        impact: impact
+          ? { costDelta: impact.costDelta, delayDays: impact.delayDays }
+          : null,
+        clashes: [
+          ...(proposal
+            ? overlapClashes({
+                project,
+                overlaps: snapshot.overlaps,
+                proposals: snapshot.proposals,
+                impacts: snapshot.impacts,
+                proposalId: proposal.id,
+                changeId: change.id,
+              })
+            : []),
+          ...estimatedClashes(
+            analysis.conflicts,
+            snapshot.impacts,
+            change.id,
+            project.graph,
+          ),
+        ],
+        reasons,
+        baseUrl: this.baseUrl,
+      }),
+    };
+  }
+
+  private async detectConflicts(project: ProjectCatalog, id: string) {
     const lake = buildLake(this.prisma, project);
     const change = await lake.getChange.execute(id);
     if (!change) {

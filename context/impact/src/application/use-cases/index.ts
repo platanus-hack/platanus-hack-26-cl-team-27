@@ -9,3 +9,4 @@ export {
   DetectConflicts,
   type DetectConflictsInput,
 } from './DetectConflicts.ts';
+export { ExplainNotices, type ExplainNoticesInput } from './ExplainNotices.ts';

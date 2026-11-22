@@ -3,6 +3,7 @@ export {
   CachedClaimReader,
   CachedConflictEstimator,
   CachedDependencyScorer,
+  CachedReasonWriter,
   cacheKey,
   FileResponseCache,
   MemoryResponseCache,
@@ -59,3 +60,10 @@ export {
 } from './JevDependencyScorer.ts';
 export { InMemoryProjectGraph } from './InMemoryProjectGraph.ts';
 export { PrismaImpactRepository } from './PrismaImpactRepository.ts';
+export {
+  ClaudeReasonWriter,
+  REASONS_SYSTEM,
+  reasonsPrompt,
+  ReasonsSchema,
+} from './ClaudeReasonWriter.ts';
+export { GeminiReasonWriter } from './GeminiReasonWriter.ts';

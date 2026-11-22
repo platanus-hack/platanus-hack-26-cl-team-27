@@ -4,12 +4,14 @@ import type {
   NotificationFilter,
   NotificationRepository,
 } from '../../application/ports/NotificationRepository.ts';
-import type {
-  Notification,
-  NotificationDraft,
-  NotificationFinding,
-  NotificationResponse,
-  ResponseKind,
+import type { NoticeClash, NoticeContext } from '../../domain/Notice.ts';
+import {
+  type Notification,
+  type NotificationDraft,
+  type NotificationFinding,
+  type NotificationResponse,
+  type ResponseKind,
+  withClashes,
 } from '../../domain/Notification.ts';
 import type { Channel } from '../../domain/Stakeholder.ts';
 
@@ -23,6 +25,7 @@ export const toNotification = (row: NotificationRow): Notification => ({
   title: row.title,
   findings: row.findings as unknown as NotificationFinding[],
   link: row.link,
+  context: (row.context as unknown as NoticeContext | null) ?? null,
   sentAt: row.sentAt,
   response:
     row.response && row.respondedAt
@@ -58,6 +61,9 @@ export class PrismaNotificationRepository implements NotificationRepository {
             title: draft.title,
             findings: draft.findings as unknown as Prisma.InputJsonValue,
             link: draft.link,
+            ...(draft.context
+              ? { context: draft.context as unknown as Prisma.InputJsonValue }
+              : {}),
             deliveries: {
               create: {
                 projectId: this.projectId,
@@ -123,5 +129,26 @@ export class PrismaNotificationRepository implements NotificationRepository {
       where: { id, projectId: this.projectId },
     });
     return row ? toNotification(row) : null;
+  }
+
+  async setClashes(
+    changeId: string,
+    clashes: readonly NoticeClash[],
+  ): Promise<number> {
+    const rows = await this.prisma.notification.findMany({
+      where: { projectId: this.projectId, changeId },
+    });
+    for (const row of rows) {
+      await this.prisma.notification.update({
+        where: { id: row.id },
+        data: {
+          context: withClashes(
+            row.context as unknown as NoticeContext | null,
+            clashes,
+          ) as unknown as Prisma.InputJsonValue,
+        },
+      });
+    }
+    return rows.length;
   }
 }

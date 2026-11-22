@@ -11,7 +11,10 @@ import {
   type CombinedImpactView,
   type ConflictView,
   getChangeConflicts,
+  getChangeNotices,
   getChangeSuggestions,
+  type NoticeChannel,
+  type NoticePreview,
   type ProbabilityBand,
 } from '@/lib/changes-api';
 import { projectPage } from '@/lib/project-paths';
@@ -79,6 +82,30 @@ function ConflictItem({
   );
 }
 
+const channelText: Record<NoticeChannel, string> = {
+  email: 'Correo',
+  whatsapp: 'WhatsApp',
+  slack: 'Slack',
+};
+
+function NoticeCard({ notice }: { readonly notice: NoticePreview }) {
+  return (
+    <li className="rounded-lg border border-hairline p-4">
+      <p className="text-sm font-medium text-ink">
+        {notice.name}
+        {notice.role ? `, ${notice.role}` : ''}{' '}
+        <span className="font-normal text-ink-2">
+          · {channelText[notice.channel]}
+        </span>
+      </p>
+      {notice.channel === 'email' && (
+        <p className="mt-2 text-sm text-ink-2">Asunto: {notice.subject}</p>
+      )}
+      <p className="mt-2 text-sm whitespace-pre-wrap text-ink">{notice.text}</p>
+    </li>
+  );
+}
+
 function CombinedImpact({
   withName,
   combined,
@@ -122,6 +149,11 @@ export function ChangeAnalysis({
   );
   const suggestions = useResource(loadSuggestions, `suggestions/${key}`);
   const conflicts = useResource(loadConflicts, `conflicts/${key}`);
+  const loadNotices = useCallback(
+    (signal: AbortSignal) => getChangeNotices(projectId, changeId, signal),
+    [projectId, changeId],
+  );
+  const notices = useResource(loadNotices, `notices/${key}`);
 
   const asked = suggestions.data?.ask ?? [];
   const watched = suggestions.data?.watch ?? [];
@@ -253,6 +285,21 @@ export function ChangeAnalysis({
             />
           ))}
         </div>
+      </Block>
+      <Block title="Redactor de avisos" question="¿Qué decir a cada rol?">
+        {notices.error ? (
+          <Muted>{notices.error}</Muted>
+        ) : !notices.data ? (
+          <Muted>Redactando el aviso de cada persona…</Muted>
+        ) : notices.data.notices.length === 0 ? (
+          <Muted>Este cambio no tiene a quién avisar.</Muted>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {notices.data.notices.map((notice) => (
+              <NoticeCard key={notice.notificationId} notice={notice} />
+            ))}
+          </ul>
+        )}
       </Block>
     </>
   );

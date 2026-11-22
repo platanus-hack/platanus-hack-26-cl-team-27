@@ -1,3 +1,4 @@
+export { AttachClashes, type AttachClashesInput } from './AttachClashes.ts';
 export {
   DeliverNotifications,
   type DeliveryOptions,

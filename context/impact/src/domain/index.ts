@@ -37,3 +37,4 @@ export * from './stableStringify.ts';
 export * from './ConflictSuggestion.ts';
 export * from './combineImpacts.ts';
 export * from './ruleCoverage.ts';
+export * from './NoticeReason.ts';

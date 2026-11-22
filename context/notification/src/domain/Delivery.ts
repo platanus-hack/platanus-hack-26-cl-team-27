@@ -1,3 +1,4 @@
+import { type Notice, noticeRoleOf, renderNotice } from './Notice.ts';
 import type { Notification } from './Notification.ts';
 
 export const MAX_ATTEMPTS = 5;
@@ -27,40 +28,32 @@ export interface Email {
   readonly html: string;
 }
 
-const escapeHtml = (value: string): string =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+export const noticeOf = (
+  notification: Notification,
+  baseUrl: string,
+  why: string | null = null,
+): Notice => ({
+  title: notification.title,
+  findings: notification.findings,
+  url: new URL(notification.link, baseUrl).toString(),
+  recipientName: notification.context?.recipientName ?? null,
+  impact: notification.context?.impact ?? null,
+  clashes: notification.context?.clashes ?? [],
+  why,
+});
 
 export const renderEmail = (
   notification: Notification,
   baseUrl: string,
 ): Email => {
-  const url = new URL(notification.link, baseUrl).toString();
-  const text = [
-    notification.title,
-    '',
-    ...notification.findings.flatMap((finding) => [
-      `• ${finding.summary}`,
-      ...finding.details.map((detail) => `  - ${detail}`),
-      `  Qué hacer: ${finding.action}`,
-      '',
-    ]),
-    `Revisa el cambio y responde: ${url}`,
-  ].join('\n');
-  const findings = notification.findings
-    .map(
-      (finding) =>
-        `<li><p><strong>${escapeHtml(finding.summary)}</strong></p>${
-          finding.details.length > 0
-            ? `<ul>${finding.details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join('')}</ul>`
-            : ''
-        }<p>Qué hacer: ${escapeHtml(finding.action)}</p></li>`,
-    )
-    .join('');
-  const html = `<h2>${escapeHtml(notification.title)}</h2><ul>${findings}</ul><p><a href="${escapeHtml(url)}">Revisa el cambio y responde</a></p>`;
-  return { subject: notification.title, text, html };
+  const rendered = renderNotice(
+    noticeOf(notification, baseUrl),
+    noticeRoleOf(notification.context?.role ?? '', notification.findings),
+    'email',
+  );
+  return {
+    subject: rendered.subject,
+    text: rendered.text,
+    html: rendered.html ?? '',
+  };
 };

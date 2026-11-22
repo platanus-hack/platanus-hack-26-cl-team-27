@@ -1,4 +1,10 @@
 import { emailAddress } from './Delivery.ts';
+import type {
+  FindingTopic,
+  NoticeClash,
+  NoticeContext,
+  NoticeImpact,
+} from './Notice.ts';
 import type { Channel, Stakeholder } from './Stakeholder.ts';
 
 export const RESPONSE_KINDS = ['reviewed', 'issue'] as const;
@@ -11,6 +17,7 @@ export interface NotificationFinding {
   readonly summary: string;
   readonly details: readonly string[];
   readonly action: string;
+  readonly topic?: FindingTopic;
 }
 
 export interface NotificationResponse {
@@ -26,6 +33,7 @@ export interface NotificationDraft {
   readonly title: string;
   readonly findings: readonly NotificationFinding[];
   readonly link: string;
+  readonly context: NoticeContext | null;
   readonly email: string | null;
 }
 
@@ -44,6 +52,7 @@ export interface ChangeToNotify {
   readonly changeId: string;
   readonly title: string;
   readonly findings: readonly AddressedFinding[];
+  readonly impact?: NoticeImpact | null;
 }
 
 export const detailLink = (projectId: string, changeId: string): string =>
@@ -54,10 +63,11 @@ export const draftNotifications = (
   stakeholders: readonly Stakeholder[],
 ): NotificationDraft[] => {
   const byStakeholder = new Map<string, NotificationFinding[]>();
-  for (const { stakeholderId, summary, details, action } of change.findings) {
+  for (const finding of change.findings) {
+    const { stakeholderId, summary, details, action, topic } = finding;
     byStakeholder.set(stakeholderId, [
       ...(byStakeholder.get(stakeholderId) ?? []),
-      { summary, details, action },
+      { summary, details, action, ...(topic ? { topic } : {}) },
     ]);
   }
   return stakeholders.flatMap((stakeholder): NotificationDraft[] => {
@@ -71,11 +81,27 @@ export const draftNotifications = (
         title: change.title,
         findings,
         link: detailLink(change.projectId, change.changeId),
+        context: {
+          role: stakeholder.role,
+          recipientName: stakeholder.name,
+          impact: change.impact ?? null,
+          clashes: [],
+        },
         email: emailAddress(stakeholder.handle),
       },
     ];
   });
 };
+
+export const withClashes = (
+  context: NoticeContext | null,
+  clashes: readonly NoticeClash[],
+): NoticeContext => ({
+  role: context?.role ?? '',
+  recipientName: context?.recipientName ?? '',
+  impact: context?.impact ?? null,
+  clashes,
+});
 
 export const normalizeNote = (
   note: string | null | undefined,
