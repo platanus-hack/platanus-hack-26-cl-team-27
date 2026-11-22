@@ -1,9 +1,11 @@
 'use client';
 
 import { Button, Card, Notice, StatusBadge } from '@team27/ui';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { textLink } from '@/components/common/link-styles';
 import { Loading, LoadError } from '@/components/common/LoadState';
 import { RelativeTime } from '@/components/common/RelativeTime';
 import { KeyGate } from '@/components/presentador/KeyGate';
@@ -132,7 +134,12 @@ function AutodeskCard() {
       actions={<StatusBadge tone="neutral" label="Próximamente" />}
     >
       <p className="text-sm text-ink-2">
-        Mientras tanto, el modelo llega por el add-in de Revit.
+        Cada organización conecta su cuenta de Autodesk en{' '}
+        <Link href="/cuenta" className={textLink}>
+          Tu cuenta
+        </Link>
+        . Leer sus presupuestos y versiones viene después; mientras tanto, el
+        modelo llega por el add-in de Revit.
       </p>
     </Card>
   );
