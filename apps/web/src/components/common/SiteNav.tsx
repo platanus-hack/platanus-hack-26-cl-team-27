@@ -10,7 +10,6 @@ import { loginHref } from '@/lib/account-routes';
 export type NavMode = 'off' | 'guest' | 'member';
 
 const MEMBER_LINKS = [
-  { href: '/modelos', label: 'Modelos' },
   { href: '/conectores', label: 'Conectores' },
   { href: '/cuenta', label: 'Cuenta' },
 ] as const;

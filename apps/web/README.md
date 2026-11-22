@@ -26,7 +26,6 @@ pnpm nx run @team27/web:test          # Vitest: los *.spec.ts de src/
 | `/proyectos/[projectId]/cambios/[id]` | El detalle de una propuesta de cambio. Si el cambio te avisó a ti, destaca tus hallazgos y, mientras la propuesta siga activa, muestra «Tu respuesta» con «Revisado» y «Tengo un problema» |
 | `/proyectos/[projectId]/valor/[subjectId]/[attribute]` | La procedencia completa de un valor vigente |
 | `/privacidad` | La política de privacidad pública de los conectores: qué lee y guarda Vigente de Google y Autodesk, para qué, y cómo desconectar o pedir que se borre. Es la URL que declara la app de OAuth de Google |
-| `/modelos`                       | Pide sesión como `/cuenta`. El visor de APS con todas las disciplinas del catálogo de la API (`GET /api/aps/models`) en una escena: abre con Arquitectura y carga las demás al encenderlas, con un interruptor por disciplina y las propiedades del elemento seleccionado |
 | `/conectores`                    | Los conectores de un proyecto (con tu cuenta; sin sesión, pide entrar): elegir el proyecto (`?proyecto=`, o el primero de tus organizaciones), conectar tu cuenta de Google, vincular planillas al proyecto por su link y ver por cada una la última revisión, el último cambio, quién lo hizo («Lo editó», si Google lo informa), cómo llegan los avisos de Google («Al instante», con la hora en que vence la suscripción, o «Revisión periódica») y el error, con «Revisar ahora» y «Desvincular». La tarjeta de Google Sheets dice que Google avisa al instante cuando los avisos están activos y, si no, cada cuántos segundos revisa o que la revisión automática está apagada. Cada proyecto ve solo sus planillas. Autodesk aparece como próximamente (leer presupuestos y versiones de ACC), con un enlace a `/cuenta`, donde cada organización conecta su cuenta de Autodesk. Vuelve de Google con `?proyecto=…&google=conectado` o `?proyecto=…&google=error&motivo=` |
 
 Las pantallas de un proyecto piden sesión con `SessionGate` y van dentro de `ProjectProvider` (`components/proyectos/ProjectContext.tsx`): sus componentes leen el proyecto con `useProjectId()` y arman sus rutas con `lib/project-paths.ts` (`projectApi` para la API, `projectPage` para la web).
@@ -48,7 +47,6 @@ src/
 │   ├── cambios/           ChangeDetailView, ChangeDetailBody, ChangeResponse, VoteForm
 │   ├── cuenta/            AccountPanel, MembersCard, NewOrganizationForm, AutodeskCard, SessionGate
 │   │                      (pide la sesión de Auth0)
-│   ├── modelos/           ModelExplorer, BimViewer
 │   ├── proyectos/         NewProjectForm, ProjectView, ProjectContext (ProjectProvider y useProjectId)
 │   └── valor/             ValuePage, ProvenanceChain, useChangeIds
 ├── hooks/                 useLive, useProjectPulse, useResource, useNow
@@ -74,7 +72,6 @@ Cada módulo declara los tipos de las respuestas y las funciones que las piden. 
 | `votes-api.ts` | `POST /api/projects/:projectId/notifications/:id/response` con `{ kind, note? }` |
 | `events-api.ts` | `GET /api/projects/:projectId/events?after` |
 | `baseline-api.ts` | Sin endpoint: el estado de un valor vigente (`ValueStatus`) |
-| `aps-api.ts`         | `GET /api/aps/models`, `GET /api/aps/viewer-token`                                                         |
 | `integrations-api.ts` | `GET /api/integrations/projects/:projectId`, `POST /api/integrations/google/authorize`, `DELETE /api/integrations/google`, `POST /api/integrations/projects/:projectId/sources`, `POST …/sources/:id/check`, `DELETE …/sources/:id`; y lo puro: `pickProject` (el proyecto pedido si es tuyo, o el primero), los avisos de cada acción y el estado de cada planilla |
 | `accounts-api.ts`    | `GET /api/me`, `GET /api/projects`, `POST /api/projects` (recorta los textos), `GET /api/projects/:id`, `GET /api/organizations/:id/members`, `POST /api/organizations/:id/invitations`, `projectsByOrganization` (los proyectos bajo cada organización), `initialOrganization` (la del formulario), `projectHref` y `newProjectHref` |
 | `admin-api.ts`       | `GET /api/admin/users`, `GET /api/admin/organizations`, `POST /api/admin/organizations`, `POST /api/admin/invitations`, y `filterAdminUsers` (la búsqueda de `/admin`) |
@@ -91,7 +88,7 @@ Los formatos (`format.ts`) son es-CL: pesos sin decimales (`$3.636.500`), `1 dí
 El login es de Auth0, con `@auth0/nextjs-auth0` en el servidor de Next: la aplicación de Auth0 es una Regular Web Application y el navegador nunca ve el token.
 
 - `lib/auth0.ts` arma el `Auth0Client` solo si están `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_SECRET` y `AUTH0_AUDIENCE` (`authConfigured` en `lib/account-routes.ts`); `APP_BASE_URL` es la URL de la web. Pide `openid profile email offline_access` y un access token para la audiencia de la API. Sin esas variables, `auth0` es `null`: no hay `/auth/*` y las páginas que piden sesión avisan que las cuentas no están configuradas.
-- `src/proxy.ts` (el `middleware` de Next 16) monta `/auth/login`, `/auth/callback` y `/auth/logout` y mantiene viva la sesión. A las rutas de cuenta de la API (`/api/me`, `/api/projects` y todo lo que cuelga de un proyecto, `/api/organizations/*`, `/api/admin/*`, `/api/integrations/projects/*` y `/api/integrations/google/*`, `needsAccountToken`) les agrega `Authorization: Bearer <access token>` antes del `rewrite`. `/api/aps/*` y las vueltas de OAuth no lo llevan.
+- `src/proxy.ts` (el `middleware` de Next 16) monta `/auth/login`, `/auth/callback` y `/auth/logout` y mantiene viva la sesión. A las rutas de cuenta de la API (`/api/me`, `/api/projects` y todo lo que cuelga de un proyecto, `/api/organizations/*`, `/api/admin/*`, `/api/integrations/projects/*` y `/api/integrations/google/*`, `needsAccountToken`) les agrega `Authorization: Bearer <access token>` antes del `rewrite`. Las vueltas de OAuth no lo llevan.
 - `/cuenta`, `/proyectos/*`, `/conectores` y `/admin` revisan la sesión en el servidor con `SessionGate`: sin Auth0 avisa, sin sesión muestra «Entrar con tu correo» (`/auth/login?returnTo=<la ruta>`) y con sesión muestra la página. Si la API responde 403 `not_invited` (el correo no tiene invitación), la página lo dice; en `/cuenta` queda «Salir» para entrar con otro correo. `AccountPanel`, `AutodeskCard`, `MembersCard`, `NewOrganizationForm`, `NewProjectForm`, `ProjectView` y las pantallas de un proyecto piden los datos a la API desde el navegador. `AdminPanel` primero pregunta a `GET /api/me` si la cuenta es superadmin.
 - `AutodeskCard` muestra, por organización, si su cuenta de Autodesk está conectada y como quién (`lib/autodesk-api.ts`). Un administrador ve «Conectar cuenta de Autodesk» (o «Volver a conectar» si Autodesk dejó de aceptarla) y «Desconectar». Conectar pide la URL a `POST /api/organizations/:id/integrations/aps/authorize` y navega a Autodesk; Autodesk vuelve a `/api/integrations/aps/callback`, que el `rewrite` lleva a la API, y la API redirige a `/cuenta?autodesk=conectada` o `?autodesk=error&motivo=…`, que la página muestra como aviso (`callbackNotice`). El callback no lleva el token de Auth0: lo protege el `state` y una cookie de la API.
 - En Auth0: Allowed Callback URLs `http://localhost:3000/auth/callback`, Allowed Logout URLs y Web Origins `http://localhost:3000`, y una API cuyo identificador es `AUTH0_AUDIENCE`. En esa API, pestaña Application Access, la aplicación tiene que quedar con User Access en Authorized: si no, Auth0 corta el login con «Client … is not authorized to access resource server …».
@@ -106,19 +103,6 @@ El login es de Auth0, con `@auth0/nextjs-auth0` en el servidor de Next: la aplic
 - Cada sondeo lleva un `AbortController`; con la pestaña oculta se pausa y al volver se consulta de inmediato.
 
 `useLive` carga los datos de una pantalla y los vuelve a pedir cuando llegan eventos de su proyecto; con `reset: true` recarga todo. Sin `projectId` no sondea: `/conectores` lo usa así y recarga sus planillas cada 15 s.
-
-## Visor BIM
-
-`BimViewer` (`components/modelos`) carga el visor de APS v7 desde el CDN de Autodesk (`lib/aps-viewer.ts`), con `AutodeskProduction2` y `streamingV2` para SVF2, y pide el token a `/api/aps/viewer-token`. De cada modelo abre la última vista maestra (la fase final, «New Construction» en Snowdon Towers), o si no hay, `{3D}` o la primera vista 3D; un modelo sin vista 3D aparece como error y los demás cargan igual. Carga cada disciplina con `keepCurrentModels` y `applyRefPoint`, y con el `globalOffset` del primer modelo: los de Snowdon Towers comparten coordenadas y quedan alineados. Al abrir carga solo Arquitectura (`PRIMARY_DISCIPLINE`; si no está, el primer modelo): es el modelo principal y fija el offset. Las demás disciplinas parten apagadas y se cargan la primera vez que se encienden; después se ocultan y se muestran sin volver a cargar.
-
-`onReady` entrega un `ViewerControls`, que nombra cada elemento como `{ discipline, dbId }`:
-
-- `ensureLoaded` carga una disciplina si falta y la deja visible (para resaltar en un modelo que todavía no se abrió). `disciplines` lista las cargadas.
-- `setDisciplineVisible` muestra u oculta una disciplina ya cargada.
-- `resolveExternalIds` traduce `uniqueId` de Revit (el `externalId` del visor) a elementos, buscando en las disciplinas cargadas.
-- `getProperties`, `select`, `isolate` (vacío muestra todo), `highlight` (color RGBA de 0 a 1), `clearHighlights`, `fitTo` y `reset`.
-
-`onSelectionChange` entrega la selección con la misma forma.
 
 ## Diseño
 

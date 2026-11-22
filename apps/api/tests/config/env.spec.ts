@@ -76,13 +76,13 @@ describe('envSchema', () => {
   });
 
   it('las variables de APS son opcionales y se recortan', () => {
-    expect(envSchema.parse({}).APS_BUCKET_KEY).toBeUndefined();
-    expect(
-      envSchema.parse({ APS_BUCKET_KEY: '   ' }).APS_BUCKET_KEY,
-    ).toBeUndefined();
-    expect(
-      envSchema.parse({ APS_BUCKET_KEY: ' vigente-b ' }).APS_BUCKET_KEY,
-    ).toBe('vigente-b');
+    expect(envSchema.parse({}).APS_CLIENT_ID).toBeUndefined();
+    expect(envSchema.parse({ APS_CLIENT_ID: '   ' }).APS_CLIENT_ID).toBe(
+      undefined,
+    );
+    expect(envSchema.parse({ APS_CLIENT_ID: ' id-b ' }).APS_CLIENT_ID).toBe(
+      'id-b',
+    );
   });
 
   it('el callback de APS es una URL y la clave de los tokens son 64 hexadecimales', () => {
