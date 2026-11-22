@@ -18,7 +18,7 @@ import {
   type WatchSource,
 } from '@team27/context-integrations';
 
-import { OAuthStates } from './oauth-states.ts';
+import { OAuthStates, type StateOwner } from './oauth-states.ts';
 import { checkView, sourceView } from './views.ts';
 
 export const GOOGLE_SETUP = 'GOOGLE_SETUP';
@@ -46,6 +46,8 @@ export interface CallbackQuery {
 }
 
 export const CONNECTORS_PATH = '/conectores';
+
+export const PROJECT_PARAM = 'proyecto';
 
 const NOT_CONFIGURED =
   'Falta configurar Google en la API: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e INTEGRATIONS_ENCRYPTION_KEY';
@@ -83,10 +85,10 @@ export class IntegrationsService
     this.timer = null;
   }
 
-  async overview() {
-    const sources = this.setup ? await this.setup.list.execute() : [];
+  async overview(userId: string, projectId: string) {
+    const sources = this.setup ? await this.setup.list.execute(projectId) : [];
     const connection = this.setup
-      ? await this.setup.connection.execute()
+      ? await this.setup.connection.execute(userId)
       : null;
     return {
       google: {
@@ -101,21 +103,25 @@ export class IntegrationsService
     };
   }
 
-  authorizationUrl(): { url: string } {
+  authorizationUrl(owner: StateOwner): { url: string } {
     return {
-      url: this.require().connect.authorizationUrl(this.states.issue()),
+      url: this.require().connect.authorizationUrl(this.states.issue(owner)),
     };
   }
 
   async completeAuthorization(query: CallbackQuery): Promise<string> {
+    const owner = this.states.consume(query.state);
     const back = (params: Record<string, string>): string => {
       const url = new URL(CONNECTORS_PATH, this.config.redirectUri);
-      url.search = new URLSearchParams(params).toString();
+      url.search = new URLSearchParams({
+        ...(owner?.projectId ? { [PROJECT_PARAM]: owner.projectId } : {}),
+        ...params,
+      }).toString();
       return url.toString();
     };
     const failed = (reason: string) =>
       back({ google: 'error', motivo: reason });
-    if (!this.states.consume(query.state)) {
+    if (owner === null) {
       return failed('La conexión venció o no partió aquí: vuelve a intentarlo');
     }
     if (query.error || !query.code) {
@@ -123,7 +129,7 @@ export class IntegrationsService
     }
     if (this.setup === null) return failed(NOT_CONFIGURED);
     try {
-      await this.setup.connect.execute(query.code);
+      await this.setup.connect.execute(owner.userId, query.code);
       return back({ google: 'conectado' });
     } catch (error) {
       const reason =
@@ -135,25 +141,33 @@ export class IntegrationsService
     }
   }
 
-  async disconnect(): Promise<void> {
-    await this.require().disconnect.execute();
+  async disconnect(userId: string): Promise<void> {
+    await this.require().disconnect.execute(userId);
   }
 
-  async link(url: string) {
-    const source = await this.require().link.execute(url);
-    this.logger.log(`Escuchamos «${source.title}» (${source.pointer})`);
+  async link(userId: string, projectId: string, url: string) {
+    const source = await this.require().link.execute({
+      userId,
+      projectId,
+      url,
+    });
+    this.logger.log(
+      `Escuchamos «${source.title}» en ${projectId} (${source.pointer})`,
+    );
     return { source: sourceView(source) };
   }
 
-  async check(id: string) {
+  async check(projectId: string, id: string) {
     const setup = this.require();
-    const result = await this.serial(id, () => setup.watch.execute(id));
+    const result = await this.serial(id, () =>
+      setup.watch.execute(id, projectId),
+    );
     this.report(result.source, result);
     return { source: sourceView(result.source), check: checkView(result) };
   }
 
-  async unlink(id: string): Promise<void> {
-    await this.require().unlink.execute(id);
+  async unlink(projectId: string, id: string): Promise<void> {
+    await this.require().unlink.execute(projectId, id);
   }
 
   async poll(): Promise<void> {

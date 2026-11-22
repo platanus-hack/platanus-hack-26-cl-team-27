@@ -1,12 +1,12 @@
 # Integraciones: Google Sheets y ACC
 
-Lo que la rama `integration-sheets` quiere lograr. Las issues son [PH-17](https://linear.app/ph-team-27/issue/PH-17/conector-de-google-sheets-para-el-presupuesto) (Google Sheets) y [PH-39](https://linear.app/ph-team-27/issue/PH-39/conector-de-presupuestos-de-acc-cost-management) (ACC).
+El canal con las planillas de Google Sheets y lo que falta para ACC. Las issues son [PH-17](https://linear.app/ph-team-27/issue/PH-17/conector-de-google-sheets-para-el-presupuesto) (Google Sheets) y [PH-39](https://linear.app/ph-team-27/issue/PH-39/conector-de-presupuestos-de-acc-cost-management) (ACC).
 
-**Estado:** el canal de Google Sheets está construido: [`context/integrations`](../../context/integrations/README.md), `apps/api/src/modules/integrations` y la vista `/conectores`. Conectar la cuenta y vincular una planilla están probados con una cuenta real de Google. ACC no está construido.
+**Estado:** el canal de Google Sheets está construido: [`context/integrations`](../../context/integrations/README.md), `apps/api/src/modules/integrations` y la vista `/conectores`. Conectar la cuenta y vincular una planilla están probados con una cuenta real de Google. La cuenta de Autodesk de cada organización se conecta con OAuth en `/cuenta` (`apps/api/src/modules/integrations/aps`), pero nada lee ACC todavía.
 
 ## Objetivo
 
-Que Vigente quede **enlazado** a las planillas donde ya vive la información de la obra y **escuche** sus cambios. Este PR es solo el canal de conexión y escucha:
+Que Vigente quede **enlazado** a las planillas donde ya vive la información de la obra y **escuche** sus cambios. El canal es solo de conexión y escucha:
 
 1. **Conectar** la cuenta de Google desde la web, con un permiso de solo lectura guardado cifrado.
 2. **Vincular** una o varias planillas por su link. Queda guardado su id y su link, para que un servicio futuro entre a leerlas.
@@ -14,11 +14,11 @@ Que Vigente quede **enlazado** a las planillas donde ya vive la información de 
 
 **Listo cuando:** con la cuenta conectada y la planilla vinculada, alguien cambia un precio en la planilla y, en menos de dos minutos, `/conectores` muestra el último cambio y el log de la API dice qué celda cambió y cómo.
 
-## Fuera de este PR
+## Fuera del canal
 
-- **Interpretar la planilla** (por ejemplo, leerla como presupuesto) y entregar sus hechos a la obra como revisiones. Un primer lector del presupuesto existió en esta rama y salió del alcance: está en el commit `7f33caa`, por si sirve de punto de partida.
+- **Interpretar la planilla** (por ejemplo, leerla como presupuesto) y entregar sus hechos a la obra como revisiones. Un primer lector del presupuesto quedó fuera del alcance: está en el commit `7f33caa`, por si sirve de punto de partida.
 - **Guardar lo que se escucha.** Hoy el cambio queda en el log de la API y en memoria. Para guardarlo o actuar sobre él basta otro `ChangeListener`.
-- **Cuentas, organizaciones y documentos.** Hay una sola cuenta de Google para toda la app, y las planillas no pertenecen a un proyecto ni a un documento. Eso llega con [PH-19](https://linear.app/ph-team-27/issue/PH-19/cuentas-organizaciones-y-roles) y el proyecto en la base.
+- **Documentos.** Las planillas son de un proyecto y cada cuenta de Google es de quien la conectó ([PH-48](https://linear.app/ph-team-27/issue/PH-48/asociar-las-planillas-conectadas-a-un-usuario-o-a-un-proyecto), ver [de quién es cada cosa](../../context/integrations/README.md#de-quién-es-cada-cosa)), pero una planilla todavía no es un documento del proyecto. La conexión con Autodesk, en cambio, es una por organización (`aps_connections`): Google lee con el permiso de cada persona sobre sus archivos y Autodesk con el de la organización sobre sus proyectos de ACC.
 - **El selector de Google** (Picker) para elegir varios archivos del Drive con el permiso `drive.file`.
 - ACC, Presto, Excel `.xlsx` en Drive, OneDrive y SharePoint.
 
@@ -40,9 +40,9 @@ Para la muestra alcanza con preguntar. Para producción con muchos usuarios, lo 
 ## Lo que sigue
 
 1. **Un `ChangeListener` que guarde o actúe:** por ejemplo, entregar la planilla a la cadena como revisión de un documento, con un lector por formato.
-2. **Planillas por usuario y por proyecto**, cuando estén las cuentas (PH-19) y los documentos en la base. Hay que acordar con el equipo cómo se crea un documento desde un archivo del Drive y quién es su dueño en el elenco.
+2. **La planilla como documento del proyecto.** Ya es del proyecto; falta acordar con el equipo cómo se crea un documento desde un archivo del Drive y quién es su dueño en el elenco. Y un solo cifrado de tokens: hoy Google usa `INTEGRATIONS_ENCRYPTION_KEY` (`TokenCipher` de `context/integrations`) y Autodesk usa `APS_TOKEN_KEY` (AES-256-GCM en `apps/api/src/modules/integrations/aps`).
 3. **El selector de Google con varios archivos y los avisos de Drive**, para producción.
-4. **ACC** ([PH-39](https://linear.app/ph-team-27/issue/PH-39/conector-de-presupuestos-de-acc-cost-management)): el mismo canal, con la cuenta de Autodesk ([PH-25](https://linear.app/ph-team-27/issue/PH-25/conexion-oauth-con-autodesk-aps)) y una cuenta de ACC con Cost Management para probar.
+4. **ACC** ([PH-39](https://linear.app/ph-team-27/issue/PH-39/conector-de-presupuestos-de-acc-cost-management)): el mismo canal, con los tokens de la cuenta de Autodesk que cada organización conecta en `/cuenta` ([PH-25](https://linear.app/ph-team-27/issue/PH-25/conexion-oauth-con-autodesk-aps); `getValidAccessToken` los renueva) y una cuenta de ACC con Cost Management para probar. Un administrador de esa cuenta tiene que agregar el Client ID de la app en Account Admin → Custom Integrations.
 
 ## Decisiones abiertas
 

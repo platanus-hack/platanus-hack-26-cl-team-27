@@ -75,3 +75,47 @@ export const projectsByOrganization = (
       (project) => project.organizationId === organization.id,
     ),
   }));
+
+export interface NewProject {
+  readonly organizationId: string;
+  readonly name: string;
+  readonly location: string;
+  readonly description: string;
+}
+
+export interface ProjectDetail extends AccountProject {
+  readonly organizationName: string;
+  readonly createdAt: string;
+}
+
+export const projectHref = (projectId: string): string =>
+  `/proyectos/${encodeURIComponent(projectId)}`;
+
+export const newProjectHref = (organizationId?: string): string =>
+  organizationId
+    ? `/proyectos/nuevo?organizacion=${encodeURIComponent(organizationId)}`
+    : '/proyectos/nuevo';
+
+export const getProject = (projectId: string, signal?: AbortSignal) =>
+  request<ProjectDetail>(`/api/projects/${encodeURIComponent(projectId)}`, {
+    signal,
+  });
+
+export const createProject = (project: NewProject) =>
+  request<AccountProject>('/api/projects', {
+    method: 'POST',
+    body: {
+      organizationId: project.organizationId,
+      name: project.name.trim(),
+      location: project.location.trim(),
+      description: project.description.trim(),
+    },
+  });
+
+export const initialOrganization = (
+  me: Me,
+  requested: string | null,
+): string | null =>
+  me.organizations.find((organization) => organization.id === requested)?.id ??
+  me.organizations[0]?.id ??
+  null;

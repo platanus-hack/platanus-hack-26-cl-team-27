@@ -63,16 +63,17 @@ describe('describeChange', () => {
 });
 
 describe('OAuthStates', () => {
-  it('un estado sirve una vez y vence', () => {
+  it('un estado sirve una vez, vence y recuerda quién conecta', () => {
     let now = 0;
     const states = new OAuthStates(() => now);
-    const first = states.issue();
-    const second = states.issue();
+    const owner = { userId: 'u1', projectId: 'los-aromos' };
+    const first = states.issue(owner);
+    const second = states.issue({ userId: 'u2', projectId: null });
 
-    expect(states.consume(first)).toBe(true);
-    expect(states.consume(first)).toBe(false);
-    expect(states.consume(undefined)).toBe(false);
+    expect(states.consume(first)).toEqual(owner);
+    expect(states.consume(first)).toBeNull();
+    expect(states.consume(undefined)).toBeNull();
     now = STATE_TTL_MS + 1;
-    expect(states.consume(second)).toBe(false);
+    expect(states.consume(second)).toBeNull();
   });
 });

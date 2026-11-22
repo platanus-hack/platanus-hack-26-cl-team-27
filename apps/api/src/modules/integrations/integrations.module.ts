@@ -21,7 +21,7 @@ import type { PrismaClient } from '@team27/data-main';
 
 import type { Env } from '../../config/index.ts';
 import { PRISMA_CLIENT } from '../database/database.module.ts';
-import { RoomStoreModule } from '../room/store.module.ts';
+import { AccountsModule } from '../accounts/accounts.module.ts';
 import { LoggingChangeListener } from './change-log.ts';
 import { ConnectorsController } from './connectors.controller.ts';
 import {
@@ -82,7 +82,7 @@ export const buildGoogleSetup = (
 };
 
 @Module({
-  imports: [RoomStoreModule],
+  imports: [AccountsModule],
   controllers: [ConnectorsController],
   providers: [
     { provide: OAuthStates, useFactory: () => new OAuthStates() },

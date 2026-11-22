@@ -15,6 +15,7 @@ export const SHEET_ID = '1AbCdEfGhIjKlMnOpQrStUvWxYz_0123456789-ab';
 
 export const CONNECTION: StoredConnection = {
   id: 'c1',
+  userId: 'u1',
   provider: 'google',
   accountEmail: 'daniela@example.com',
   scopes: ['email'],
@@ -31,6 +32,7 @@ export const CONTENT: SpreadsheetContent = {
 
 export const SOURCE: SourceLink = {
   id: 's1',
+  projectId: 'los-aromos',
   connectionId: 'c1',
   provider: 'google',
   externalId: SHEET_ID,
@@ -44,6 +46,9 @@ export const SOURCE: SourceLink = {
 };
 
 export const connections = (found: StoredConnection | null = CONNECTION) => ({
+  findForUser: vi
+    .fn<ConnectionRepository['findForUser']>()
+    .mockResolvedValue(found),
   find: vi.fn<ConnectionRepository['find']>().mockResolvedValue(found),
   save: vi.fn<ConnectionRepository['save']>(),
   remove: vi.fn<ConnectionRepository['remove']>(),
@@ -66,12 +71,22 @@ export const sources = (found: SourceLink | null = SOURCE) => ({
     .fn<SourceLinkRepository['list']>()
     .mockResolvedValue(found ? [found] : []),
   find: vi.fn<SourceLinkRepository['find']>().mockResolvedValue(found),
-  findByExternalId: vi
-    .fn<SourceLinkRepository['findByExternalId']>()
+  findInProject: vi
+    .fn<SourceLinkRepository['findInProject']>()
     .mockResolvedValue(null),
   create: vi
     .fn<SourceLinkRepository['create']>()
     .mockImplementation(async (draft) => ({ ...SOURCE, ...draft })),
+  relink: vi
+    .fn<SourceLinkRepository['relink']>()
+    .mockImplementation(async (_id, relink) => ({
+      ...SOURCE,
+      connectionId: relink.connectionId,
+      title: relink.title,
+      contentHash: relink.contentHash,
+      checkedAt: relink.at,
+      lastError: null,
+    })),
   recordCheck: vi
     .fn<SourceLinkRepository['recordCheck']>()
     .mockImplementation(async (_id, check) => ({

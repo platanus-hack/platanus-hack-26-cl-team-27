@@ -38,11 +38,9 @@ describe('loadProjectCatalog', () => {
     );
   });
 
-  it('con varios proyectos, exige PROJECT_ID', async () => {
+  it('con varios proyectos, carga el más antiguo salvo que PROJECT_ID diga otro', async () => {
     stored(LOS_AROMOS, { ...LOS_AROMOS, id: 'otro' });
-    await expect(loadProjectCatalog(prisma, undefined)).rejects.toThrow(
-      /PROJECT_ID/,
-    );
+    expect((await loadProjectCatalog(prisma, undefined)).id).toBe('los-aromos');
     expect((await loadProjectCatalog(prisma, 'otro')).id).toBe('otro');
   });
 

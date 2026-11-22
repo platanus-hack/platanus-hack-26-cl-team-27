@@ -7,6 +7,7 @@ import {
   formatSignedCLP,
   formatSignedDays,
   formatChange,
+  formatDate,
   formatRelative,
   formatValue,
   joinNames,
@@ -104,5 +105,12 @@ describe('latest', () => {
       '2026-11-21T11:00:00Z',
     );
     expect(latest([null, null])).toBeNull();
+  });
+});
+
+describe('formatDate', () => {
+  it('da el día en Santiago, con el mes en palabras', () => {
+    expect(formatDate('2026-11-21T02:00:00Z')).toBe('20 de noviembre de 2026');
+    expect(formatDate('no es fecha')).toBe('');
   });
 });

@@ -1,4 +1,5 @@
 import { ProviderError } from '../../src/application/errors.ts';
+import { ORPHAN_SOURCE } from '../../src/application/use-cases/requireGoogle.ts';
 import {
   UNCHANGED_MESSAGE,
   WatchSource,
@@ -183,11 +184,37 @@ describe('WatchSource', () => {
     expect(heard.changed).not.toHaveBeenCalled();
   });
 
-  it('sin la cuenta de Google conectada, falla con un mensaje claro', async () => {
+  it('lee con la cuenta de quien vinculó la planilla', async () => {
+    const { useCase, connections: accounts } = setup();
+
+    await useCase.execute('s1');
+
+    expect(accounts.find).toHaveBeenCalledWith('c1');
+  });
+
+  it('si esa cuenta se desconectó, falla con un mensaje claro', async () => {
     const result = await setup({ connected: false }).useCase.execute('s1');
-    expect(result.message).toBe(
-      'Conecta tu cuenta de Google para leer la planilla',
-    );
+    expect(result.status).toBe('failed');
+    expect(result.message).toBe(ORPHAN_SOURCE);
+  });
+
+  it('una planilla sin cuenta no le pregunta a Google', async () => {
+    const { useCase, sources: links, reader: sheets } = setup();
+    links.find.mockResolvedValue({ ...SOURCE, connectionId: null });
+
+    const result = await useCase.execute('s1');
+
+    expect(result.message).toBe(ORPHAN_SOURCE);
+    expect(sheets.read).not.toHaveBeenCalled();
+  });
+
+  it('no revisa una planilla de otro proyecto', async () => {
+    const { useCase, reader: sheets } = setup();
+
+    await expect(useCase.execute('s1', 'torre')).rejects.toMatchObject({
+      code: 'source_not_found',
+    });
+    expect(sheets.read).not.toHaveBeenCalled();
   });
 
   it('un error inesperado queda con un mensaje genérico y su causa', async () => {

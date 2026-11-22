@@ -30,15 +30,19 @@ No se negocian. Si una tarea parece pedir romper una, detente y pregunta.
 | `apps/api/src/modules/coordination/`          | `coordination.service.ts` (la cadena), `query.service.ts` (vistas), `revision-body.ts`, `revit-minute.ts`, `chunk-reader.ts`, `action-log.ts` (idempotencia en memoria, 500 entradas)                                   |
 | `apps/api/src/modules/room/`                  | Asientos con token hasheado, eventos con `seq`, época y reinicio                                                                                                                                                        |
 | `apps/api/src/modules/database/`              | `PRISMA_CLIENT` y `unit-of-work.ts`                                                                                                                                                                                     |
-| `apps/api/src/scenario/`                      | `los-aromos.ts` (grafo, elenco), `documents.ts` (espacios, sujetos, atributos, documentos y dueños), `areas.ts` (niveles, grilla, sistemas, huellas)                                                                    |
+| `apps/api/src/modules/project/`               | `ProjectCatalog` y `project-schema.ts`: al arrancar cargan de la base un proyecto (`PROJECT_ID`, o el más antiguo) con su elenco, grafo, espacios, documentos, sujetos, atributos y áreas                               |
+| `data/main/project/` y `data/main/seed/`      | `definition.ts` y `store.ts` leen y escriben el proyecto en la base; `seed/los-aromos.ts` es el proyecto Los Aromos que siembra `pnpm db:seed`                                                                          |
+| `apps/api/src/modules/accounts/`              | `AccountGuard` (token Bearer de Auth0), `AccountsService` (usuarios, organizaciones, invitaciones, roles `admin` y `member`, proyectos) y `/api/me`, `/api/projects`, `/api/organizations`                              |
+| `apps/api/src/modules/integrations/`          | Los conectores: `connectors.controller.ts` (Google Sheets) y `aps/` (OAuth de tres patas con Autodesk por organización: `TokenVault`, `TokenCipher` AES-256-GCM, tabla `aps_connections`)                               |
+| `apps/api/src/scenario/`                      | `caso-p12.ts`: el caso del pitch (P-12 y la bandeja E-B-03)                                                                                                                                                             |
 | `apps/api/src/common/provide-use-case.ts`     | El único punto de unión entre un caso de uso y Nest                                                                                                                                                                     |
 | `apps/api/tests/`                             | Vitest sin base de datos. No hay tests de `CoordinationService` ni contra Postgres                                                                                                                                      |
-| `apps/web/src/app/`                           | Route groups `(site)`, `(sala)` y `(asiento)`. No hay `error.tsx` ni `loading.tsx`                                                                                                                                      |
+| `apps/web/src/app/`                           | Route groups `(site)`, `(sala)`, `(asiento)` y `(caso)`. En `(site)`, `/cuenta` y `/proyectos` piden cuenta (`components/cuenta/SessionGate.tsx`). No hay `error.tsx` ni `loading.tsx`                                  |
 | `apps/web/src/components/asiento/Channel.tsx` | El look de cada canal simulado                                                                                                                                                                                          |
 | `apps/web/src/lib/`                           | Un cliente tipado por tema; `http.ts` pone `x-seat-token`, `x-presenter-key` y `x-action-id` (`crypto.randomUUID`)                                                                                                      |
 | `apps/etl/src/transform/`                     | Un parser determinista por tipo: `plano`, `eett`, `presupuesto`, `gantt`, `cotizacion`, `acta`, `whatsapp`, `libro`                                                                                                     |
 | `apps/etl/tests/golden.spec.ts`               | Test de oro: cada archivo del lago produce los hechos esperados                                                                                                                                                         |
-| `data/main/prisma/schema.prisma`              | 17 modelos. `Notification.channel` es `String`: agregar un canal no exige migración                                                                                                                                     |
+| `data/main/prisma/schema.prisma`              | 36 modelos. `Notification.channel` es `String`: agregar un canal no exige migración                                                                                                                                     |
 | `tool-use-case/revit/`                        | Add-in C# fuera de Nx; contrato en `contract/`, que también parsea `apps/api/tests/modules/coordination/revit-minute.spec.ts`                                                                                           |
 
 ## La cadena de una revisión
@@ -69,15 +73,16 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 - Falta: Sentry. Va como `@sentry/nestjs` en `apps/api/src/main.ts` y `@sentry/nextjs` en `apps/web`, con el DSN validado en `apps/api/src/config/env.ts` como opcional.
 - Listo cuando: un error lanzado a propósito en la API y en la web llega a Sentry, y sin DSN nada cambia.
 
-**2 · Modelo de datos** · `distinto`
+**2 · Modelo de datos** · `parcial`
 
-- Hay: Prisma 7, `data/main/prisma/schema.prisma` y seis migraciones. Un solo proyecto, definido en `apps/api/src/scenario/`.
-- Falta: multi-proyecto. Ver la receta [el proyecto en la base](#el-proyecto-en-la-base).
+- Hay: Prisma 7, `data/main/prisma/schema.prisma` y doce migraciones. El proyecto vive en la base: `projects` con su organización, y `project_id` en las tablas del proyecto, el lago, los avisos y la sala. `pnpm db:seed` siembra Los Aromos.
+- Falta: servir más de un proyecto. La API carga uno al arrancar (`apps/api/src/modules/project/project.module.ts`) y los adapters `InMemoryProjectGraph` e `InMemoryStakeholderDirectory` se arman con él. Ver la receta [el proyecto en la base](#el-proyecto-en-la-base).
 
-**3 · Autenticación** · `falta`
+**3 · Autenticación** · `distinto`
 
-- Hay: el token de asiento hasheado con SHA-256 (`apps/api/src/modules/room/seats.service.ts`) y `PRESENTER_KEY` (`credentials.ts`). Sin usuarios, a propósito ([muestra](../muestra.md#espacio-controlado)).
-- Falta: cuentas, organizaciones y roles. Proveedor por decidir. Depende de la tarea 2.
+- Hay: Auth0 para la identidad (`apps/web/src/lib/auth0.ts` en la web; `accounts.service.ts` valida el token en la API) y, en Postgres, `organizations`, `users`, `memberships` e `invitations`, con los roles `admin` y `member` (`AccountGuard`, `requireAdmin`). Es opcional: sin las variables `AUTH0_*` la API arranca, las rutas con cuenta no funcionan y la web avisa que las cuentas no están configuradas.
+- La sala y el caso no usan la cuenta: siguen con el token de asiento hasheado con SHA-256 (`apps/api/src/modules/room/seats.service.ts`) y `PRESENTER_KEY` (`credentials.ts`), sin usuarios, a propósito ([muestra](../muestra.md#espacio-controlado)).
+- Falta: nada que la muestra pida.
 
 **4 · Infraestructura y despliegue** · `parcial`
 
@@ -86,9 +91,10 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 
 ### Integración con Autodesk
 
-**5 · OAuth con APS** · `falta`
+**5 · OAuth con APS** · `parcial`
 
-- Falta: OAuth de tres patas y tokens cifrados en Postgres. Un contexto nuevo o un módulo de la API `integrations/aps`, con un puerto `TokenVault` y su adapter Prisma.
+- Hay: `apps/api/src/modules/integrations/aps/`. Un administrador autoriza (`POST /api/organizations/:organizationId/integrations/aps/authorize`), `GET /api/integrations/aps/callback` guarda la cuenta de Autodesk de la organización, y los tokens van cifrados con AES-256-GCM (`token-cipher.ts`, `APS_TOKEN_KEY`) en `aps_connections` por el puerto `TokenVault` (`prisma-token-vault.ts`). La web la muestra en `components/cuenta/AutodeskCard.tsx`, dentro de `/cuenta`.
+- Falta: que algo use esos tokens para leer ACC. Hoy nada los consume.
 
 **6 · Webhooks de APS** · `falta`
 
@@ -98,7 +104,8 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 **7 · Spike de AEC Data Model** · `distinto`
 
 - Hay: el cambio por elemento. El add-in compara cada guardado con el anterior (`tool-use-case/revit/src/Team27.Minuta.Revit/ChangeTracker.cs`) y `DetectChanges` lo convierte en `Change`.
-- Falta: comprobar si ACC entrega ese diff desde la nube. Es un spike: su salida es un doc, no código en `main`.
+- Spike hecho: [aec-data-model.md](aec-data-model.md). ACC lo entrega con `diffElementGroupByVersionWithLatest`, por versión sincronizada o publicada y no por guardado, y solo con el modelo en un hub de ACC con AEC Data Model activado.
+- Falta: comprobarlo con un hub real (la lista está al final del spike) y, si sirve, un conector que arme la misma minuta y la mande a `POST /api/integrations/revit/minutes`.
 
 **8 · Parser de Presto o S10** · `distinto`
 
@@ -124,12 +131,12 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 
 **12 · Resolvedor de dependencias** · `hecho`
 
-- `context/impact/src/domain/analyzeChange.ts` sobre `ProjectGraph.dependencies` (`watches`, `measures`). El grafo es fijo: `InMemoryProjectGraph` desde `scenario/los-aromos.ts`.
+- `context/impact/src/domain/analyzeChange.ts` sobre `ProjectGraph.dependencies` (`watches`, `measures`). El grafo se lee de la base al arrancar: `InMemoryProjectGraph` desde `ProjectCatalog`.
 - Pendiente aparte: conectar `SuggestAffected` a la API (segmento 7 de la [muestra](../muestra.md#segmentos)).
 
 **13 · Detector de conflictos** · `hecho`
 
-- `context/lake/src/domain/detectOverlaps.ts`, `Overlap.ts`; `OpenOverlaps`, `VoteOverlap`, `SettleOverlaps`. Áreas en `apps/api/src/scenario/areas.ts`. Ver [solapamientos](../solapamientos.md).
+- `context/lake/src/domain/detectOverlaps.ts`, `Overlap.ts`; `OpenOverlaps`, `VoteOverlap`, `SettleOverlaps`. Las áreas salen del proyecto (`project_levels`, `project_systems` y los ejes de `projects`). Ver [solapamientos](../solapamientos.md).
 
 **14 · Calculador de costo y plazo** · `hecho`
 
@@ -155,15 +162,15 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 
 ### Web
 
-**21 · Onboarding del administrador** · `falta`
+**21 · Onboarding del administrador** · `parcial`
 
-- Hay: los espacios, documentos y dueños en `apps/api/src/scenario/documents.ts`.
-- Falta: el proyecto en la base y una ruta nueva en `apps/web/src/app/(site)/`. Depende de las tareas 2 y 5.
+- Hay: crear un proyecto desde la web (`/proyectos/nuevo`, `components/proyectos/NewProjectForm.tsx`; `POST /api/projects` y `GET /api/projects` en `accounts.controller.ts`), que lo deja en la organización de quien lo crea, con esa persona como único miembro. `/proyectos/[projectId]` lo muestra.
+- Falta: espacios, documentos, equipo y mapa de dependencias del proyecto nuevo, y conectar ACC. Un proyecto nuevo no tiene grilla ni documentos, así que no se carga en la sala. Depende de que algo use los tokens de la tarea 5.
 
 **22 · Editor del mapa de dependencias** · `falta`
 
-- Hay: el grafo en `apps/api/src/scenario/los-aromos.ts`.
-- Falta: el grafo en la base y el editor. Depende de la tarea 2.
+- Hay: el grafo en la base (`project_dependencies`, `budget_items`, `schedule_tasks`), sembrado desde `data/main/seed/los-aromos.ts`.
+- Falta: el editor.
 
 **23 · Detalle y respuesta del aviso** · `hecho`
 
@@ -222,14 +229,17 @@ Para envíos, reintentos, recordatorios y escalamiento:
 - La extracción de lo estructurado ocurre en el conector, no en la API: el parser produce fragmentos (`Chunk`) con sus hechos (`subject`, `attribute`, `value`, `unit`, `role`) y los entrega por `POST /api/revisions`.
 - El parser es una función pura con un test de oro sobre un archivo de ejemplo, como `apps/etl/src/transform/` y `apps/etl/tests/golden.spec.ts`.
 - `apps/etl` es la simulación de la muestra: un conector real no va ahí. Va en el módulo de la API que recibe esa fuente (por ejemplo `integrations/aps`) o en una herramienta de `tool-use-case/`, como el add-in de Revit.
-- Los sujetos y atributos tienen que existir en `documents.ts`; si no, la API responde `422 invalid_claims`.
+- Los sujetos y atributos tienen que existir en el proyecto (`project_subjects` y `project_attributes`); si no, la API responde `422 invalid_claims`.
 
 ### El proyecto en la base
 
-1. Tablas para proyecto, elenco (`Stakeholder`), espacios, documentos, sujetos y atributos, grafo (partidas, tareas, dependencias) y áreas, con `project_id`. `project_id` también en las tablas del lago, los avisos y la sala.
-2. Los puertos ya existen: `ProjectGraphRepository` en `impact` y `StakeholderDirectory` en `notification`. Escribe sus adapters Prisma; los casos de uso no cambian.
-3. `apps/api/src/scenario/` pasa a ser datos de carga que el ETL envía en la carga inicial. La API deja de importarlo.
-4. Es la base de las tareas 3, 21 y 22.
+Lo hecho: las tablas `projects`, `project_members`, `project_spaces`, `project_documents`, `project_subjects`, `project_attributes`, `budget_items`, `schedule_tasks`, `project_dependencies`, `project_levels` y `project_systems`, con `project_id` también en las tablas del lago, los avisos y la sala; `data/main/project/` las lee y escribe, y `apps/api/src/modules/project/` arma el `ProjectCatalog` al arrancar.
+
+Lo que falta:
+
+1. Que la API sirva más de un proyecto. Hoy el catálogo es uno por proceso (`PROJECT_ID` o el más antiguo) y los adapters en memoria se arman con él.
+2. Que un proyecto creado desde la web tenga grilla, elenco y documentos para poder cargarse en la sala.
+3. Es la base de las tareas 21 y 22.
 
 ## Verificación
 

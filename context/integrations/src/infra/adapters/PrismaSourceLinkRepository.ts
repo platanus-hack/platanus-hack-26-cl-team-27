@@ -7,6 +7,7 @@ import type {
   SourceError,
   SourceLink,
   SourceLinkDraft,
+  SourceRelink,
 } from '../../domain/Connection.ts';
 
 type SourceRow = Prisma.IntegrationSourceGetPayload<object>;
@@ -26,6 +27,7 @@ const errorOf = (value: Prisma.JsonValue | null): SourceError | null => {
 
 const toSource = (row: SourceRow): SourceLink => ({
   id: row.id,
+  projectId: row.projectId,
   connectionId: row.connectionId,
   provider: row.provider as Provider,
   externalId: row.externalId,
@@ -45,8 +47,9 @@ export class PrismaSourceLinkRepository implements SourceLinkRepository {
     this.prisma = prisma;
   }
 
-  async list(): Promise<SourceLink[]> {
+  async list(projectId?: string): Promise<SourceLink[]> {
     const rows = await this.prisma.integrationSource.findMany({
+      ...(projectId === undefined ? {} : { where: { projectId } }),
       orderBy: { createdAt: 'asc' },
     });
     return rows.map(toSource);
@@ -59,16 +62,34 @@ export class PrismaSourceLinkRepository implements SourceLinkRepository {
     return row === null ? null : toSource(row);
   }
 
-  async findByExternalId(externalId: string): Promise<SourceLink | null> {
+  async findInProject(
+    projectId: string,
+    externalId: string,
+  ): Promise<SourceLink | null> {
     const row = await this.prisma.integrationSource.findUnique({
-      where: { externalId },
+      where: { projectId_externalId: { projectId, externalId } },
     });
     return row === null ? null : toSource(row);
+  }
+
+  async relink(id: string, relink: SourceRelink): Promise<SourceLink> {
+    const row = await this.prisma.integrationSource.update({
+      where: { id },
+      data: {
+        connectionId: relink.connectionId,
+        title: relink.title,
+        contentHash: relink.contentHash,
+        checkedAt: relink.at,
+        lastError: Prisma.DbNull,
+      },
+    });
+    return toSource(row);
   }
 
   async create(draft: SourceLinkDraft): Promise<SourceLink> {
     const row = await this.prisma.integrationSource.create({
       data: {
+        projectId: draft.projectId,
         connectionId: draft.connectionId,
         provider: draft.provider,
         externalId: draft.externalId,

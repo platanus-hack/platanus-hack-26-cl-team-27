@@ -39,6 +39,13 @@ export const envSchema = z
     APS_CLIENT_ID: optionalText,
     APS_CLIENT_SECRET: optionalText,
     APS_BUCKET_KEY: optionalText,
+    APS_CALLBACK_URL: optionalText.pipe(z.string().url().optional()),
+    APS_TOKEN_KEY: optionalText.pipe(
+      z
+        .string()
+        .regex(/^[0-9a-fA-F]{64}$/, 'deben ser 64 caracteres hexadecimales')
+        .optional(),
+    ),
     GOOGLE_CLIENT_ID: optionalText,
     GOOGLE_CLIENT_SECRET: optionalText,
     GOOGLE_REDIRECT_URI: z

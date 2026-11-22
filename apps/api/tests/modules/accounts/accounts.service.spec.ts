@@ -4,6 +4,7 @@ import type { PrismaClient } from '@team27/data-main';
 import {
   type Account,
   AccountsService,
+  CREATOR_ROLE,
 } from '../../../src/modules/accounts/accounts.service.ts';
 import {
   type Identity,
@@ -34,6 +35,21 @@ interface InvitationRow {
   acceptedAt: Date | null;
 }
 
+interface ProjectCreate {
+  id: string;
+  organizationId: string;
+  name: string;
+  location: string;
+  description: string;
+  authorId: string;
+  costOwnerId: string;
+  scheduleOwnerId: string;
+  modelDocumentId: string | null;
+  longitudinalAxes: unknown[];
+  transversalAxes: number[];
+  members: { create: Record<string, unknown>[] };
+}
+
 const fakeDb = () => {
   const organizations = new Map([
     ['aromos', { id: 'aromos', name: 'Inmobiliaria Los Aromos' }],
@@ -46,6 +62,7 @@ const fakeDb = () => {
   const users: UserRow[] = [];
   const memberships: MembershipRow[] = [];
   const invitations: InvitationRow[] = [];
+  const created: ProjectCreate[] = [];
   let sequence = 0;
   const next = () => `id-${++sequence}`;
   const prisma = {
@@ -169,16 +186,56 @@ const fakeDb = () => {
         ),
     },
     project: {
-      findMany: ({ where }: { where: { organizationId: { in: string[] } } }) =>
+      findMany: ({
+        where,
+      }: {
+        where: {
+          organizationId?: { in: string[] };
+          id?: { startsWith: string };
+        };
+      }) =>
         Promise.resolve(
-          projects.filter((project) =>
-            where.organizationId.in.includes(project.organizationId),
+          projects.filter(
+            (project) =>
+              (where.organizationId === undefined ||
+                where.organizationId.in.includes(project.organizationId)) &&
+              (where.id === undefined ||
+                project.id.startsWith(where.id.startsWith)),
           ),
         ),
+      findUnique: ({ where }: { where: { id: string } }) => {
+        const project = projects.find((item) => item.id === where.id);
+        return Promise.resolve(
+          project
+            ? {
+                ...project,
+                createdAt: new Date(),
+                organization: organizations.get(project.organizationId),
+              }
+            : null,
+        );
+      },
+      create: ({ data }: { data: ProjectCreate }) => {
+        created.push(data);
+        const row = {
+          id: data.id,
+          organizationId: data.organizationId,
+          name: data.name,
+          location: data.location,
+          description: data.description,
+        };
+        projects.push(row);
+        return Promise.resolve(row);
+      },
     },
     $transaction: (operations: Promise<unknown>[]) => Promise.all(operations),
   };
-  return { prisma: prisma as unknown as PrismaClient, invitations, users };
+  return {
+    prisma: prisma as unknown as PrismaClient,
+    invitations,
+    users,
+    created,
+  };
 };
 
 const identityFor = (
@@ -307,6 +364,16 @@ describe('roles y proyectos', () => {
     expect(projects.map((project) => project.id)).toEqual(['los-aromos']);
   });
 
+  it('entra a un proyecto de su organización y no a uno ajeno', async () => {
+    const { service } = setup();
+    await expect(
+      service.requireProject(memberOf('member'), 'los-aromos'),
+    ).resolves.toBeUndefined();
+    await expect(
+      service.requireProject(memberOf('admin'), 'torre'),
+    ).rejects.toMatchObject({ response: { code: 'not_found' } });
+  });
+
   it('un miembro ve su organización pero no invita; un administrador sí', () => {
     const { service } = setup();
     expect(() =>
@@ -325,6 +392,93 @@ describe('roles y proyectos', () => {
     expect(() => service.requireMember(memberOf('admin'), 'otra')).toThrow(
       /No eres parte/,
     );
+  });
+
+  it('un miembro crea un proyecto en su organización, con su id libre y él como autor', async () => {
+    const { service, created } = setup();
+    const account = memberOf('member');
+    const project = await service.createProject(account, {
+      organizationId: 'aromos',
+      name: 'Los Aromos',
+      location: 'Ñuñoa',
+      description: '',
+    });
+    expect(project).toEqual({
+      id: 'los-aromos-2',
+      organizationId: 'aromos',
+      name: 'Los Aromos',
+      location: 'Ñuñoa',
+      description: '',
+    });
+    expect(created[0]).toMatchObject({
+      authorId: 'u1',
+      costOwnerId: 'u1',
+      scheduleOwnerId: 'u1',
+      modelDocumentId: null,
+      longitudinalAxes: [],
+      transversalAxes: [],
+      members: {
+        create: [
+          {
+            id: 'u1',
+            name: PAULA.email,
+            role: CREATOR_ROLE,
+            channel: 'email',
+            handle: PAULA.email,
+          },
+        ],
+      },
+    });
+    const listed = await service.projects(account);
+    expect(listed.map((item) => item.id)).toEqual([
+      'los-aromos',
+      'los-aromos-2',
+    ]);
+    expect(await service.project(account, 'los-aromos-2')).toMatchObject({
+      id: 'los-aromos-2',
+      organizationName: 'Inmobiliaria Los Aromos',
+    });
+  });
+
+  it('no se crea un proyecto con el nombre de otro de la misma organización', async () => {
+    const { service, created } = setup();
+    for (const name of ['Edificio Los Aromos', '  edificio  los  Áromos ']) {
+      expect(
+        await statusOf(
+          service.createProject(memberOf('member'), {
+            organizationId: 'aromos',
+            name,
+            location: '',
+            description: '',
+          }),
+        ),
+      ).toMatchObject({ status: 409, body: { code: 'project_name_taken' } });
+    }
+    expect(created).toHaveLength(0);
+  });
+
+  it('nadie crea un proyecto en una organización ajena', async () => {
+    const { service, created } = setup();
+    expect(
+      await statusOf(
+        service.createProject(memberOf('admin'), {
+          organizationId: 'otra',
+          name: 'Intruso',
+          location: '',
+          description: '',
+        }),
+      ),
+    ).toMatchObject({ status: 403, body: { code: 'not_a_member' } });
+    expect(created).toHaveLength(0);
+  });
+
+  it('un proyecto ajeno o que no existe no se abre', async () => {
+    const { service } = setup();
+    for (const id of ['torre', 'nada']) {
+      expect(
+        await statusOf(service.project(memberOf('member'), id)),
+      ).toMatchObject({ status: 404, body: { code: 'not_found' } });
+    }
   });
 
   it('no se invita a quien ya es miembro', async () => {
