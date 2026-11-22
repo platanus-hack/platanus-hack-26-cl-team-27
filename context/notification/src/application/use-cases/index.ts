@@ -3,6 +3,7 @@ export {
   type ConflictAnswerInput,
 } from './AnswerConflictNotice.ts';
 export { AttachClashes, type AttachClashesInput } from './AttachClashes.ts';
+export { AttachReasons, type AttachReasonsInput } from './AttachReasons.ts';
 export {
   DeliverNotifications,
   type DeliveryOptions,

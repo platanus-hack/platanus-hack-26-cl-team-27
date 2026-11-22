@@ -138,7 +138,7 @@ describe('DeliverNotifications', () => {
 
     expect(email.send).toHaveBeenCalledWith(
       expect.objectContaining({ to: 'demo@vigente.example' }),
-      expect.objectContaining({ html: expect.stringContaining('<h2>') }),
+      expect.objectContaining({ html: expect.stringContaining('<h1') }),
     );
     expect(deliveries.markSent).toHaveBeenCalledWith(
       'd1',

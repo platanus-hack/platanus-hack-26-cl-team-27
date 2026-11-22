@@ -147,8 +147,9 @@ describe('renderNotice por canal', () => {
     expect(
       rendered.text.endsWith(`Revisa el cambio y responde: ${notice.url}`),
     ).toBe(true);
-    expect(rendered.html).toContain('<h2>Losa nivel 3');
-    expect(rendered.html).toContain(`<a href="${notice.url}">`);
+    expect(rendered.html).toMatch(/<h1[^>]*>Losa nivel 3/);
+    expect(rendered.html).toContain(`<a href="${notice.url}"`);
+    expect(rendered.html).toContain('+$3.636.500');
     expect(rendered.html).toContain(
       'Puede chocar con Shaft de instalaciones S1.',
     );
@@ -273,5 +274,34 @@ describe('renderNotice sin choque, sin impacto y sin modelo', () => {
     expect(fallbackWhy([], 'planificacion')).toBe(
       'Te avisamos porque llevas el plazo y este cambio mueve la entrega.',
     );
+  });
+
+  it('el correo muestra lo que cambió, el porqué del modelo y a quien sumó la IA', () => {
+    const rendered = renderNotice(
+      {
+        ...notice,
+        why: 'La losa más gruesa carga más tus vigas del nivel 2.',
+        whyBy: 'Gemini',
+        diffs: [{ label: 'Espesor', before: '15 cm', after: '20 cm' }],
+        suggested: {
+          probability: 0.82,
+          reason: 'Las vigas del nivel 2 reciben la losa.',
+          evidence: 'Plano E-201',
+          model: 'Gemini',
+        },
+      },
+      'ingenieria',
+      'email',
+    );
+
+    expect(rendered.html).toContain('Escrito por Gemini');
+    expect(rendered.html).toContain('Gemini · 82 % de probabilidad');
+    expect(rendered.html).toContain('Detectado por IA');
+    expect(rendered.html).toContain('15 cm');
+    expect(rendered.html).toContain('20 cm');
+    expect(rendered.text).toContain(
+      'Gemini cree que este cambio te afecta (82 %): Las vigas del nivel 2 reciben la losa.',
+    );
+    expect(rendered.text).toContain('Espesor: 15 cm → 20 cm');
   });
 });

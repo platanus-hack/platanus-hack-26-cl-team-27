@@ -85,3 +85,7 @@ Los correos salen de una sola cuenta de Gmail (`EMAIL_FROM`, hoy `appvigente@gma
 2. En la pantalla de consentimiento, la app está **en producción**: en modo de prueba, Google vence el refresh token a los 7 días. Sin verificar, Google muestra una advertencia al autorizar; basta con «Configuración avanzada» → «Ir a Vigente».
 3. Con `GMAIL_CLIENT_ID` y `GMAIL_CLIENT_SECRET` en el `.env`, `pnpm gmail:auth` imprime el enlace; se abre con la cuenta que manda, se acepta, y el comando guarda `GMAIL_REFRESH_TOKEN` en el `.env` sin mostrarlo.
 4. En otro ambiente (Render), se copian las tres variables: el refresh token sirve en cualquier servidor. Si Google lo revoca (cambio de clave de la cuenta o permiso quitado), los envíos fallan con «Vuelve a autorizar» y se repite el paso 3.
+
+## El correo
+
+El aviso de cambio sale como una ficha en HTML con estilos en línea, para que Gmail la muestre igual: el porqué (con la marca del modelo si lo escribió uno), el costo y el plazo en recuadros de color, una tabla con cada valor de antes y de después, lo que le toca a la persona, los choques y un botón al detalle. Si a la persona la sumó el modelo, la ficha lo dice con la probabilidad, la razón y la evidencia. El texto plano lleva lo mismo.

@@ -14,6 +14,7 @@ const repository = () => ({
   findById: vi.fn<NotificationRepository['findById']>(),
   markEscalated: vi.fn<NotificationRepository['markEscalated']>(),
   setClashes: vi.fn<NotificationRepository['setClashes']>(),
+  setReasons: vi.fn<NotificationRepository['setReasons']>(),
 });
 
 describe('RespondToNotification', () => {

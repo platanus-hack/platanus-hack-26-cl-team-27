@@ -12,6 +12,7 @@ const repository = () => ({
   setClashes: vi
     .fn<NotificationRepository['setClashes']>()
     .mockResolvedValue(2),
+  setReasons: vi.fn<NotificationRepository['setReasons']>(),
 });
 
 const clash = {
