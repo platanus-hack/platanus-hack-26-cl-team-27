@@ -14,6 +14,7 @@ import {
 } from '../room/events.ts';
 import { readState } from '../room/state.ts';
 import { buildImpact } from '../impact/impact.module.ts';
+import { seedCase } from '../flow/flow-lake.ts';
 import { buildLake } from '../lake/lake.module.ts';
 import { buildNotification } from '../notification/notification.module.ts';
 import {
@@ -240,6 +241,7 @@ export class CoordinationService {
         );
       }
       const result = await lake.seedLake.execute({ revisions });
+      await seedCase(lake);
       await emitEvents(db, this.project.id, [
         {
           kind: 'lake.seeded',

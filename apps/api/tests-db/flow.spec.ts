@@ -3,6 +3,7 @@ import {
   MINUTE,
   countBy,
   hasDatabase,
+  loadLago,
   parallel,
   startApi,
 } from './harness.ts';
@@ -185,6 +186,26 @@ describe.skipIf(!hasDatabase)('flujo del caso P-12 contra Postgres', () => {
       const isAfter = JSON.stringify(read.body) === JSON.stringify(after);
       expect(isBefore || isAfter).toBe(true);
     }
+  });
+
+  it('la carga inicial del lago después de leer /flow no borra la línea base del caso', async () => {
+    const before = await api.call('GET', '/flow');
+    expect(trayY(before.body)).toBeCloseTo(6.45);
+    const seeded = await api.call('POST', '/lake/seed', {
+      presenter: true,
+      body: { revisions: loadLago().seed },
+    });
+    expect(seeded.status).toBe(201);
+    const after = await api.call('GET', '/flow');
+    expect(trayY(after.body)).toBeCloseTo(6.45);
+    const minute = await api.call('POST', '/flow/minutes', {
+      ...PAULA,
+      body: MINUTE('minuta-tras-la-carga'),
+    });
+    expect(minute.status).toBe(201);
+    expect(minute.body.clash?.status).toBe('detectada');
+    expect(minute.body.clash?.penetration).toBeCloseTo(0.25);
+    expect(minute.body.proposal?.status).toBe('propuesta');
   });
 
   it('POST /flow/reset deja el caso limpio y la bandeja vuelve a y 6,45', async () => {

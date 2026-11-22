@@ -31,6 +31,8 @@ export const ACTION_HEADER = 'x-action-id';
 
 export const REQUEST_TIMEOUT_MS = 10_000;
 
+export const WRITE_TIMEOUT_MS = 30_000;
+
 export class RequestTimeoutError extends Error {
   constructor() {
     super('request_timeout');
@@ -144,7 +146,10 @@ export const request = async <T>(
   options: RequestOptions = {},
 ): Promise<T> => {
   const { method = 'GET', body, signal, timeoutMs } = options;
-  const deadline = withDeadline(signal, timeoutMs);
+  const deadline = withDeadline(
+    signal,
+    timeoutMs ?? (method === 'GET' ? REQUEST_TIMEOUT_MS : WRITE_TIMEOUT_MS),
+  );
   let text: string;
   let response: Response;
   try {
@@ -205,5 +210,7 @@ export const describeError = (error: unknown): string => {
     return error.message;
   }
   if (isAbort(error)) return '';
+  if (error instanceof RequestTimeoutError)
+    return 'La sala tardó más de lo normal en responder. Si era un cambio, revisa si ya quedó antes de repetirlo.';
   return 'No pudimos hablar con la sala. Revisa tu conexión.';
 };

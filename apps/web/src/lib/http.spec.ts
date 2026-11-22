@@ -143,4 +143,29 @@ describe('request', () => {
     expect(error).toBeInstanceOf(RequestTimeoutError);
     expect(isAbort(error)).toBe(false);
   });
+
+  it('una escritura espera 30 s antes de vencer y su vencimiento tiene su propio mensaje', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      (_path: string, init: RequestInit) =>
+        new Promise((_, reject) => {
+          init.signal?.addEventListener('abort', () =>
+            reject(new DOMException('abort', 'AbortError')),
+          );
+        }),
+    );
+    let settled = false;
+    const result = request('/api/x', { method: 'POST', body: {} })
+      .catch((error: unknown) => error)
+      .finally(() => {
+        settled = true;
+      });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(20_000);
+    const error = await result;
+    expect(error).toBeInstanceOf(RequestTimeoutError);
+    expect(describeError(error)).toMatch(/tardó más de lo normal/);
+  });
 });
