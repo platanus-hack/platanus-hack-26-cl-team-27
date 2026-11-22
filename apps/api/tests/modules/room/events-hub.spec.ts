@@ -21,17 +21,20 @@ class FakeStore implements EventsStore {
   rows: (HubEvent & { epoch: number })[] = [];
   probes = 0;
   fetches = 0;
+  gate: Promise<void> | null = null;
 
   add(seq: number): void {
     this.rows.push(row(seq, this.epoch));
   }
 
-  probe() {
+  async probe() {
     this.probes += 1;
-    return Promise.resolve({
+    const seen = {
       epoch: this.epoch,
       maxSeq: this.rows.reduce((max, r) => Math.max(max, r.seq), 0),
-    });
+    };
+    if (this.gate) await this.gate;
+    return seen;
   }
 
   fetch(_project: string, epoch: number, after: number, take: number) {
@@ -88,6 +91,45 @@ describe('EventsHub', () => {
     }
     expect(hub.waiting()).toBe(0);
     expect(hub.watching()).toBe(0);
+  });
+
+  it('una espera que llega mientras el vigilante consulta no recibe un reinicio falso por un cursor más nuevo', async () => {
+    store.add(1);
+    let release = (): void => undefined;
+    store.gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const first = hub.wait(request(1));
+    await vi.advanceTimersByTimeAsync(0);
+    store.add(2);
+    const second = hub.wait(request(2));
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    store.add(3);
+    await vi.advanceTimersByTimeAsync(300);
+    const [a, b] = await Promise.all([first, second]);
+    expect(a.kind === 'events' && a.events.map((e) => e.seq)).toEqual([2]);
+    expect(b.kind).toBe('events');
+    expect(b.kind === 'events' && b.events.map((e) => e.seq)).toEqual([3]);
+  });
+
+  it('una espera que llega con la época nueva mientras el vigilante consulta la vieja no recibe un reinicio falso', async () => {
+    store.add(1);
+    let release = (): void => undefined;
+    store.gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const first = hub.wait(request(1));
+    await vi.advanceTimersByTimeAsync(0);
+    store.epoch = 2;
+    const second = hub.wait(request(0, { epoch: 2 }));
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    store.add(1);
+    await vi.advanceTimersByTimeAsync(300);
+    const [a, b] = await Promise.all([first, second]);
+    expect(a.kind).toBe('reset');
+    expect(b.kind).toBe('events');
   });
 
   it('cada espera recibe solo su tramo', async () => {

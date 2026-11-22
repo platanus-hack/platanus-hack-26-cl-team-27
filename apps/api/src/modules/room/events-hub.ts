@@ -195,12 +195,16 @@ export class EventsHub {
   }
 
   private async cycle(watch: Watch, projectId: string): Promise<void> {
+    const registered = new Set(watch.waiters);
+    const startedAt = Date.now();
     const probe = await this.store.probe(projectId);
-    watch.last = { probe, at: Date.now() };
+    watch.last = { probe, at: startedAt };
     let pending: Waiter[] = [];
     for (const waiter of [...watch.waiters]) {
+      if (waiter.settled) continue;
       const { epoch, after } = waiter.request;
       if (epoch !== probe.epoch || after > probe.maxSeq) {
+        if (!registered.has(waiter)) continue;
         this.settle(waiter, {
           kind: 'reset',
           epoch: probe.epoch,
