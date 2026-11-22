@@ -1,6 +1,7 @@
 export type {
   ChannelSender,
   ChannelSenders,
+  NoticeImager,
   OutgoingDelivery,
 } from './ChannelSender.ts';
 export type { DeliveryQueue, SentDelivery } from './DeliveryQueue.ts';

@@ -1,4 +1,7 @@
-import type { ChannelSenders } from '@team27/context-notification';
+import type {
+  ChannelSenders,
+  NoticeImager,
+} from '@team27/context-notification';
 import {
   GmailEmailSender,
   WebhookSender,
@@ -11,6 +14,7 @@ export interface ChannelSettings {
   readonly emailFrom: string;
   readonly slackWebhookUrl?: string | undefined;
   readonly teamsWebhookUrl?: string | undefined;
+  readonly imager?: NoticeImager | null;
 }
 
 export const MISSING_CHANNELS_MESSAGE =
@@ -35,6 +39,9 @@ export const buildChannelSenders = (
           email: new GmailEmailSender(
             { clientId, clientSecret, refreshToken },
             settings.emailFrom,
+            fetch,
+            Date.now,
+            settings.imager ?? null,
           ),
         }
       : {}),

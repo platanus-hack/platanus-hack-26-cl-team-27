@@ -1,7 +1,9 @@
 import {
   buildRawMessage,
   GmailEmailSender,
+  withoutVisual,
 } from '../../src/infra/adapters/GmailEmailSender.ts';
+import { VISUAL_END, VISUAL_START } from '../../src/domain/Notice.ts';
 
 const email = {
   to: 'paula@obra.example',
@@ -34,6 +36,68 @@ const decode = (raw: string): string =>
 
 const tokenResponse = () =>
   Response.json({ access_token: 'access-1', expires_in: 3600 });
+
+describe('vista del modelo', () => {
+  it('adjunta la imagen en línea con su Content-ID', () => {
+    const message = decode(
+      buildRawMessage('Vigente <avisos@vigente.example>', {
+        ...email,
+        images: [
+          {
+            cid: 'vista-modelo@vigente',
+            contentType: 'image/png',
+            data: new Uint8Array([137, 80, 78, 71]),
+          },
+        ],
+      }),
+    );
+
+    expect(message).toContain('Content-Type: multipart/related;');
+    expect(message).toContain('Content-ID: <vista-modelo@vigente>');
+    expect(message).toContain('Content-Type: image/png');
+    expect(message).toContain('iVBORw==');
+  });
+
+  it('sin imagen saca el bloque de la vista del HTML', () => {
+    expect(
+      withoutVisual(
+        `<p>a</p>${VISUAL_START}<img src="cid:x">${VISUAL_END}<p>b</p>`,
+      ),
+    ).toBe('<p>a</p><p>b</p>');
+  });
+
+  it('pide la imagen al dibujante y la manda con el correo', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(tokenResponse())
+      .mockResolvedValueOnce(Response.json({ id: 'gmail-1' }));
+    const image = vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]));
+    const sender = new GmailEmailSender(
+      credentials,
+      'avisos@vigente.example',
+      fetcher,
+      Date.now,
+      { image },
+    );
+    const visual = {
+      focus: 'canerias' as const,
+      color: '#256abf',
+      caption: 'x',
+    };
+
+    await sender.send(delivery, {
+      ...rendered,
+      html: `${VISUAL_START}<img src="cid:vista-modelo@vigente">${VISUAL_END}`,
+      visual,
+    });
+
+    expect(image).toHaveBeenCalledWith(visual);
+    const body = JSON.parse(String(fetcher.mock.calls[1]![1]!.body)) as {
+      raw: string;
+    };
+    expect(decode(body.raw)).toContain('Content-ID: <vista-modelo@vigente>');
+  });
+});
 
 describe('buildRawMessage', () => {
   it('arma un MIME con asunto UTF-8, texto y HTML', () => {

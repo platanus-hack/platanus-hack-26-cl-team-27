@@ -107,10 +107,27 @@ export interface Notice {
   readonly suggested?: NoticeSuggestion | null;
 }
 
+export const VISUAL_FOCUSES = ['muros', 'losa', 'canerias'] as const;
+
+export type VisualFocus = (typeof VISUAL_FOCUSES)[number];
+
+export interface NoticeVisual {
+  readonly focus: VisualFocus;
+  readonly color: string;
+  readonly caption: string;
+}
+
+export const VISUAL_CID = 'vista-modelo@vigente';
+
+export const VISUAL_START = '<!--vista-->';
+
+export const VISUAL_END = '<!--/vista-->';
+
 export interface RenderedNotice {
   readonly subject: string;
   readonly text: string;
   readonly html: string | null;
+  readonly visual?: NoticeVisual | null;
 }
 
 export const WHATSAPP_MAX_LENGTH = 600;
@@ -276,6 +293,52 @@ interface Parts {
   readonly clashes: readonly string[];
 }
 
+const ROLE_COLOR: Readonly<Record<NoticeRole, string>> = {
+  ingenieria: '#256abf',
+  costos: '#d92d20',
+  planificacion: '#7a5af8',
+};
+
+const FOCUS_WORDS: readonly (readonly [VisualFocus, RegExp])[] = [
+  [
+    'canerias',
+    /shaft|cañer|caner|tuber|sanitari|colector|agua|desag|alcantar|ducto|instalaci/,
+  ],
+  ['losa', /losa|viga|column|pilar|fundaci|estructur|radier|escaler|techumbre/],
+];
+
+const FOCUS_CAPTION: Readonly<Record<VisualFocus, string>> = {
+  muros: 'muros, puertas y ventanas',
+  losa: 'losas, vigas y columnas',
+  canerias: 'cañerías y artefactos sanitarios',
+};
+
+export const visualOf = (notice: Notice, role: NoticeRole): NoticeVisual => {
+  const text = plain(
+    [
+      notice.title,
+      ...(notice.diffs ?? []).map((diff) => diff.label),
+      ...notice.findings.map((finding) => finding.summary),
+    ].join(' '),
+  );
+  const focus =
+    FOCUS_WORDS.find(([, pattern]) => pattern.test(text))?.[0] ?? 'muros';
+  return {
+    focus,
+    color: ROLE_COLOR[role],
+    caption: `En color, ${FOCUS_CAPTION[focus]} que toca este cambio; el resto del modelo en gris.`,
+  };
+};
+
+const visualBlock = (visual: NoticeVisual): string =>
+  [
+    VISUAL_START,
+    `<p style="margin:24px 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#5b6678;">&#127959;&#65039; En el modelo 3D</p>`,
+    `<img src="cid:${VISUAL_CID}" width="552" alt="Vista del modelo con lo que cambia en color" style="display:block;width:100%;max-width:552px;height:auto;border:1px solid #e3e8f0;border-radius:10px;">`,
+    `<p style="margin:6px 0 0;font-size:12px;color:#5b6678;">${escapeHtml(visual.caption)}</p>`,
+    VISUAL_END,
+  ].join('');
+
 const BLUE = '#256abf';
 const INK = '#1b2433';
 const MUTED = '#5b6678';
@@ -317,7 +380,7 @@ const diffTable = (diffs: readonly NoticeDiff[]): string =>
   diffs.length === 0
     ? ''
     : [
-        `<p style="${LABEL_STYLE}">Qué cambió</p>`,
+        `<p style="${LABEL_STYLE}">&#128260; Qué cambió</p>`,
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${LINE};border-radius:10px;border-collapse:separate;">`,
         diffs.map(diffRow).join(''),
         '</table>',
@@ -336,17 +399,17 @@ const impactTiles = (impact: NoticeImpact | null | undefined): string => {
   if (!impact || (impact.costDelta === 0 && impact.delayDays === 0)) return '';
   const tiles = [
     ...(impact.costDelta !== 0
-      ? [tile('Costo', signedMoney(impact.costDelta), impact.costDelta > 0)]
+      ? [tile('💰 Costo', signedMoney(impact.costDelta), impact.costDelta > 0)]
       : []),
     ...(impact.delayDays !== 0
-      ? [tile('Plazo', signedDays(impact.delayDays), impact.delayDays > 0)]
+      ? [tile('📅 Plazo', signedDays(impact.delayDays), impact.delayDays > 0)]
       : []),
   ];
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr>${tiles.join('')}</tr></table>`;
 };
 
 const aiBadge = (text: string): string =>
-  `<span style="display:inline-block;padding:3px 10px;border-radius:999px;background:${AI};color:#ffffff;font-size:12px;font-weight:600;">&#10022; ${escapeHtml(text)}</span>`;
+  `<span style="display:inline-block;padding:3px 10px;border-radius:999px;background:${AI};color:#ffffff;font-size:12px;font-weight:600;">&#129302; ${escapeHtml(text)}</span>`;
 
 const suggestionBlock = (suggested: NoticeSuggestion): string =>
   [
@@ -354,7 +417,7 @@ const suggestionBlock = (suggested: NoticeSuggestion): string =>
     aiBadge(
       `${suggested.model} · ${percent(suggested.probability)} de probabilidad`,
     ),
-    `<p style="margin:10px 0 0;font-size:15px;color:${INK};">Las reglas no te marcaron, pero ${escapeHtml(suggested.model)} leyó el cambio y cree que te toca.</p>`,
+    `<p style="margin:10px 0 0;font-size:15px;color:${INK};">&#128269; Las reglas no te marcaron, pero ${escapeHtml(suggested.model)} leyó el cambio y cree que te toca.</p>`,
     `<p style="margin:8px 0 0;font-size:14px;color:${MUTED};">${escapeHtml(suggested.reason)}</p>`,
     suggested.evidence.trim()
       ? `<p style="margin:8px 0 0;font-size:13px;color:${MUTED};font-style:italic;">${escapeHtml(suggested.evidence)}</p>`
@@ -368,30 +431,36 @@ const whyBlock = (why: string, whyBy: string | null | undefined): string =>
     whyBy
       ? `<div style="margin-bottom:6px;">${aiBadge(`Escrito por ${whyBy}`)}</div>`
       : '',
-    `<p style="margin:0;font-size:16px;line-height:1.5;color:${INK};">${escapeHtml(why)}</p>`,
+    `<p style="margin:0;font-size:16px;line-height:1.5;color:${INK};">&#128161; ${escapeHtml(why)}</p>`,
     '</div>',
   ].join('');
+
+const TOPIC_ICON: Readonly<Record<FindingTopic, string>> = {
+  dependency: '&#128295;',
+  cost: '&#128176;',
+  schedule: '&#9201;&#65039;',
+};
 
 const findingCard = (finding: NoticeFinding): string =>
   [
     `<div style="border:1px solid ${LINE};border-radius:10px;padding:14px 16px;margin-bottom:10px;">`,
-    `<p style="margin:0;font-size:15px;font-weight:600;color:${INK};">${escapeHtml(finding.summary)}</p>`,
+    `<p style="margin:0;font-size:15px;font-weight:600;color:${INK};">${TOPIC_ICON[topicOf(finding)]} ${escapeHtml(finding.summary)}</p>`,
     finding.details.length > 0
       ? `<ul style="margin:8px 0 0;padding-left:18px;color:${MUTED};font-size:14px;">${finding.details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join('')}</ul>`
       : '',
-    `<p style="margin:10px 0 0;font-size:14px;color:${BLUE};"><strong>Qué hacer:</strong> ${escapeHtml(finding.action)}</p>`,
+    `<p style="margin:10px 0 0;font-size:14px;color:${BLUE};">&#128073; <strong>Qué hacer:</strong> ${escapeHtml(finding.action)}</p>`,
     '</div>',
   ].join('');
 
 const findingCards = (findings: readonly NoticeFinding[]): string =>
   findings.length === 0
     ? ''
-    : `<p style="${LABEL_STYLE}">Lo que te toca</p>${findings.map(findingCard).join('')}`;
+    : `<p style="${LABEL_STYLE}">&#9989; Lo que te toca</p>${findings.map(findingCard).join('')}`;
 
 const clashBlock = (clashes: readonly string[]): string =>
   clashes.length === 0
     ? ''
-    : `<div style="margin-top:16px;border-radius:10px;padding:14px 16px;background:${WARN_BG};color:${WARN};font-size:14px;"><strong>&#9888; Puede chocar</strong>${clashes.map((line) => `<p style="margin:6px 0 0;">${escapeHtml(line)}</p>`).join('')}</div>`;
+    : `<div style="margin-top:16px;border-radius:10px;padding:14px 16px;background:${WARN_BG};color:${WARN};font-size:14px;"><strong>&#9888;&#65039; Puede chocar</strong>${clashes.map((line) => `<p style="margin:6px 0 0;">${escapeHtml(line)}</p>`).join('')}</div>`;
 
 const emailFrame = (
   label: string,
@@ -404,8 +473,8 @@ const emailFrame = (
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f5f9;${FONT}"><tr><td align="center" style="padding:24px 12px;">`,
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ${LINE};">`,
     `<tr><td style="background:${BLUE};padding:18px 24px;color:#ffffff;">`,
-    '<span style="font-size:18px;font-weight:700;letter-spacing:.02em;">Vigente</span>',
-    `<span style="float:right;font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85;padding-top:4px;">${escapeHtml(label)}</span>`,
+    '<span style="font-size:18px;font-weight:700;letter-spacing:.02em;">&#128208; Vigente</span>',
+    `<span style="float:right;font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85;padding-top:4px;">&#128276; ${escapeHtml(label)}</span>`,
     '</td></tr>',
     `<tr><td style="padding:24px;">${body}`,
     '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:28px;"><tr>',
@@ -415,7 +484,11 @@ const emailFrame = (
     '</table></td></tr></table></body></html>',
   ].join('');
 
-const emailOf = (notice: Notice, parts: Parts): RenderedNotice => {
+const emailOf = (
+  notice: Notice,
+  parts: Parts,
+  visual: NoticeVisual,
+): RenderedNotice => {
   const extras = [...(parts.impact ? [parts.impact] : []), ...parts.clashes];
   const suggested = notice.suggested ?? null;
   const diffs = notice.diffs ?? [];
@@ -457,6 +530,7 @@ const emailOf = (notice: Notice, parts: Parts): RenderedNotice => {
     suggested ? suggestionBlock(suggested) : '',
     whyBlock(parts.why, notice.whyBy),
     impactTiles(notice.impact),
+    visualBlock(visual),
     diffTable(diffs),
     findingCards(parts.findings),
     clashBlock(parts.clashes),
@@ -470,6 +544,7 @@ const emailOf = (notice: Notice, parts: Parts): RenderedNotice => {
       notice.url,
       'Revisa el cambio y responde',
     ),
+    visual,
   };
 };
 
@@ -680,5 +755,5 @@ export const renderNotice = (
   };
   if (channel === 'whatsapp') return whatsappOf(notice, parts);
   if (channel === 'slack') return slackOf(notice, parts);
-  return emailOf(notice, parts);
+  return emailOf(notice, parts, visualOf(notice, role));
 };

@@ -1,9 +1,15 @@
 import type {
   ChannelSender,
+  NoticeImager,
   OutgoingDelivery,
 } from '../../application/ports/ChannelSender.ts';
 import type { Email } from '../../domain/Delivery.ts';
-import type { RenderedNotice } from '../../domain/Notice.ts';
+import {
+  type RenderedNotice,
+  VISUAL_CID,
+  VISUAL_END,
+  VISUAL_START,
+} from '../../domain/Notice.ts';
 import { GOOGLE_TOKEN_URL } from './GmailAuthorization.ts';
 
 const SEND_URL = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
@@ -16,10 +22,25 @@ export interface GmailCredentials {
   readonly refreshToken: string;
 }
 
+export interface InlineImage {
+  readonly cid: string;
+  readonly contentType: string;
+  readonly data: Uint8Array;
+}
+
 export interface OutgoingEmail extends Email {
   readonly to: string;
   readonly idempotencyKey: string;
+  readonly images?: readonly InlineImage[];
 }
+
+export const withoutVisual = (html: string): string => {
+  const start = html.indexOf(VISUAL_START);
+  const end = html.indexOf(VISUAL_END);
+  return start === -1 || end === -1
+    ? html
+    : `${html.slice(0, start)}${html.slice(end + VISUAL_END.length)}`;
+};
 
 const oneLine = (value: string): string => value.replace(/[\r\n]+/g, ' ');
 
@@ -28,9 +49,12 @@ const encodeHeader = (value: string): string =>
     ? value
     : `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`;
 
-const base64Lines = (value: string): string =>
+const base64Lines = (value: string | Uint8Array): string =>
   (
-    Buffer.from(value, 'utf8')
+    (typeof value === 'string'
+      ? Buffer.from(value, 'utf8')
+      : Buffer.from(value)
+    )
       .toString('base64')
       .match(/.{1,76}/g) ?? []
   ).join('\r\n');
@@ -44,17 +68,45 @@ export const buildRawMessage = (from: string, email: OutgoingEmail): string => {
     '',
     base64Lines(body),
   ];
+  const images = email.images ?? [];
+  const related = `${boundary}-r`;
+  const alternative = [
+    ...part('text/plain', email.text),
+    ...part('text/html', email.html),
+    `--${boundary}--`,
+  ];
+  const body =
+    images.length === 0
+      ? [
+          `Content-Type: multipart/alternative; boundary="${boundary}"`,
+          '',
+          ...alternative,
+        ]
+      : [
+          `Content-Type: multipart/related; boundary="${related}"`,
+          '',
+          `--${related}`,
+          `Content-Type: multipart/alternative; boundary="${boundary}"`,
+          '',
+          ...alternative,
+          ...images.flatMap((image) => [
+            `--${related}`,
+            `Content-Type: ${image.contentType}`,
+            'Content-Transfer-Encoding: base64',
+            `Content-ID: <${image.cid}>`,
+            `Content-Disposition: inline; filename="${image.cid.split('@')[0]}.png"`,
+            '',
+            base64Lines(image.data),
+          ]),
+          `--${related}--`,
+        ];
   const message = [
     `From: ${oneLine(from)}`,
     `To: ${oneLine(email.to)}`,
     `Subject: ${encodeHeader(oneLine(email.subject))}`,
     'MIME-Version: 1.0',
     `X-Vigente-Delivery: ${oneLine(email.idempotencyKey)}`,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
-    '',
-    ...part('text/plain', email.text),
-    ...part('text/html', email.html),
-    `--${boundary}--`,
+    ...body,
     '',
   ].join('\r\n');
   return Buffer.from(message, 'utf8').toString('base64url');
@@ -65,6 +117,7 @@ export class GmailEmailSender implements ChannelSender {
   private readonly from: string;
   private readonly fetcher: typeof fetch;
   private readonly now: () => number;
+  private readonly imager: NoticeImager | null;
   private accessToken: { value: string; expiresAt: number } | null = null;
 
   constructor(
@@ -72,23 +125,36 @@ export class GmailEmailSender implements ChannelSender {
     from: string,
     fetcher: typeof fetch = fetch,
     now: () => number = Date.now,
+    imager: NoticeImager | null = null,
   ) {
     this.credentials = credentials;
     this.from = from;
     this.fetcher = fetcher;
     this.now = now;
+    this.imager = imager;
+  }
+
+  private async imageFor(
+    rendered: RenderedNotice,
+  ): Promise<InlineImage | null> {
+    if (!rendered.visual || !this.imager) return null;
+    const data = await this.imager.image(rendered.visual).catch(() => null);
+    return data ? { cid: VISUAL_CID, contentType: 'image/png', data } : null;
   }
 
   async send(
     delivery: OutgoingDelivery,
     rendered: RenderedNotice,
   ): Promise<string> {
+    const image = await this.imageFor(rendered);
+    const html = rendered.html ?? '';
     const email: OutgoingEmail = {
       to: delivery.to,
       subject: rendered.subject,
       text: rendered.text,
-      html: rendered.html ?? '',
+      html: image ? html : withoutVisual(html),
       idempotencyKey: delivery.id,
+      ...(image ? { images: [image] } : {}),
     };
     const token = await this.token();
     const response = await this.fetcher(SEND_URL, {
