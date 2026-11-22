@@ -161,12 +161,14 @@ export class FlowService {
       try {
         return await memo.get(this.keyOf(epoch, cursor), () =>
           this.uow.read(async (db): Promise<Resolved<V>> => {
-            const state = await readState(db, this.project.id);
+            const state = await db.roomState.findUnique({
+              where: { projectId: this.project.id },
+            });
             const aggregate = await db.roomEvent.aggregate({
               where: { projectId: this.project.id },
               _max: { seq: true },
             });
-            if (state.epoch !== this.seeded) throw new StaleSeed();
+            if (!state || state.epoch !== this.seeded) throw new StaleSeed();
             return {
               key: this.keyOf(state.epoch, aggregate._max.seq ?? 0),
               value: await build(db, state.epoch),

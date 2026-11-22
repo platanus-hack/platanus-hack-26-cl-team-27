@@ -41,6 +41,7 @@ const build = (rows: SeatRow[]): SeatsService => {
           ) ?? null,
         ),
       update: () => Promise.resolve(null),
+      updateMany: () => Promise.resolve({ count: 1 }),
     },
   } as unknown as PrismaClient;
   const config = {

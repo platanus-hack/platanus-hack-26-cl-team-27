@@ -12,10 +12,7 @@ export const readState = async (
 ): Promise<RoomStateView> => {
   const found = await db.roomState.findUnique({ where: { projectId } });
   if (found) return { epoch: found.epoch };
-  const row = await db.roomState.upsert({
-    where: { projectId },
-    create: { projectId },
-    update: {},
-  });
+  await db.roomState.createMany({ data: [{ projectId }], skipDuplicates: true });
+  const row = await db.roomState.findUniqueOrThrow({ where: { projectId } });
   return { epoch: row.epoch };
 };

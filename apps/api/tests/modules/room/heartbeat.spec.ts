@@ -11,7 +11,7 @@ import { readState } from '../../../src/modules/room/state.ts';
 const hash = (token: string): string =>
   createHash('sha256').update(token).digest('hex');
 
-const build = (lastBeatAt: Date) => {
+const build = (lastBeatAt: Date, released = false) => {
   const updates: unknown[] = [];
   const prisma = {
     seat: {
@@ -21,9 +21,9 @@ const build = (lastBeatAt: Date) => {
           tokenHash: hash('token'),
           lastBeatAt,
         }),
-      update: (args: unknown) => {
+      updateMany: (args: unknown) => {
         updates.push(args);
-        return Promise.resolve(null);
+        return Promise.resolve({ count: released ? 0 : 1 });
       },
     },
   } as unknown as PrismaClient;
@@ -46,6 +46,28 @@ describe('latido del asiento al sondear', () => {
     expect(updates).toHaveLength(1);
   });
 
+  it('escribe solo si el asiento sigue con ese token', async () => {
+    const { seats, updates } = build(new Date(Date.now() - 6_000));
+
+    await seats.heartbeat('token');
+    expect(updates).toEqual([
+      {
+        where: {
+          projectId: project.id,
+          castId: 'paula-rojas',
+          tokenHash: hash('token'),
+        },
+        data: { lastBeatAt: expect.any(Date) },
+      },
+    ]);
+  });
+
+  it('si el asiento se soltó entre la lectura y la escritura, responde sin asiento en vez de lanzar', async () => {
+    const { seats } = build(new Date(Date.now() - 6_000), true);
+
+    await expect(seats.heartbeat('token')).resolves.toBeNull();
+  });
+
   it('sin token no consulta ni escribe', async () => {
     const { seats, updates } = build(new Date(0));
 
@@ -63,8 +85,12 @@ describe('readState', () => {
           calls.push('findUnique');
           return Promise.resolve(existing);
         },
-        upsert: () => {
-          calls.push('upsert');
+        createMany: () => {
+          calls.push('createMany');
+          return Promise.resolve({ count: 0 });
+        },
+        findUniqueOrThrow: () => {
+          calls.push('findUniqueOrThrow');
           return Promise.resolve({ epoch: 0 });
         },
       },
@@ -79,10 +105,10 @@ describe('readState', () => {
     expect(calls).toEqual(['findUnique']);
   });
 
-  it('crea la fila solo si falta', async () => {
+  it('crea la fila solo si falta, sin chocar si otra petición la crea a la vez', async () => {
     const { db, calls } = fake(null);
 
     await expect(readState(db, 'p')).resolves.toEqual({ epoch: 0 });
-    expect(calls).toEqual(['findUnique', 'upsert']);
+    expect(calls).toEqual(['findUnique', 'createMany', 'findUniqueOrThrow']);
   });
 });

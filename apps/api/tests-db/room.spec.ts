@@ -82,8 +82,8 @@ describe.skipIf(!hasDatabase)('reinicio de la sala contra Postgres', () => {
     expect(replies.filter((reply) => reply.status >= 500)).toEqual([]);
   });
 
-  it.fails(
-    'un reinicio con sondeos con token en curso no produce 500 [BUG: heartbeat lee el asiento y luego lo actualiza; si el reinicio lo borra en medio, update lanza P2025 y /events responde 500]',
+  it(
+    'un reinicio con sondeos con token en curso no produce 500',
     async () => {
       const failures: number[] = [];
       for (let round = 0; round < 5; round += 1) {

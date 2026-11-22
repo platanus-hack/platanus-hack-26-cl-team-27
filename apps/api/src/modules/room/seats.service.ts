@@ -157,15 +157,15 @@ export class SeatsService {
     });
     if (!seat) return null;
     if (Date.now() - seat.lastBeatAt.getTime() >= HEARTBEAT_MIN_MS) {
-      await this.prisma.seat.update({
+      const { count } = await this.prisma.seat.updateMany({
         where: {
-          projectId_castId: {
-            projectId: this.project.id,
-            castId: seat.castId,
-          },
+          projectId: this.project.id,
+          castId: seat.castId,
+          tokenHash: seat.tokenHash,
         },
         data: { lastBeatAt: new Date() },
       });
+      if (count === 0) return null;
     }
     return seat.castId;
   }

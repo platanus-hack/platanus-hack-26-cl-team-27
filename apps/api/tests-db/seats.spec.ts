@@ -60,8 +60,8 @@ describe.skipIf(!hasDatabase)('asientos contra Postgres', () => {
     expect(await api.prisma.seat.count()).toBe(6);
   });
 
-  it.fails(
-    'con la base recién creada (sin room_state), 6 asientos tomados en paralelo ganan todos [BUG: readState hace upsert y la carrera de creación devuelve 500]',
+  it(
+    'con la base recién creada (sin room_state), 6 asientos tomados en paralelo ganan todos',
     async () => {
       await api.truncate({ warm: false });
       const replies = await Promise.all(
