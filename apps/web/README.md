@@ -30,7 +30,7 @@ pnpm nx run @team27/web:test          # Vitest: los *.spec.ts de src/
 
 Las pantallas de un proyecto piden sesión con `SessionGate` y van dentro de `ProjectProvider` (`components/proyectos/ProjectContext.tsx`): sus componentes leen el proyecto con `useProjectId()` y arman sus rutas con `lib/project-paths.ts` (`projectApi` para la API, `projectPage` para la web).
 
-El route group `(site)` les da a todas las pantallas el encabezado con la marca, la frase «Lo que vale hoy en tu obra» y la navegación, que marca la sección actual. El layout revisa la sesión en el servidor y `SiteNav` muestra según eso: con sesión, Modelos, Conectores y Cuenta; sin sesión, solo «Entrar» (`/auth/login?returnTo=<la página>`); y sin Auth0 configurado, solo Cuenta, que avisa qué falta. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
+El route group `(site)` les da a todas las pantallas el encabezado con la marca, la frase «Lo que vale hoy en tu obra» y la navegación, que marca la sección actual. El layout revisa la sesión en el servidor. Sin sesión, `SiteNav` muestra solo «Entrar» (`/auth/login?returnTo=<la página>`); sin Auth0 configurado, solo Cuenta, que avisa qué falta. Con sesión pide `GET /api/me` y `navLinks` (`lib/nav.ts`) arma los links según el rol: Conectores si eres member o admin de alguna organización, Admin si eres superadmin, y siempre Cuenta. Mientras carga, solo Cuenta. Todo `/api/*` lo reenvía `next.config.ts` a la API; el navegador llama a rutas relativas.
 
 ## Estructura
 

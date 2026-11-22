@@ -5,32 +5,20 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { buttonLink } from '@/components/common/link-styles';
+import { useResource } from '@/hooks/use-resource';
 import { loginHref } from '@/lib/account-routes';
+import { getMe } from '@/lib/accounts-api';
+import { navLinks, type NavLink } from '@/lib/nav';
 
 export type NavMode = 'off' | 'guest' | 'member';
 
-const MEMBER_LINKS = [
-  { href: '/conectores', label: 'Conectores' },
-  { href: '/cuenta', label: 'Cuenta' },
-] as const;
-
-const OFF_LINKS = [{ href: '/cuenta', label: 'Cuenta' }] as const;
-
-export function SiteNav({ mode }: { readonly mode: NavMode }) {
-  const pathname = usePathname();
-  if (mode === 'guest') {
-    return (
-      <nav aria-label="Principal" className="flex h-full items-center">
-        <a
-          href={loginHref(pathname === '/' ? '/cuenta' : pathname)}
-          className={buttonLink('primary', 'sm')}
-        >
-          Entrar
-        </a>
-      </nav>
-    );
-  }
-  const links = mode === 'member' ? MEMBER_LINKS : OFF_LINKS;
+function NavLinks({
+  links,
+  pathname,
+}: {
+  readonly links: readonly NavLink[];
+  readonly pathname: string;
+}) {
   return (
     <nav aria-label="Principal" className="flex h-full items-stretch gap-1">
       {links.map((link) => {
@@ -54,4 +42,27 @@ export function SiteNav({ mode }: { readonly mode: NavMode }) {
       })}
     </nav>
   );
+}
+
+function MemberNav({ pathname }: { readonly pathname: string }) {
+  const me = useResource(getMe, 'me');
+  return <NavLinks links={navLinks(me.data)} pathname={pathname} />;
+}
+
+export function SiteNav({ mode }: { readonly mode: NavMode }) {
+  const pathname = usePathname();
+  if (mode === 'guest') {
+    return (
+      <nav aria-label="Principal" className="flex h-full items-center">
+        <a
+          href={loginHref(pathname === '/' ? '/cuenta' : pathname)}
+          className={buttonLink('primary', 'sm')}
+        >
+          Entrar
+        </a>
+      </nav>
+    );
+  }
+  if (mode === 'member') return <MemberNav pathname={pathname} />;
+  return <NavLinks links={navLinks(null)} pathname={pathname} />;
 }
