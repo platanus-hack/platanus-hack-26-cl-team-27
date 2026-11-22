@@ -20,5 +20,6 @@ export const useFlowHistory = ({
     intervalMs: DEFAULT_INTERVAL_MS,
     dependencyKey: key,
     enabled,
+    poll: false,
   });
 };

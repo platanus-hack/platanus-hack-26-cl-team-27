@@ -65,3 +65,17 @@ export const nextDelay = (
     failures > 0 ? Math.min(BACKOFF_CAP_MS, baseMs * 2 ** failures) : baseMs;
   return Math.max(100, Math.round(backoff + jitter));
 };
+
+export const START_JITTER_MS = 600;
+export const RELOAD_JITTER_MS = 150;
+export const RETRY_BASE_MS = 1000;
+export const RETRY_CAP_MS = 8000;
+
+export const startDelay = (random: () => number = Math.random): number =>
+  Math.floor(random() * START_JITTER_MS);
+
+export const reloadDelay = (random: () => number = Math.random): number =>
+  Math.floor(random() * RELOAD_JITTER_MS);
+
+export const retryDelay = (attempt: number): number =>
+  Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** Math.max(0, attempt));

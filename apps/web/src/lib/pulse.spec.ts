@@ -6,6 +6,9 @@ import {
   BACKOFF_CAP_MS,
   INITIAL_PULSE,
   nextDelay,
+  reloadDelay,
+  retryDelay,
+  startDelay,
   type PulseState,
 } from './pulse';
 
@@ -109,5 +112,23 @@ describe('nextDelay', () => {
     expect(nextDelay(700, 1, () => 0.5)).toBe(1400);
     expect(nextDelay(700, 2, () => 0.5)).toBe(2800);
     expect(nextDelay(700, 5, () => 0.5)).toBe(BACKOFF_CAP_MS);
+  });
+});
+
+describe('jitter y reintento', () => {
+  it('el primer tick se retrasa entre 0 y 600 ms', () => {
+    expect(startDelay(() => 0)).toBe(0);
+    expect(startDelay(() => 0.999)).toBeLessThan(600);
+  });
+
+  it('la recarga tras un evento se retrasa entre 0 y 150 ms', () => {
+    expect(reloadDelay(() => 0)).toBe(0);
+    expect(reloadDelay(() => 0.999)).toBeLessThan(150);
+  });
+
+  it('el reintento retrocede 1, 2, 4 y 8 s', () => {
+    expect([0, 1, 2, 3, 4, 9].map(retryDelay)).toEqual([
+      1000, 2000, 4000, 8000, 8000, 8000,
+    ]);
   });
 });

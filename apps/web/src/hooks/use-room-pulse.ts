@@ -8,6 +8,7 @@ import {
   applyPulse,
   INITIAL_PULSE,
   nextDelay,
+  startDelay,
   type PulseState,
 } from '@/lib/pulse';
 
@@ -107,7 +108,7 @@ export const useRoomPulse = ({
     };
 
     document.addEventListener('visibilitychange', onVisibility);
-    if (!document.hidden) void tick();
+    if (!document.hidden) timer = setTimeout(tick, startDelay());
 
     return () => {
       stopped = true;
