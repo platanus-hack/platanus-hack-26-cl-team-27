@@ -5,7 +5,12 @@ import {
   InferenceUnavailableError,
   type ProjectVocabulary,
 } from '@team27/context-impact';
-import { type Change, isLiveOverlap, type Overlap } from '@team27/context-lake';
+import {
+  type Change,
+  isLiveOverlap,
+  type Overlap,
+  type Proposal,
+} from '@team27/context-lake';
 
 export const CONFLICT_WINDOW = 20;
 
@@ -36,6 +41,21 @@ export const liveOverlapsOf = (
       (overlap.subjectId === change.element.id ||
         overlap.otherSubjectId === change.element.id),
   );
+
+export const comparableChanges = (
+  changes: readonly Change[],
+  proposals: readonly Pick<Proposal, 'status' | 'changeIds'>[],
+): Change[] => {
+  const dropped = new Set(
+    proposals
+      .filter(
+        (proposal) =>
+          proposal.status === 'superseded' || proposal.status === 'withdrawn',
+      )
+      .flatMap((proposal) => proposal.changeIds),
+  );
+  return changes.filter((change) => !dropped.has(change.id));
+};
 
 export interface DetectForChangeInput {
   readonly change: Change;
