@@ -7,13 +7,15 @@ import {
 } from '@nestjs/common';
 import type { DeliverNotifications } from '@team27/context-notification';
 
+import { MISSING_CHANNELS_MESSAGE } from './channel-senders.ts';
+
 export const DELIVER_NOTIFICATIONS = 'DELIVER_NOTIFICATIONS';
 
 export const DELIVERY_INTERVAL_MS = 5_000;
 
 @Injectable()
 export class DeliveryWorker implements OnApplicationBootstrap, OnModuleDestroy {
-  private readonly logger = new Logger('Correo');
+  private readonly logger = new Logger('Avisos');
   private readonly deliver: DeliverNotifications | null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
@@ -26,9 +28,7 @@ export class DeliveryWorker implements OnApplicationBootstrap, OnModuleDestroy {
 
   onApplicationBootstrap(): void {
     if (this.deliver === null) {
-      this.logger.log(
-        'Apagado: faltan GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET o GMAIL_REFRESH_TOKEN',
-      );
+      this.logger.log(MISSING_CHANNELS_MESSAGE);
       return;
     }
     this.timer = setInterval(() => void this.tick(), DELIVERY_INTERVAL_MS);
@@ -47,7 +47,7 @@ export class DeliveryWorker implements OnApplicationBootstrap, OnModuleDestroy {
       const round = await this.deliver.execute();
       if (round.sent + round.retried + round.failed + round.skipped > 0) {
         this.logger.log(
-          `Enviados ${round.sent}, reintentos ${round.retried}, fallidos ${round.failed}, sin correo ${round.skipped}`,
+          `Enviados ${round.sent}, reintentos ${round.retried}, fallidos ${round.failed}, omitidos ${round.skipped}`,
         );
       }
     } catch (error) {

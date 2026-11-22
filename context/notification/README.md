@@ -28,24 +28,38 @@ Lleva el impacto a cada afectado. Hay dos tipos de aviso (`NoticeKind`): el **av
 | `ReopenResponse`        | `ReopenResponse(notificationId)` limpia la respuesta; `null` si el aviso no existe |
 | `GetNotification`       | Un aviso por id, o `null`                                   |
 | `ListStakeholders`      | El directorio                                               |
-| `DeliverNotifications`  | Una vuelta de envío: toma de la cola los avisos pendientes y los manda por correo |
+| `DeliverNotifications`  | Una vuelta de envío: toma de la cola los avisos pendientes y manda cada uno por el sender de su canal |
+| `ListDeliveries`        | Las entregas de unos avisos, con el canal que usó cada una, su estado y el motivo |
 
 - `InMemoryStakeholderDirectory`: el equipo de un proyecto, que la API le pasa al armarlo (todos menos el autor).
-- `PrismaNotificationRepository`: la tabla `notifications`, con los hallazgos y el contexto en JSON. Al guardar un aviso escribe, en la misma transacción, su entrega por correo en `notification_deliveries`.
+- `PrismaNotificationRepository`: la tabla `notifications`, con los hallazgos y el contexto en JSON. Al guardar un aviso escribe, en la misma transacción, su entrega en `notification_deliveries`, en el canal de la persona.
 - `PrismaDeliveryQueue`: la cola de envío sobre `notification_deliveries`.
-- `GmailEmailSender`: manda un correo con la API de Gmail (`users.messages.send`) desde la cuenta autorizada. Renueva el access token con el refresh token y lo reusa hasta un minuto antes de que venza; si Gmail responde 401, lo olvida.
+- `WebhookSender`: el `ChannelSender` del chat, sobre un incoming webhook de Slack o de Teams.
+- `GmailEmailSender`: el `ChannelSender` del correo. Manda un correo con la API de Gmail (`users.messages.send`) desde la cuenta autorizada. Renueva el access token con el refresh token y lo reusa hasta un minuto antes de que venza; si Gmail responde 401, lo olvida.
 - `gmailAuthorizationUrl` y `exchangeGmailCode`: la autorización OAuth 2.0 de esa cuenta, solo con el permiso `gmail.send`.
 
-## Envío por correo
+## Envío
 
-Cada aviso guardado deja una entrega por correo en la cola (outbox), en la misma transacción que el aviso: si el proveedor está caído, el aviso no se pierde. El destinatario es el `handle` del afectado si es un correo; si no (un teléfono o un canal de Slack), la entrega queda sin destinatario.
+Cada aviso guardado deja una entrega en la cola (outbox), en la misma transacción que el aviso: si el proveedor está caído, el aviso no se pierde. La entrega nace en el canal de la persona (`email`, `whatsapp` o `slack`) y con su `handle` como destinatario.
 
 - **Tomar.** `claim` reserva hasta 10 entregas pendientes con `FOR UPDATE SKIP LOCKED`, suma un intento y corre `next_attempt_at` 5 minutos: si la API se cae a mitad del envío, la entrega vuelve sola. Las entregas de más de un día no se toman: un aviso viejo ya no es noticia.
-- **Armar.** `renderEmail` escribe el correo con `renderNotice`, para el rol de la persona y con el contexto que guardó el aviso: el asunto según el rol, el saludo, el porqué fijo, cada hallazgo con su detalle y qué hacer, el impacto, los choques y el enlace absoluto al detalle para responder. Un aviso sin contexto sale igual, con el título como asunto.
-- **Mandar.** Un MIME `multipart/alternative` (texto y HTML en UTF-8) con el id de la entrega en `X-Vigente-Delivery`. Gmail no tiene idempotencia: si el envío sale pero la API se cae antes de marcarlo, se puede repetir. Sin destinatario y sin desvío, la entrega queda `skipped`.
+- **Elegir por dónde sale.** `routeDelivery(entrega, canales con sender, desvíos)` es pura. Si el canal de la persona tiene sender, sale por ahí, a su dirección o al desvío de ese canal; el correo exige un `handle` que sea un correo, WhatsApp un número, y el chat no necesita dirección. Si el canal no tiene sender, cae al correo cuando hay sender de correo y la persona tiene uno (o hay desvío de correo), y la entrega anota «Sin envío por WhatsApp: salió por correo». Si no hay por dónde, queda `skipped` con el motivo: «No hay envío por WhatsApp configurado y el afectado no tiene correo», «El afectado no tiene correo» o «No hay envío por correo configurado».
+- **Armar.** `renderDelivery` escribe el aviso con `renderNotice` para el rol de la persona y el canal por el que sale, con el contexto que guardó el aviso. Un aviso sin contexto sale igual, con el título como asunto.
+- **Mandar.** El puerto `ChannelSender` tiene un `send(entrega, aviso escrito)` y devuelve el id del proveedor. `DeliverNotifications` recibe un sender por canal (`ChannelSenders`).
+  - **Correo** (`GmailEmailSender`): un MIME `multipart/alternative` (texto y HTML en UTF-8) con el id de la entrega en `X-Vigente-Delivery`. Gmail no tiene idempotencia: si el envío sale pero la API se cae antes de marcarlo, se puede repetir.
+  - **Chat** (`WebhookSender`): publica en un incoming webhook, que es una sola URL y un solo canal. Con formato `slack` manda `{ text }`; con formato `teams`, una tarjeta adaptable con el mismo texto en el markdown de Teams (`teamsText`). Como todos los avisos caen al mismo canal, cada mensaje parte con «Para Daniela Soto (#costos)».
+- **Anotar.** Al salir, la entrega queda `sent` con el canal que usó de verdad, el id del proveedor y la nota si cayó al correo. `ListDeliveries` devuelve las entregas de unos avisos, para mostrar por dónde salió cada uno.
 - **Reintentar.** Si falla, espera 1, 4, 16 y 60 minutos; al quinto intento queda `failed` con el último error.
 
-En la API, `DeliveryWorker` corre una vuelta cada 5 segundos si están `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` y `GMAIL_REFRESH_TOKEN`. `EMAIL_REDIRECT_TO` manda todos los correos a una sola dirección, para probar sin escribirle a los afectados. Sin esas variables, el envío está apagado y los avisos solo se ven en la web, en el detalle de su cambio.
+En la API, `DeliveryWorker` corre una vuelta cada 5 segundos si hay al menos un canal con sender (`buildChannelSenders`):
+
+| Canal de la persona | Sale si están                                                        | Notas                                                                                         |
+| ------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `email`             | `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` y `GMAIL_REFRESH_TOKEN`     | `EMAIL_REDIRECT_TO` manda todos los correos a una sola dirección, para probar sin escribirle a los afectados |
+| `slack`             | `SLACK_WEBHOOK_URL`, o `TEAMS_WEBHOOK_URL` si no está la de Slack    | El webhook ya apunta a un canal fijo, así que no hay a quién desviar                          |
+| `whatsapp`          | Todavía no tiene sender                                              | Cae al correo si la persona tiene uno o hay desvío; si no, `skipped` con el motivo            |
+
+Sin ninguna de esas variables, el envío está apagado y los avisos solo se ven en la web, en el detalle de su cambio.
 
 ## Autorizar la cuenta que manda
 

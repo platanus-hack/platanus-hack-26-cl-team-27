@@ -1,14 +1,17 @@
 import {
+  type ChannelRedirects,
   MAX_ATTEMPTS,
-  renderEmail,
+  renderDelivery,
   retryDelayMs,
+  routeDelivery,
 } from '../../domain/Delivery.ts';
+import { CHANNELS } from '../../domain/Stakeholder.ts';
+import type { ChannelSenders } from '../ports/ChannelSender.ts';
 import type { DeliveryQueue } from '../ports/DeliveryQueue.ts';
-import type { EmailSender } from '../ports/EmailSender.ts';
 
 export interface DeliveryOptions {
   readonly baseUrl: string;
-  readonly redirectTo?: string | undefined;
+  readonly redirects?: ChannelRedirects | undefined;
 }
 
 const BATCH_SIZE = 10;
@@ -25,39 +28,54 @@ const reasonOf = (error: unknown): string =>
 
 export class DeliverNotifications {
   private readonly queue: DeliveryQueue;
-  private readonly sender: EmailSender;
+  private readonly senders: ChannelSenders;
   private readonly options: DeliveryOptions;
 
   constructor(
     queue: DeliveryQueue,
-    sender: EmailSender,
+    senders: ChannelSenders,
     options: DeliveryOptions,
   ) {
     this.queue = queue;
-    this.sender = sender;
+    this.senders = senders;
     this.options = options;
   }
 
   async execute(now = new Date()): Promise<DeliveryRound> {
     const round = { sent: 0, retried: 0, failed: 0, skipped: 0 };
+    const available = CHANNELS.filter(
+      (channel) => this.senders[channel] !== undefined,
+    );
     const pending = await this.queue.claim(BATCH_SIZE, now);
     for (const delivery of pending) {
-      const to = this.options.redirectTo ?? delivery.recipient;
-      if (!to) {
+      const route = routeDelivery(delivery, available, this.options.redirects);
+      const sender = route.channel ? this.senders[route.channel] : undefined;
+      if (route.channel === null || !sender) {
         await this.queue.markSkipped(
           delivery.id,
-          'El afectado no tiene correo',
+          route.channel === null ? route.reason : 'Sin canal de envío',
         );
         round.skipped += 1;
         continue;
       }
       try {
-        const providerId = await this.sender.send({
-          ...renderEmail(delivery.notification, this.options.baseUrl),
-          to,
-          idempotencyKey: delivery.id,
-        });
-        await this.queue.markSent(delivery.id, providerId, new Date());
+        const providerId = await sender.send(
+          {
+            id: delivery.id,
+            to: route.to,
+            recipientName: delivery.notification.context?.recipientName ?? null,
+          },
+          renderDelivery(
+            delivery.notification,
+            this.options.baseUrl,
+            route.channel,
+          ),
+        );
+        await this.queue.markSent(
+          delivery.id,
+          { providerId, channel: route.channel, note: route.note },
+          new Date(),
+        );
         round.sent += 1;
       } catch (error) {
         if (delivery.attempts >= MAX_ATTEMPTS) {

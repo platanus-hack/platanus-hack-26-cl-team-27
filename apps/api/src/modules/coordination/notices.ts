@@ -15,6 +15,7 @@ import {
 import {
   type ConflictRecipient,
   type ConflictToNotify,
+  type DeliveryRecord,
   fallbackWhy,
   type NoticeClash,
   type NoticeImpact,
@@ -258,15 +259,36 @@ export interface NoticePreviewInput {
   readonly impact: NoticeImpact | null;
   readonly clashes: readonly NoticeClash[];
   readonly reasons: readonly NoticeReason[];
+  readonly deliveries?: readonly DeliveryRecord[];
   readonly baseUrl: string;
 }
 
 const sameClash = (a: NoticeClash, b: NoticeClash): boolean =>
   a.with === b.with;
 
+export const deliveryOf = (
+  deliveries: readonly DeliveryRecord[],
+  notificationId: string,
+) => {
+  const own = deliveries.filter(
+    (delivery) => delivery.notificationId === notificationId,
+  );
+  const last = own[own.length - 1];
+  return last
+    ? {
+        channel: last.channel,
+        status: last.status,
+        reason: last.reason,
+        attempts: last.attempts,
+        sentAt: last.sentAt,
+      }
+    : null;
+};
+
 export interface ConflictPreviewInput {
   readonly project: ProjectCatalog;
   readonly notifications: readonly Notification[];
+  readonly deliveries?: readonly DeliveryRecord[];
   readonly baseUrl: string;
 }
 
@@ -294,6 +316,7 @@ export const conflictPreviews = (input: ConflictPreviewInput) =>
       overlapId: notification.context?.conflict?.overlapId ?? null,
       part: notification.context?.conflict?.part ?? null,
       votes: notification.context?.conflict?.votes ?? false,
+      delivery: deliveryOf(input.deliveries ?? [], notification.id),
     };
   });
 
@@ -336,5 +359,6 @@ export const noticePreviews = (input: NoticePreviewInput) =>
       text: rendered.text,
       why: written ?? fallbackWhy(notification.findings, noticeRole),
       whySource: written ? ('modelo' as const) : ('plantilla' as const),
+      delivery: deliveryOf(input.deliveries ?? [], notification.id),
     };
   });

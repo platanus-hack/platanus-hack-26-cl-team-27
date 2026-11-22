@@ -1,11 +1,17 @@
 import type { PrismaClient } from '@team27/data-main';
 
-import type { DeliveryQueue } from '../../application/ports/DeliveryQueue.ts';
+import type {
+  DeliveryQueue,
+  SentDelivery,
+} from '../../application/ports/DeliveryQueue.ts';
 import {
   CLAIM_LEASE_MS,
+  type DeliveryRecord,
+  type DeliveryStatus,
   MAX_AGE_MS,
   type PendingDelivery,
 } from '../../domain/Delivery.ts';
+import type { Channel } from '../../domain/Stakeholder.ts';
 import { toNotification } from './PrismaNotificationRepository.ts';
 
 const utc = (date: Date): string => date.toISOString();
@@ -42,17 +48,40 @@ export class PrismaDeliveryQueue implements DeliveryQueue {
     });
     return rows.map((row) => ({
       id: row.id,
+      channel: row.channel as Channel,
       recipient: row.recipient,
       attempts: row.attempts,
       notification: toNotification(row.notification),
     }));
   }
 
-  async markSent(id: string, providerId: string, at: Date): Promise<void> {
+  async markSent(id: string, sent: SentDelivery, at: Date): Promise<void> {
     await this.prisma.notificationDelivery.update({
       where: { id },
-      data: { status: 'sent', providerId, sentAt: at, lastError: null },
+      data: {
+        status: 'sent',
+        channel: sent.channel,
+        providerId: sent.providerId,
+        sentAt: at,
+        lastError: sent.note,
+      },
     });
+  }
+
+  async listFor(notificationIds: readonly string[]): Promise<DeliveryRecord[]> {
+    const rows = await this.prisma.notificationDelivery.findMany({
+      where: { notificationId: { in: [...notificationIds] } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      notificationId: row.notificationId,
+      channel: row.channel as Channel,
+      status: row.status as DeliveryStatus,
+      reason: row.lastError,
+      attempts: row.attempts,
+      sentAt: row.sentAt,
+      createdAt: row.createdAt,
+    }));
   }
 
   async markSkipped(id: string, reason: string): Promise<void> {

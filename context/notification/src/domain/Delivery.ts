@@ -1,5 +1,11 @@
-import { type Notice, noticeRoleOf, renderNotice } from './Notice.ts';
+import {
+  type Notice,
+  noticeRoleOf,
+  type RenderedNotice,
+  renderNotice,
+} from './Notice.ts';
 import type { Notification } from './Notification.ts';
+import type { Channel } from './Stakeholder.ts';
 
 export const MAX_ATTEMPTS = 5;
 
@@ -15,8 +21,87 @@ export const emailAddress = (handle: string): string | null =>
 export const retryDelayMs = (attempts: number): number =>
   Math.min(60_000 * 4 ** Math.max(attempts - 1, 0), 60 * 60_000);
 
+export const DELIVERY_STATUSES = [
+  'pending',
+  'sent',
+  'skipped',
+  'failed',
+] as const;
+
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
+
+export interface DeliveryRecord {
+  readonly notificationId: string;
+  readonly channel: Channel;
+  readonly status: DeliveryStatus;
+  readonly reason: string | null;
+  readonly attempts: number;
+  readonly sentAt: Date | null;
+  readonly createdAt: Date;
+}
+
+export type ChannelRedirects = Partial<Record<Channel, string>>;
+
+export type DeliveryRoute =
+  | {
+      readonly channel: Channel;
+      readonly to: string;
+      readonly note: string | null;
+    }
+  | { readonly channel: null; readonly reason: string };
+
+const CHANNEL_NAMES: Readonly<Record<Channel, string>> = {
+  email: 'correo',
+  whatsapp: 'WhatsApp',
+  slack: 'Slack',
+};
+
+const NEEDS_ADDRESS: readonly Channel[] = ['email', 'whatsapp'];
+
+export const routeDelivery = (
+  delivery: { readonly channel: Channel; readonly recipient: string | null },
+  available: readonly Channel[],
+  redirects: ChannelRedirects = {},
+): DeliveryRoute => {
+  const { channel } = delivery;
+  const recipient = delivery.recipient?.trim() ?? '';
+  const name = CHANNEL_NAMES[channel];
+  if (available.includes(channel)) {
+    const own = channel === 'email' ? emailAddress(recipient) : recipient;
+    const to = redirects[channel] ?? own;
+    if (to || (to !== null && !NEEDS_ADDRESS.includes(channel))) {
+      return { channel, to, note: null };
+    }
+    return {
+      channel: null,
+      reason:
+        channel === 'email'
+          ? 'El afectado no tiene correo'
+          : `El afectado no tiene dirección de ${name}`,
+    };
+  }
+  if (channel !== 'email' && available.includes('email')) {
+    const to = redirects.email ?? emailAddress(recipient);
+    if (to) {
+      return {
+        channel: 'email',
+        to,
+        note: `Sin envío por ${name}: salió por correo`,
+      };
+    }
+  }
+  return {
+    channel: null,
+    reason:
+      channel === 'email'
+        ? 'No hay envío por correo configurado'
+        : `No hay envío por ${name} configurado y el afectado no tiene correo`,
+  };
+};
+
 export interface PendingDelivery {
   readonly id: string;
+  readonly channel: Channel;
   readonly recipient: string | null;
   readonly attempts: number;
   readonly notification: Notification;
@@ -43,15 +128,22 @@ export const noticeOf = (
   conflict: notification.context?.conflict ?? null,
 });
 
+export const renderDelivery = (
+  notification: Notification,
+  baseUrl: string,
+  channel: Channel,
+): RenderedNotice =>
+  renderNotice(
+    noticeOf(notification, baseUrl),
+    noticeRoleOf(notification.context?.role ?? '', notification.findings),
+    channel,
+  );
+
 export const renderEmail = (
   notification: Notification,
   baseUrl: string,
 ): Email => {
-  const rendered = renderNotice(
-    noticeOf(notification, baseUrl),
-    noticeRoleOf(notification.context?.role ?? '', notification.findings),
-    'email',
-  );
+  const rendered = renderDelivery(notification, baseUrl, 'email');
   return {
     subject: rendered.subject,
     text: rendered.text,

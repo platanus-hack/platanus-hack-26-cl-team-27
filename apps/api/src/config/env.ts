@@ -76,6 +76,8 @@ export const envSchema = z
       z.string().trim().min(3).default('Vigente <appvigente@gmail.com>'),
     ),
     EMAIL_REDIRECT_TO: optionalText.pipe(z.email().optional()),
+    SLACK_WEBHOOK_URL: optionalText.pipe(z.url().optional()),
+    TEAMS_WEBHOOK_URL: optionalText.pipe(z.url().optional()),
     INTEGRATIONS_POLL_SECONDS: blankAsDefault(
       z.coerce.number().int().min(0).max(3600).default(60),
     ),

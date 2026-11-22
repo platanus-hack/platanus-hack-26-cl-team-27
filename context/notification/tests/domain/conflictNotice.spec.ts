@@ -189,12 +189,12 @@ describe('draftConflictNotices', () => {
       channel: 'email',
       title: 'Choque: Shaft S1 y Colector B2',
       link: '/proyectos/los-aromos/cambios/c1',
-      email: 'fernanda@obra.example',
+      recipient: 'fernanda@obra.example',
     });
     expect(drafts[1]).toMatchObject({
       changeId: 'c2',
       channel: 'whatsapp',
-      email: null,
+      recipient: '+56 9 0000 0102',
     });
     expect(drafts[1]?.context?.conflict).toMatchObject({
       overlapId: 'o1',

@@ -1,4 +1,3 @@
-import { emailAddress } from './Delivery.ts';
 import {
   type ConflictPart,
   conflictTitle,
@@ -38,10 +37,10 @@ export interface NotificationDraft {
   readonly findings: readonly NotificationFinding[];
   readonly link: string;
   readonly context: NoticeContext | null;
-  readonly email: string | null;
+  readonly recipient: string | null;
 }
 
-export interface Notification extends Omit<NotificationDraft, 'email'> {
+export interface Notification extends Omit<NotificationDraft, 'recipient'> {
   readonly id: string;
   readonly sentAt: Date;
   readonly response: NotificationResponse | null;
@@ -91,7 +90,7 @@ export const draftNotifications = (
           impact: change.impact ?? null,
           clashes: [],
         },
-        email: emailAddress(stakeholder.handle),
+        recipient: stakeholder.handle.trim() || null,
       },
     ];
   });
@@ -142,7 +141,7 @@ export const draftConflictNotices = (
             votes: recipient.votes,
           },
         },
-        email: emailAddress(stakeholder.handle),
+        recipient: stakeholder.handle.trim() || null,
       },
     ];
   });

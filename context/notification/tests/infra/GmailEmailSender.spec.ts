@@ -11,6 +11,18 @@ const email = {
   idempotencyKey: 'd1',
 };
 
+const delivery = {
+  id: email.idempotencyKey,
+  to: email.to,
+  recipientName: 'Paula',
+};
+
+const rendered = {
+  subject: email.subject,
+  text: email.text,
+  html: email.html,
+};
+
 const credentials = {
   clientId: 'id',
   clientSecret: 'secret',
@@ -63,8 +75,8 @@ describe('GmailEmailSender', () => {
       .mockResolvedValueOnce(Response.json({ id: 'gmail-2' }));
     const sender = new GmailEmailSender(credentials, 'a@b.example', fetcher);
 
-    await expect(sender.send(email)).resolves.toBe('gmail-1');
-    await expect(sender.send(email)).resolves.toBe('gmail-2');
+    await expect(sender.send(delivery, rendered)).resolves.toBe('gmail-1');
+    await expect(sender.send(delivery, rendered)).resolves.toBe('gmail-2');
 
     expect(fetcher).toHaveBeenCalledTimes(3);
     const [tokenUrl, tokenInit] = fetcher.mock.calls[0] ?? [];
@@ -95,9 +107,9 @@ describe('GmailEmailSender', () => {
       () => now,
     );
 
-    await sender.send(email);
+    await sender.send(delivery, rendered);
     now = 3_550_000;
-    await sender.send(email);
+    await sender.send(delivery, rendered);
 
     expect(fetcher).toHaveBeenCalledTimes(4);
   });
@@ -114,7 +126,10 @@ describe('GmailEmailSender', () => {
     );
 
     await expect(
-      new GmailEmailSender(credentials, 'a@b.example', fetcher).send(email),
+      new GmailEmailSender(credentials, 'a@b.example', fetcher).send(
+        delivery,
+        rendered,
+      ),
     ).rejects.toThrow(/Token has been expired or revoked.*pnpm gmail:auth/);
   });
 
@@ -132,10 +147,10 @@ describe('GmailEmailSender', () => {
       .mockResolvedValueOnce(Response.json({ id: 'gmail-2' }));
     const sender = new GmailEmailSender(credentials, 'a@b.example', fetcher);
 
-    await expect(sender.send(email)).rejects.toThrow(
+    await expect(sender.send(delivery, rendered)).rejects.toThrow(
       'Gmail respondió 401: Invalid Credentials',
     );
-    await expect(sender.send(email)).resolves.toBe('gmail-2');
+    await expect(sender.send(delivery, rendered)).resolves.toBe('gmail-2');
     expect(fetcher).toHaveBeenCalledTimes(4);
   });
 });

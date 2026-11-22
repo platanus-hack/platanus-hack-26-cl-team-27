@@ -121,7 +121,7 @@ El **índice de consenso** son los documentos al día sobre los documentos total
 - `impact` recibe el elemento con sus propiedades antes y después, que la API arma desde el modelo del proyecto y lo vigente (`elementsFromBaseline`), y devuelve costo, plazo, un hallazgo por afectado y los filtrados con su razón. Los afectados son los del equipo del proyecto menos el autor.
 - `notification` crea un **aviso de cambio** por afectado y cambio, con su canal y el `link` al detalle del cambio en su proyecto, y lo escribe para el rol y el canal de cada persona (`renderNotice`), con el impacto y los choques. Su respuesta es el voto: `reviewed` aprueba, `issue` disputa.
 - Cuando la ingesta abre un solapamiento que sigue vivo, `notification` crea además un **aviso de conflicto** por persona y solapamiento: a los dos autores (quien subió la revisión y el dueño del otro lado, que son quienes validan) y a los afectados de las dos propuestas. Dice qué choca con qué, dónde, la pregunta de sí o no y el costo y el plazo de los dos cambios juntos. No se responde como un aviso de cambio: su respuesta es el voto del solapamiento, y solo votan los validadores. Los choques que estima un modelo no abren un aviso de conflicto: quedan como pregunta en el aviso de cambio.
-- Un aviso guardado todavía no sale por ningún canal: el afectado lo ve y lo responde en el detalle del cambio, dentro de la web (`/proyectos/[projectId]/cambios/[id]`).
+- Cada aviso guardado deja una entrega en la cola, en el canal de la persona. El **Notificador** (`DeliverNotifications`, con un `ChannelSender` por canal) lo manda por correo (Gmail) o por el chat (un incoming webhook de Slack o de Teams); un canal sin sender cae al correo si la persona tiene uno, y si no la entrega queda omitida con su motivo ([notification](../context/notification/README.md#envío)). El afectado responde en el detalle del cambio, dentro de la web (`/proyectos/[projectId]/cambios/[id]`).
 - Las discrepancias, los desfases, los solapamientos por validar y los filtrados no son avisos de `notification`: la API los compone en la bandeja de cada persona (`GET /api/projects/:projectId/inbox`) desde el repositorio.
 
 ## Contextos y capas
@@ -314,7 +314,7 @@ La web todavía no tiene la bandeja, ni las acciones del autor (reabrir, retirar
 ## Lo que falta
 
 - **Cargar un proyecto.** Que un proyecto creado desde la web tenga espacios, documentos, sujetos, atributos, modelo, grilla, dependencias y equipo.
-- **Canales reales.** Un puerto `ChannelSender` en `notification`, con un adapter por proveedor, y una outbox para enviar fuera de la transacción ([spec](spec/ia.md#un-canal-real)).
+- **Más canales reales.** WhatsApp y ACC Issues: un `ChannelSender` por proveedor ([spec](spec/ia.md#un-canal-real)). El correo y el chat por webhook ya salen.
 - **Autoridad entre fuentes.** Que cada atributo tenga una sola fuente autoritativa entre conectores (geometría y posición desde Autodesk; cantidades, precios y partidas desde la planilla), y que la otra fuente solo pueda levantar una discrepancia.
 - **Registro de entregas y vínculos.** Guardar cada entrega cruda de un conector con su `sourceVersion` y su clave de idempotencia, un registro de elementos con alias (`UniqueId` de Revit, `GlobalId` de IFC, la clave de una fila) y una bandeja de lo que llegó sin vincular, para reprocesar sin perder nada.
 
