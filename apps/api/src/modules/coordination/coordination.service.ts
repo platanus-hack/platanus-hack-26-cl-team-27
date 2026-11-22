@@ -1,6 +1,10 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   type AddressedFinding,
+  type AnswerKind,
+  answerMemo,
+  type AnswerProgress,
+  conflictTitle,
   isChangeNotice,
   type ResponseKind,
 } from '@team27/context-notification';
@@ -341,6 +345,37 @@ export class CoordinationService {
     }
   }
 
+  private async tellAuthors(
+    db: Db,
+    project: ProjectCatalog,
+    input: {
+      readonly changeId: string | null;
+      readonly authorIds: readonly string[];
+      readonly actor: string;
+      readonly answer: AnswerKind;
+      readonly note: string | null | undefined;
+      readonly about: string;
+      readonly progress?: AnswerProgress;
+    },
+  ): Promise<void> {
+    const recipientIds = input.authorIds.filter((id) => id !== input.actor);
+    if (input.changeId === null || recipientIds.length === 0) return;
+    await buildNotification(db, project).notifyMemo.execute({
+      projectId: project.id,
+      changeId: input.changeId,
+      kind: 'answer',
+      memo: answerMemo({
+        by: project.castName(input.actor),
+        role: project.castMember(input.actor)?.role ?? '',
+        answer: input.answer,
+        note: input.note?.trim() || null,
+        about: input.about,
+        progress: input.progress ?? null,
+      }),
+      recipientIds,
+    });
+  }
+
   private async openProposal(
     db: Db,
     project: ProjectCatalog,
@@ -609,6 +644,19 @@ export class CoordinationService {
     if (recorded.changed) {
       const progress = progressOf(project, recorded.proposal);
       const title = proposalTitle(project, recorded.proposal);
+      await this.tellAuthors(db, project, {
+        changeId: target.changeId,
+        authorIds: [recorded.proposal.authorId],
+        actor,
+        answer: vote.kind,
+        note: vote.note,
+        about: title,
+        progress: {
+          approved: progress.approved,
+          required: progress.required,
+          missing: progress.missing,
+        },
+      });
       const said = vote.note?.trim();
       if (vote.kind === 'not_affected') {
         events.push({
@@ -686,6 +734,30 @@ export class CoordinationService {
         await lake.settleOverlaps.execute();
         const events: EventDraft[] = [];
         if (voted.changed) {
+          const sides = (await lake.ports.proposals.list()).filter(
+            (proposal) =>
+              proposal.id === found.proposalId ||
+              proposal.id === found.otherProposalId,
+          );
+          await buildNotification(db, project).answerConflictNotice.execute({
+            stakeholderId: actor,
+            overlapId,
+            kind: vote.kind,
+            note: vote.note ?? null,
+          });
+          await this.tellAuthors(db, project, {
+            changeId:
+              sides.find((proposal) => proposal.changeId !== null)?.changeId ??
+              null,
+            authorIds: [...new Set(sides.map((proposal) => proposal.authorId))],
+            actor,
+            answer: vote.kind,
+            note: vote.note,
+            about: conflictTitle({
+              first: project.subjectName(found.subjectId),
+              second: project.subjectName(found.otherSubjectId),
+            }),
+          });
           const title = overlapTitle(
             project,
             voted.overlap,

@@ -1,15 +1,21 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  AnswerConflictNotice,
   AttachClashes,
+  DEFAULT_FOLLOW_UP,
   DeliverNotifications,
+  type FollowUpSettings,
+  FollowUpNotices,
   GetNotification,
   ListDeliveries,
   ListNotifications,
   NotifyConflict,
+  NotifyMemo,
   NotifyStakeholders,
   ReopenResponse,
   RespondToNotification,
+  type Stakeholder,
 } from '@team27/context-notification';
 import {
   InMemoryStakeholderDirectory,
@@ -24,13 +30,33 @@ import type { ProjectCatalog } from '../project/project-catalog.ts';
 import { buildChannelSenders } from './channel-senders.ts';
 import { DELIVER_NOTIFICATIONS, DeliveryWorker } from './delivery.worker.ts';
 
+export interface NotificationOptions {
+  readonly extra?: readonly Stakeholder[];
+  readonly followUp?: FollowUpSettings;
+}
+
 export const buildNotification = (
   db: PrismaClient,
   project: ProjectCatalog,
+  options: NotificationOptions = {},
 ) => {
   const directory = new InMemoryStakeholderDirectory(project.stakeholders);
   const notifications = new PrismaNotificationRepository(db, project.id);
+  const queue = new PrismaDeliveryQueue(db);
   return {
+    notifyMemo: new NotifyMemo(
+      new InMemoryStakeholderDirectory([
+        ...project.cast,
+        ...(options.extra ?? []),
+      ]),
+      notifications,
+    ),
+    answerConflictNotice: new AnswerConflictNotice(notifications),
+    followUpNotices: new FollowUpNotices(
+      notifications,
+      queue,
+      options.followUp ?? DEFAULT_FOLLOW_UP,
+    ),
     notifyStakeholders: new NotifyStakeholders(directory, notifications),
     notifyConflict: new NotifyConflict(
       new InMemoryStakeholderDirectory(project.cast),
@@ -38,7 +64,7 @@ export const buildNotification = (
     ),
     attachClashes: new AttachClashes(notifications),
     listNotifications: new ListNotifications(notifications),
-    listDeliveries: new ListDeliveries(new PrismaDeliveryQueue(db)),
+    listDeliveries: new ListDeliveries(queue),
     getNotification: new GetNotification(notifications),
     respondToNotification: new RespondToNotification(notifications),
     reopenResponse: new ReopenResponse(notifications),

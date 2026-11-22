@@ -10,6 +10,9 @@ describe('envSchema', () => {
       GOOGLE_REDIRECT_URI:
         'http://localhost:3000/api/integrations/google/callback',
       INTEGRATIONS_POLL_SECONDS: 60,
+      REMINDER_AFTER_MINUTES: 1440,
+      ESCALATE_AFTER_REMINDERS: 2,
+      FOLLOW_UP_SECONDS: 60,
       APP_BASE_URL: 'http://localhost:3000',
       EMAIL_FROM: 'Vigente <appvigente@gmail.com>',
       INTEGRATIONS_WATCH_HOURS: 24,

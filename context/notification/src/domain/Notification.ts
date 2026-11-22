@@ -1,3 +1,4 @@
+import type { AnswerKind } from './FollowUp.ts';
 import {
   type ConflictPart,
   conflictTitle,
@@ -6,7 +7,9 @@ import {
   type NoticeConflict,
   type NoticeContext,
   type NoticeImpact,
+  type NoticeKind,
   noticeKindOf,
+  type NoticeMemo,
 } from './Notice.ts';
 import type { Channel, Stakeholder } from './Stakeholder.ts';
 
@@ -24,7 +27,7 @@ export interface NotificationFinding {
 }
 
 export interface NotificationResponse {
-  readonly kind: ResponseKind;
+  readonly kind: AnswerKind;
   readonly note: string | null;
   readonly at: Date;
 }
@@ -145,6 +148,53 @@ export const draftConflictNotices = (
       },
     ];
   });
+};
+
+export interface MemoToNotify {
+  readonly projectId: string;
+  readonly changeId: string;
+  readonly kind: Exclude<NoticeKind, 'change' | 'conflict'>;
+  readonly memo: NoticeMemo;
+  readonly impact?: NoticeImpact | null;
+  readonly recipientIds: readonly string[];
+}
+
+export const draftMemoNotices = (
+  input: MemoToNotify,
+  stakeholders: readonly Stakeholder[],
+): NotificationDraft[] =>
+  [...new Set(input.recipientIds)].flatMap((id): NotificationDraft[] => {
+    const stakeholder = stakeholders.find((candidate) => candidate.id === id);
+    if (!stakeholder) return [];
+    return [
+      {
+        changeId: input.changeId,
+        stakeholderId: stakeholder.id,
+        channel: stakeholder.channel,
+        title: input.memo.subject,
+        findings: [],
+        link: detailLink(input.projectId, input.changeId),
+        context: {
+          kind: input.kind,
+          role: stakeholder.role,
+          recipientName: stakeholder.name,
+          impact: input.impact ?? null,
+          clashes: [],
+          memo: input.memo,
+        },
+        recipient: stakeholder.handle.trim() || null,
+      },
+    ];
+  });
+
+export const expectsAnswer = (
+  notification: Pick<Notification, 'context'>,
+): boolean => {
+  const kind = noticeKindOf(notification.context);
+  return (
+    kind === 'change' ||
+    (kind === 'conflict' && notification.context?.conflict?.votes === true)
+  );
 };
 
 export const isChangeNotice = (

@@ -26,7 +26,13 @@ export interface NoticeClash {
   readonly combined: NoticeImpact | null;
 }
 
-export const NOTICE_KINDS = ['change', 'conflict'] as const;
+export const NOTICE_KINDS = [
+  'change',
+  'conflict',
+  'answer',
+  'escalation',
+  'closing',
+] as const;
 
 export type NoticeKind = (typeof NOTICE_KINDS)[number];
 
@@ -47,6 +53,13 @@ export interface NoticeConflict {
   readonly votes: boolean;
 }
 
+export interface NoticeMemo {
+  readonly subject: string;
+  readonly why: string;
+  readonly lines: readonly string[];
+  readonly ask: string;
+}
+
 export interface NoticeContext {
   readonly kind?: NoticeKind;
   readonly role: string;
@@ -54,6 +67,8 @@ export interface NoticeContext {
   readonly impact: NoticeImpact | null;
   readonly clashes: readonly NoticeClash[];
   readonly conflict?: NoticeConflict;
+  readonly memo?: NoticeMemo;
+  readonly escalatedAt?: string;
 }
 
 export const noticeKindOf = (
@@ -69,6 +84,7 @@ export interface Notice {
   readonly clashes?: readonly NoticeClash[];
   readonly why?: string | null;
   readonly conflict?: NoticeConflict | null;
+  readonly memo?: NoticeMemo | null;
 }
 
 export interface RenderedNotice {
@@ -408,11 +424,69 @@ const conflictOf = (
   return { subject, text, html };
 };
 
+const memoOf = (
+  notice: Notice,
+  memo: NoticeMemo,
+  role: NoticeRole,
+  channel: Channel,
+): RenderedNotice => {
+  const { subject } = memo;
+  const impact = impactLine(notice.impact, role);
+  if (channel === 'whatsapp') {
+    const text = [
+      subject,
+      ...memo.lines,
+      ...(impact ? [impact] : []),
+      `${memo.ask}:`,
+    ].join('\n');
+    return {
+      subject,
+      text: clip(`${text}\n${notice.url}`, WHATSAPP_MAX_LENGTH, notice.url),
+      html: null,
+    };
+  }
+  if (channel === 'slack') {
+    const link = `<${notice.url}|${memo.ask}>`;
+    const text = [
+      `*${subject}*`,
+      `_${memo.why}_`,
+      ...memo.lines.map((line) => `• ${line}`),
+      ...(impact ? [impact] : []),
+    ].join('\n');
+    return {
+      subject,
+      text: clip(`${text}\n${link}`, SLACK_MAX_LENGTH, link),
+      html: null,
+    };
+  }
+  const greeting = firstName(notice.recipientName);
+  const text = [
+    ...(greeting ? [`Hola ${greeting}:`, ''] : []),
+    subject,
+    memo.why,
+    '',
+    ...memo.lines.map((line) => `• ${line}`),
+    '',
+    ...(impact ? [impact, ''] : []),
+    `${memo.ask}: ${notice.url}`,
+  ].join('\n');
+  const html = [
+    greeting ? `<p>Hola ${escapeHtml(greeting)}:</p>` : '',
+    `<h2>${escapeHtml(subject)}</h2>`,
+    `<p>${escapeHtml(memo.why)}</p>`,
+    `<ul>${memo.lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`,
+    impact ? `<p>${escapeHtml(impact)}</p>` : '',
+    `<p><a href="${escapeHtml(notice.url)}">${escapeHtml(memo.ask)}</a></p>`,
+  ].join('');
+  return { subject, text, html };
+};
+
 export const renderNotice = (
   notice: Notice,
   role: NoticeRole,
   channel: Channel,
 ): RenderedNotice => {
+  if (notice.memo) return memoOf(notice, notice.memo, role, channel);
   if (notice.conflict) {
     return conflictOf(notice, notice.conflict, role, channel);
   }

@@ -20,6 +20,7 @@ export interface NotificationRepository {
   ): Promise<Notification | null>;
   clearResponse(id: string): Promise<Notification | null>;
   findById(id: string): Promise<Notification | null>;
+  markEscalated(ids: readonly string[], at: Date): Promise<void>;
   setClashes(
     changeId: string,
     clashes: readonly NoticeClash[],

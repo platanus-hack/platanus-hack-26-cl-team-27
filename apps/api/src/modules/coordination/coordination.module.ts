@@ -6,11 +6,18 @@ import { ChunkReader } from './chunk-reader.ts';
 import { CoordinationController } from './coordination.controller.ts';
 import { CoordinationService } from './coordination.service.ts';
 import { EventsService } from './events.service.ts';
+import { FollowUpService } from './follow-up.service.ts';
 import { QueryService } from './query.service.ts';
 
 @Module({
   imports: [AccountsModule, ImpactModule],
-  providers: [ChunkReader, CoordinationService, EventsService, QueryService],
+  providers: [
+    ChunkReader,
+    CoordinationService,
+    EventsService,
+    FollowUpService,
+    QueryService,
+  ],
   controllers: [CoordinationController],
 })
 export class CoordinationModule {}

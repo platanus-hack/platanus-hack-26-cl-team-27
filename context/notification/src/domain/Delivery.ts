@@ -30,8 +30,13 @@ export const DELIVERY_STATUSES = [
 
 export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
+export const DELIVERY_KINDS = ['notice', 'reminder'] as const;
+
+export type DeliveryKind = (typeof DELIVERY_KINDS)[number];
+
 export interface DeliveryRecord {
   readonly notificationId: string;
+  readonly kind: DeliveryKind;
   readonly channel: Channel;
   readonly status: DeliveryStatus;
   readonly reason: string | null;
@@ -101,6 +106,7 @@ export const routeDelivery = (
 
 export interface PendingDelivery {
   readonly id: string;
+  readonly kind: DeliveryKind;
   readonly channel: Channel;
   readonly recipient: string | null;
   readonly attempts: number;
@@ -126,6 +132,7 @@ export const noticeOf = (
   clashes: notification.context?.clashes ?? [],
   why,
   conflict: notification.context?.conflict ?? null,
+  memo: notification.context?.memo ?? null,
 });
 
 export const renderDelivery = (

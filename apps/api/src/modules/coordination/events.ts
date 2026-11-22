@@ -26,6 +26,8 @@ export const EVENT_KINDS = [
   'stale.detected',
   'stale.acknowledged',
   'consensus.sealed',
+  'notice.reminded',
+  'notice.escalated',
 ] as const;
 
 export type EventKind = (typeof EVENT_KINDS)[number];

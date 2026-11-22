@@ -15,12 +15,12 @@ import {
   getChangeNotices,
   getChangeSuggestions,
   type NoticeChannel,
-  type NoticeDelivery,
   type NoticePreview,
   type ProbabilityBand,
 } from '@/lib/changes-api';
 import { projectPage } from '@/lib/project-paths';
 
+import { ChangeFollowUp, deliveryText } from './ChangeFollowUp';
 import { ImpactFigures } from './ImpactFigures';
 import { OverlapVotes } from './OverlapVotes';
 
@@ -89,27 +89,6 @@ const channelText: Record<NoticeChannel, string> = {
   email: 'Correo',
   whatsapp: 'WhatsApp',
   slack: 'Slack',
-};
-
-const sentBy: Record<NoticeChannel, string> = {
-  email: 'correo',
-  whatsapp: 'WhatsApp',
-  slack: 'Slack',
-};
-
-const deliveryText = (delivery: NoticeDelivery | null): string => {
-  if (!delivery) return 'Notificador: este aviso no tiene envío.';
-  const channel = sentBy[delivery.channel];
-  if (delivery.status === 'sent') {
-    return `Notificador: enviado por ${channel}.${delivery.reason ? ` ${delivery.reason}.` : ''}`;
-  }
-  if (delivery.status === 'skipped') {
-    return `Notificador: no se envió. ${delivery.reason ?? 'Sin motivo registrado'}.`;
-  }
-  if (delivery.status === 'failed') {
-    return `Notificador: falló el envío por ${channel}. ${delivery.reason ?? ''}`;
-  }
-  return `Notificador: en cola para salir por ${channel}.`;
 };
 
 function NoticeCard({
@@ -378,6 +357,14 @@ export function ChangeAnalysis({
           </div>
         )}
       </Block>
+      {change.followUp && change.followUp.people.length > 0 && (
+        <Block
+          title="Seguimiento"
+          question="¿Quién respondió y a quién le recordamos?"
+        >
+          <ChangeFollowUp followUp={change.followUp} />
+        </Block>
+      )}
     </>
   );
 }

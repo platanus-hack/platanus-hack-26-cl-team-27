@@ -24,7 +24,10 @@ import {
   subjectsOf,
   valueStatus,
 } from '@team27/context-lake';
-import type { Notification } from '@team27/context-notification';
+import type {
+  DeliveryRecord,
+  Notification,
+} from '@team27/context-notification';
 
 import type { ProjectCatalog } from '../project/project-catalog.ts';
 import { ruleGapsOf } from './impact.ts';
@@ -43,6 +46,8 @@ export interface LakeSnapshot {
   readonly impacts: ReadonlyMap<string, Impact>;
   readonly notifications: readonly Notification[];
   readonly conflictNotices: readonly Notification[];
+  readonly authorNotices: readonly Notification[];
+  readonly deliveries: readonly DeliveryRecord[];
 }
 
 export interface StaleRef {

@@ -14,4 +14,5 @@ export interface DeliveryQueue {
   retry(id: string, error: string, at: Date): Promise<void>;
   fail(id: string, error: string): Promise<void>;
   listFor(notificationIds: readonly string[]): Promise<DeliveryRecord[]>;
+  remind(notificationId: string, at: Date): Promise<boolean>;
 }
