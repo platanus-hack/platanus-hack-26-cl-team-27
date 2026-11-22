@@ -113,6 +113,43 @@ Una misma persona puede ser autor de un cambio y afectada por otro.
 | Notificación        | `Notification`         | El aviso a un afectado: resumen del cambio, impacto estimado en costo y plazo, y enlace al detalle                                                                             |
 | Respuesta           | `NotificationResponse` | Lo que el afectado contesta a una notificación: revisado o tengo un problema, con una nota opcional                                                                            |
 
+## Mano alzada
+
+> El sistema calcula quién depende de un cambio. Si falta alguien, la persona afectada alza la mano con su nombre y su hora, y el costo se recalcula. Lo vigente cambia solo cuando confirman todos los que dependen de ello, y callar no aprueba nada: se ve.
+
+Hoy el alcance de un cambio lo fija el autor (la lista de distribución del transmittal o de la orden de cambio) o un grafo que nadie puede corregir con su nombre, y quien no figura no se entera. En Mano alzada, el alcance es lo que calculan las reglas más lo que cualquier persona de la obra declare, con autor y hora.
+
+De esto, el código tiene la capa de probabilidad de [`context/impact`](../context/impact/README.md#probabilidad): `SuggestAffected` estima quién más puede estar afectado y `ExtractClaims` lee qué afirma un documento. La declaración, su validación, la ronda 2 y el silencio visible no están construidos.
+
+### Cómo funciona
+
+1. **Cambio.** Una revisión cambia un valor, por ejemplo el espesor de una losa de 15 a 20 cm. Las reglas avisan a quienes dependen de ese valor, con su costo y su plazo.
+2. **Pregunta.** A quien las reglas no ven, pero puede depender del cambio, le llega una pregunta de sí o no, por ejemplo «¿tus canalizaciones van embutidas en esta losa?».
+3. **Declaración.** «Me afecta» entra al lago como un hecho «usa», con autor, hora y estado: sin validar, validada o rechazada con nota.
+4. **Validación con plazo.** Quien valida acepta o rechaza con nota visible dentro de un plazo. Si calla, la declaración entra igual, rotulada «sin validar».
+5. **Ronda 2.** La propuesta reabre con quien declaró como revisor, y todos los votos se reinician.
+6. **Costo con origen.** El costo se recalcula y cada cifra lleva su rótulo: «por reglas», «declarada» o «sin validar». Lo que no está en el catálogo entra «por estimar» y no mueve la cifra.
+7. **Silencio visible.** Al vencer el plazo, quien no respondió queda «sin respuesta», con nombre y hora; su silencio no aprueba ni fusiona.
+8. **Registro de proceso.** Cada cifra muestra quién declaró, quién validó y quién calló.
+
+### Reglas
+
+- El alcance es lo calculado por reglas más lo declarado por cualquier persona; nunca lo elige solo el autor.
+- Una declaración sin validar entra al alcance con voto, rotulada. Si quien valida rechaza con nota, la declaración queda visible y el declarante pasa a observador, con derecho a disputar la nota.
+- Una declaración que cambia el alcance abre la ronda 2 y reinicia todos los votos.
+- El silencio nunca aprueba ni fusiona.
+- Las cifras salen de reglas deterministas, sin modelo de lenguaje.
+- El registro anota proceso, no culpa.
+
+### Roles
+
+| Rol                                 | Qué aporta                                                    | Qué no puede                       |
+| ----------------------------------- | ------------------------------------------------------------- | ---------------------------------- |
+| Autor del cambio                    | Sube la revisión                                              | Ver lo que solo sabe quien declara |
+| Quien valida                        | Valida o rechaza con nota, dentro de un plazo                 | Controlar el alcance por omisión   |
+| Declarantes (cualquier persona)     | Saben lo que las reglas no saben; alzan la mano con su nombre | Fijar el costo o el alcance final  |
+| Revisores (por reglas o declarados) | Confirman o disputan                                          | Fusionar sin los demás             |
+
 ## Modelo de negocio
 
 Todavía no está definido. Falta decidir:

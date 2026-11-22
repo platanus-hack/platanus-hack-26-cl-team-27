@@ -16,6 +16,7 @@ Identificamos qué elementos, decisiones y equipos quedan afectados, determinamo
 2. **Captura** cada cambio apenas ocurre, sin que nadie tenga que reportarlo.
 3. **Calcula el impacto:** qué elementos, decisiones y equipos quedan afectados, con su costo y plazo estimados.
 4. **Avisa solo a quien le importa**, en el canal que ya usa (correo, Slack/Teams, WhatsApp o la propia herramienta), con un resumen del cambio, el impacto estimado y un enlace al detalle.
+5. **Consensúa:** la versión vigente del proyecto cambia solo cuando confirman todos los afectados. Si alguien disputa, el valor no cambia, y cada valor muestra de dónde salió y quién lo aprobó.
 
 ## Para quién
 
