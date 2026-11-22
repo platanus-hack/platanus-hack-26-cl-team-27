@@ -120,6 +120,60 @@ export const getProject = (projectId: string, signal?: AbortSignal) =>
     signal,
   });
 
+export interface ProjectChanges {
+  readonly name: string;
+  readonly location: string;
+  readonly description: string;
+}
+
+export const updateProject = (projectId: string, changes: ProjectChanges) =>
+  request<ProjectDetail>(`/api/projects/${encodeURIComponent(projectId)}`, {
+    method: 'PATCH',
+    body: {
+      name: changes.name.trim(),
+      location: changes.location.trim(),
+      description: changes.description.trim(),
+    },
+  });
+
+export interface TeamMember {
+  readonly userId: string;
+  readonly name: string;
+  readonly role: string;
+  readonly email: string;
+  readonly author: boolean;
+}
+
+export interface ProjectTeam {
+  readonly canManage: boolean;
+  readonly members: readonly TeamMember[];
+}
+
+const teamPath = (projectId: string) =>
+  `/api/projects/${encodeURIComponent(projectId)}/team`;
+
+export const getTeam = (projectId: string, signal?: AbortSignal) =>
+  request<ProjectTeam>(teamPath(projectId), { signal });
+
+export const addToTeam = (projectId: string, userId: string, role: string) =>
+  request<TeamMember>(teamPath(projectId), {
+    method: 'POST',
+    body: role.trim() ? { userId, role: role.trim() } : { userId },
+  });
+
+export const removeFromTeam = (projectId: string, userId: string) =>
+  request<void>(`${teamPath(projectId)}/${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+  });
+
+export const teamCandidates = (
+  members: Members['members'],
+  team: readonly TeamMember[],
+): Members['members'] => {
+  const inTeam = new Set(team.map((member) => member.userId));
+  return members.filter((member) => !inTeam.has(member.userId));
+};
+
 export const createProject = (project: NewProject) =>
   request<AccountProject>('/api/projects', {
     method: 'POST',

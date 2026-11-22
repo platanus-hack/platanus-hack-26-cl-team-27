@@ -65,7 +65,7 @@ Con `GOOGLE_WEBHOOK_URL`, **Google avisa** cada vez que alguien edita la planill
   4. Cualquier error queda en la planilla (`lastError`) y el caso de uso no lanza. Un error inesperado vuelve con un mensaje genérico y su causa en `failure`, para el log.
   5. Si cambió y la cuenta dio el permiso de Drive, pregunta a Drive quién editó por última vez (`lastModifyingUser`) y lo guarda con el cambio. Si Drive no lo dice, el cambio llega sin autor. Drive lo calla cuando editó una persona sin sesión con el link de edición, y también cuando la cuenta que vinculó la planilla la abre solo por el link («cualquier persona con el link») y no está entre las personas con quienes se compartió. Para ver quién editó, comparte la planilla con esa cuenta.
 - Hoy el `ChangeListener` de la API es `LoggingChangeListener`: deja en el log algo como `«Presupuesto» cambió (Daniela Soto): 1 celda. Partidas!C2: 145000 → 150000`, con hasta 10 celdas.
-- `GET /api/integrations/projects/:projectId` dice si los avisos están activos (`google.push`) y, por planilla, quién hizo el último cambio (`changedBy`) y hasta cuándo vale su suscripción (`push`). `/conectores` lo muestra.
+- `GET /api/integrations/projects/:projectId` dice si los avisos están activos (`google.push`) y, por planilla, quién hizo el último cambio (`changedBy`) y hasta cuándo vale su suscripción (`push`). Lo muestra la página de archivos del proyecto (`/proyectos/<id>/archivos`).
 
 Drive avisa que **cambió el archivo**, no qué celda ni quién: eso sale de la revisión. Tampoco avisa cuando alguien solo abre o mira la planilla; la API de Drive no da presencia.
 
@@ -92,6 +92,6 @@ Drive avisa que **cambió el archivo**, no qué celda ni quién: eso sale de la 
 
    `GOOGLE_WEBHOOK_URL` es opcional y tiene que ser HTTPS y alcanzable desde internet: en Render, `https://vigente-api.onrender.com/api/integrations/google/notifications`. En local, abre un túnel a la API (por ejemplo `cloudflared tunnel --url http://localhost:3001`) y usa su URL. Sin ella, la API revisa cada `INTEGRATIONS_POLL_SECONDS`.
 
-5. Corre `pnpm db:migrate`, reinicia la API y entra a `/conectores` con tu cuenta (las cuentas tienen que estar activas: ver [la web](../../apps/web/README.md)).
+5. Corre `pnpm db:migrate`, reinicia la API y entra a `/conectores` con tu cuenta para conectar tu Google (las cuentas tienen que estar activas: ver [la web](../../apps/web/README.md)). Las planillas se vinculan en cada proyecto, en «Archivos».
 
 Al conectar, Google avisa que la app no está verificada: es normal en modo de prueba. En la pantalla de permisos hay que marcar la casilla de ver las hojas de cálculo; sin ella, la conexión falla con «Falta el permiso para leer tus planillas». La casilla de ver los metadatos de Drive activa los avisos al instante y el autor de cada cambio; sin ella, la planilla se revisa cada cierto tiempo. `drive.metadata.readonly` es un permiso restringido de Google: en modo de prueba basta, pero publicar la app para cualquier cuenta pide la verificación de Google (o pasar al selector de Google con `drive.file`).

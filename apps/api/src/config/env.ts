@@ -51,7 +51,6 @@ export const envSchema = z
       ),
     APS_CLIENT_ID: optionalText,
     APS_CLIENT_SECRET: optionalText,
-    APS_BUCKET_KEY: optionalText,
     APS_CALLBACK_URL: optionalText.pipe(z.string().url().optional()),
     APS_TOKEN_KEY: optionalText.pipe(
       z

@@ -11,7 +11,6 @@ services:
     buildFilter:
       ignoredPaths:
         - apps/web/**
-        - apps/aps/**
         - packages/**
         - docs/**
         - '**/*.md'
@@ -32,8 +31,6 @@ services:
         sync: false
       - key: APS_CLIENT_SECRET
         sync: false
-      - key: APS_BUCKET_KEY
-        value: vigente-8b87f1a2b6424d31
       - key: APS_CALLBACK_URL
         value: https://hack-team-27.vercel.app/api/integrations/aps/callback
       - key: APS_TOKEN_KEY

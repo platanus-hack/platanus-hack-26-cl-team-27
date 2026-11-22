@@ -68,6 +68,12 @@ export class ConnectorsController {
     return guard(() => this.integrations.overview(account.id, project));
   }
 
+  @Get('google')
+  @UseGuards(AccountGuard)
+  google(@CurrentAccount() account: Account) {
+    return guard(() => this.integrations.google(account.id));
+  }
+
   @Post('google/authorize')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AccountGuard)

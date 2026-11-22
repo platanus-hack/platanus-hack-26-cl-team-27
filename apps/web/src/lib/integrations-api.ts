@@ -19,20 +19,22 @@ export interface SourceView {
   };
 }
 
-export interface ConnectorsOverview {
-  readonly google: {
-    readonly configured: boolean;
-    readonly connection: {
-      readonly accountEmail: string;
-      readonly connectedAt: string;
-    } | null;
-    readonly pollSeconds: number;
-    readonly push: {
-      readonly enabled: boolean;
-      readonly reason: string | null;
-      readonly fallbackSeconds: number | null;
-    };
+export interface GoogleStatus {
+  readonly configured: boolean;
+  readonly connection: {
+    readonly accountEmail: string;
+    readonly connectedAt: string;
+  } | null;
+  readonly pollSeconds: number;
+  readonly push: {
+    readonly enabled: boolean;
+    readonly reason: string | null;
+    readonly fallbackSeconds: number | null;
   };
+}
+
+export interface ConnectorsOverview {
+  readonly google: GoogleStatus;
   readonly sources: readonly SourceView[];
 }
 
@@ -55,7 +57,6 @@ export interface Feedback {
 }
 
 export const CONNECTORS_PATH = '/conectores';
-export const PROJECT_PARAM = 'proyecto';
 
 const BASE = '/api/integrations';
 
@@ -68,10 +69,13 @@ export const getConnectors = (
 ): Promise<ConnectorsOverview> =>
   request<ConnectorsOverview>(projectBase(projectId), { signal });
 
-export const authorizeGoogle = (projectId: string): Promise<{ url: string }> =>
+export const getGoogle = (signal?: AbortSignal): Promise<GoogleStatus> =>
+  request<GoogleStatus>(`${BASE}/google`, { signal });
+
+export const authorizeGoogle = (projectId?: string): Promise<{ url: string }> =>
   request<{ url: string }>(`${BASE}/google/authorize`, {
     method: 'POST',
-    body: { projectId },
+    body: projectId === undefined ? {} : { projectId },
   });
 
 export const disconnectGoogle = (): Promise<void> =>
@@ -100,20 +104,18 @@ export const unlinkSource = (projectId: string, id: string): Promise<void> =>
     method: 'DELETE',
   });
 
-export const connectorsHref = (projectId: string): string =>
-  `${CONNECTORS_PATH}?${new URLSearchParams({ [PROJECT_PARAM]: projectId }).toString()}`;
-
-export const pickProject = <T extends { readonly id: string }>(
-  projects: readonly T[],
-  requested: string | null,
-): T | null =>
-  projects.find((project) => project.id === requested) ?? projects[0] ?? null;
-
 const CHECK_TONES: Readonly<Record<CheckStatus, FeedbackTone>> = {
   changed: 'success',
   unchanged: 'info',
   failed: 'error',
 };
+
+export const listeningText = (google: GoogleStatus): string =>
+  google.push.enabled
+    ? 'Google nos avisa al instante cuando alguien edita una planilla.'
+    : google.pollSeconds > 0
+      ? `Revisamos cada ${google.pollSeconds} s si las planillas cambiaron.`
+      : 'La revisión automática está apagada: usa «Revisar ahora».';
 
 export const checkFeedback = (response: CheckResponse): Feedback => ({
   tone: CHECK_TONES[response.check.status],

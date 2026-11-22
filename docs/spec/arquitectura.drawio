@@ -28,7 +28,7 @@
         <mxCell id="arq-auth" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;Cuentas y organizaciones&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Auth0, solo por invitación: roles, proyectos y superadmin&lt;/span&gt;" vertex="1">
           <mxGeometry x="310" y="120" width="270" height="64" as="geometry" />
         </mxCell>
-        <mxCell id="arq-web" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;Web · apps/web, Next.js 16&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;/cuenta, /conectores, /modelos y /proyectos/[id]: espacios, cambios y valor&lt;/span&gt;" vertex="1">
+        <mxCell id="arq-web" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;Web · apps/web, Next.js 16&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;/cuenta, /conectores y /proyectos/[id]: archivos, espacios, cambios y valor&lt;/span&gt;" vertex="1">
           <mxGeometry x="600" y="120" width="310" height="64" as="geometry" />
         </mxCell>
         <mxCell id="arq-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=3;fillColor=#F6FBF9;strokeColor=#0F6E56;fontColor=#085041;fontSize=12;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;" value="&lt;b&gt;API · apps/api, NestJS 12&lt;/b&gt; · todo cuelga de /api" vertex="1">
