@@ -54,6 +54,7 @@ const fakeDb = () => {
   const organizations = new Map([
     ['aromos', { id: 'aromos', name: 'Inmobiliaria Los Aromos' }],
     ['otra', { id: 'otra', name: 'Otra Constructora' }],
+    ['vacia', { id: 'vacia', name: 'Constructora Vacía' }],
   ]);
   const projects = [
     { id: 'los-aromos', organizationId: 'aromos', name: 'Edificio Los Aromos' },
@@ -66,6 +67,40 @@ const fakeDb = () => {
   let sequence = 0;
   const next = () => `id-${++sequence}`;
   const prisma = {
+    organization: {
+      findMany: ({ where }: { where: { id: { startsWith: string } } }) =>
+        Promise.resolve(
+          [...organizations.keys()]
+            .filter((id) => id.startsWith(where.id.startsWith))
+            .map((id) => ({ id })),
+        ),
+      create: ({
+        data,
+      }: {
+        data: {
+          id: string;
+          name: string;
+          memberships: { create: { userId: string; role: string } };
+        };
+      }) => {
+        organizations.set(data.id, { id: data.id, name: data.name });
+        memberships.push({
+          organizationId: data.id,
+          ...data.memberships.create,
+          createdAt: new Date(),
+        });
+        return Promise.resolve({ id: data.id, name: data.name });
+      },
+      delete: ({ where }: { where: { id: string } }) => {
+        organizations.delete(where.id);
+        for (let index = memberships.length - 1; index >= 0; index -= 1) {
+          if (memberships[index]?.organizationId === where.id) {
+            memberships.splice(index, 1);
+          }
+        }
+        return Promise.resolve({ id: where.id });
+      },
+    },
     user: {
       findUnique: ({ where }: { where: { authSubject: string } }) =>
         Promise.resolve(
@@ -91,6 +126,12 @@ const fakeDb = () => {
       },
     },
     invitation: {
+      findFirst: ({ where }: { where: { email: string; acceptedAt: null } }) =>
+        Promise.resolve(
+          invitations.find(
+            (item) => item.acceptedAt === null && item.email === where.email,
+          ) ?? null,
+        ),
       findMany: ({
         where,
       }: {
@@ -186,6 +227,12 @@ const fakeDb = () => {
         ),
     },
     project: {
+      count: ({ where }: { where: { organizationId: string } }) =>
+        Promise.resolve(
+          projects.filter(
+            (project) => project.organizationId === where.organizationId,
+          ).length,
+        ),
       findMany: ({
         where,
       }: {
@@ -232,6 +279,8 @@ const fakeDb = () => {
   };
   return {
     prisma: prisma as unknown as PrismaClient,
+    organizations,
+    memberships,
     invitations,
     users,
     created,
@@ -273,14 +322,21 @@ const statusOf = async (promise: Promise<unknown>) => {
   }
 };
 
-const setup = (profiles: Record<string, Profile> = { paula: PAULA }) => {
+const setup = (
+  profiles: Record<string, Profile> = { paula: PAULA },
+  superadmins: readonly string[] = [],
+) => {
   const db = fakeDb();
   const subjects = Object.fromEntries(
     Object.keys(profiles).map((token) => [token, `email|${token}`]),
   );
   return {
     ...db,
-    service: new AccountsService(db.prisma, identityFor(subjects, profiles)),
+    service: new AccountsService(
+      db.prisma,
+      identityFor(subjects, profiles),
+      superadmins,
+    ),
   };
 };
 
@@ -301,16 +357,40 @@ describe('AccountsService.authenticate', () => {
     });
   });
 
-  it('la primera vez registra a la persona con su correo y sin organizaciones', async () => {
+  it('sin invitación no entra ni queda registrada', async () => {
     const { service, users } = setup();
+    expect(await statusOf(service.authenticate('paula'))).toMatchObject({
+      status: 403,
+      body: { code: 'not_invited' },
+    });
+    expect(users).toHaveLength(0);
+  });
+
+  it('la primera vez, con una invitación, registra a la persona con su correo', async () => {
+    const { service, users } = setup();
+    await service.invite('aromos', PAULA.email, 'member');
     const account = await service.authenticate('paula');
     expect(account).toMatchObject({
       email: 'paula.rojas@calculo.example',
       name: 'Paula Rojas',
-      memberships: [],
+      memberships: [{ organizationId: 'aromos', role: 'member' }],
     });
     await service.authenticate('paula');
     expect(users).toHaveLength(1);
+  });
+
+  it('quien quedó registrado sin organización tampoco entra', async () => {
+    const { service, users } = setup();
+    users.push({
+      id: 'u0',
+      authSubject: 'email|paula',
+      email: PAULA.email,
+      name: PAULA.name,
+    });
+    expect(await statusOf(service.authenticate('paula'))).toMatchObject({
+      status: 403,
+      body: { code: 'not_invited' },
+    });
   });
 
   it('un correo sin confirmar no entra', async () => {
@@ -349,6 +429,7 @@ describe('roles y proyectos', () => {
     id: 'u1',
     email: PAULA.email,
     name: null,
+    superadmin: false,
     memberships: [
       {
         organizationId: 'aromos',
@@ -488,5 +569,176 @@ describe('roles y proyectos', () => {
     expect(
       await statusOf(service.invite('aromos', PAULA.email, 'admin')),
     ).toMatchObject({ status: 409, body: { code: 'already_member' } });
+  });
+});
+
+describe('organizaciones', () => {
+  const NAMES: Record<string, string> = {
+    aromos: 'Inmobiliaria Los Aromos',
+    vacia: 'Constructora Vacía',
+  };
+
+  const accountWith = (
+    ...memberships: [string, 'admin' | 'member'][]
+  ): Account => ({
+    id: 'u1',
+    email: PAULA.email,
+    name: null,
+    superadmin: false,
+    memberships: memberships.map(([organizationId, role]) => ({
+      organizationId,
+      organizationName: NAMES[organizationId] ?? organizationId,
+      role,
+    })),
+  });
+
+  it('un administrador crea una organización y queda como su administrador', async () => {
+    const { service, organizations, memberships } = setup();
+    const created = await service.createOrganization(
+      accountWith(['aromos', 'admin']),
+      'Constructora Sur',
+    );
+    expect(created).toEqual({
+      organizationId: 'constructora-sur',
+      organizationName: 'Constructora Sur',
+      role: 'admin',
+    });
+    expect(organizations.get('constructora-sur')?.name).toBe(
+      'Constructora Sur',
+    );
+    expect(memberships).toContainEqual(
+      expect.objectContaining({
+        organizationId: 'constructora-sur',
+        userId: 'u1',
+        role: 'admin',
+      }),
+    );
+  });
+
+  it('la nueva organización toma el primer id libre', async () => {
+    const { service } = setup();
+    const created = await service.createOrganization(
+      accountWith(['aromos', 'admin']),
+      'Otra',
+    );
+    expect(created.organizationId).toBe('otra-2');
+  });
+
+  it('un miembro no crea organizaciones', async () => {
+    const { service, organizations } = setup();
+    expect(
+      await statusOf(
+        service.createOrganization(accountWith(['aromos', 'member']), 'Sur'),
+      ),
+    ).toMatchObject({ status: 403, body: { code: 'admin_required' } });
+    expect(organizations.has('sur')).toBe(false);
+  });
+
+  it('no repite el nombre de una organización de la que ya eres parte', async () => {
+    const { service } = setup();
+    expect(
+      await statusOf(
+        service.createOrganization(
+          accountWith(['aromos', 'admin']),
+          '  inmobiliaria  los Áromos ',
+        ),
+      ),
+    ).toMatchObject({ status: 409, body: { code: 'organization_name_taken' } });
+  });
+
+  it('un administrador elimina una organización sin proyectos, con su equipo', async () => {
+    const { service, organizations, memberships } = setup();
+    memberships.push({
+      organizationId: 'vacia',
+      userId: 'u1',
+      role: 'admin',
+      createdAt: new Date(),
+    });
+    await service.deleteOrganization(
+      accountWith(['aromos', 'admin'], ['vacia', 'admin']),
+      'vacia',
+    );
+    expect(organizations.has('vacia')).toBe(false);
+    expect(memberships.some((item) => item.organizationId === 'vacia')).toBe(
+      false,
+    );
+  });
+
+  it('un miembro no elimina la organización', async () => {
+    const { service, organizations } = setup();
+    expect(
+      await statusOf(
+        service.deleteOrganization(
+          accountWith(['aromos', 'admin'], ['vacia', 'member']),
+          'vacia',
+        ),
+      ),
+    ).toMatchObject({ status: 403, body: { code: 'admin_required' } });
+    expect(organizations.has('vacia')).toBe(true);
+  });
+
+  it('no se elimina una organización con proyectos', async () => {
+    const { service, organizations } = setup();
+    expect(
+      await statusOf(
+        service.deleteOrganization(
+          accountWith(['aromos', 'admin'], ['vacia', 'admin']),
+          'aromos',
+        ),
+      ),
+    ).toMatchObject({
+      status: 409,
+      body: { code: 'organization_has_projects' },
+    });
+    expect(organizations.has('aromos')).toBe(true);
+  });
+
+  it('no se elimina tu única organización', async () => {
+    const { service, organizations } = setup();
+    expect(
+      await statusOf(
+        service.deleteOrganization(accountWith(['vacia', 'admin']), 'vacia'),
+      ),
+    ).toMatchObject({ status: 409, body: { code: 'last_organization' } });
+    expect(organizations.has('vacia')).toBe(true);
+  });
+});
+
+describe('superadmin', () => {
+  it('es superadmin quien entra con un correo de SUPERADMIN_EMAILS, sin importar mayúsculas', async () => {
+    const { service } = setup({ paula: PAULA }, [
+      ' Paula.Rojas@Calculo.example ',
+    ]);
+    await service.invite('aromos', PAULA.email, 'member');
+    const account = await service.authenticate('paula');
+    expect(account.superadmin).toBe(true);
+    expect(() => service.requireSuperadmin(account)).not.toThrow();
+  });
+
+  it('un superadmin entra sin invitación y sin organizaciones', async () => {
+    const { service, users } = setup({ paula: PAULA }, [PAULA.email]);
+    const account = await service.authenticate('paula');
+    expect(account).toMatchObject({ superadmin: true, memberships: [] });
+    await service.authenticate('paula');
+    expect(users).toHaveLength(1);
+  });
+
+  it('nadie más lo es, ni siquiera un administrador de una organización', async () => {
+    const { service } = setup({ paula: PAULA }, ['otra@vigente.example']);
+    await service.invite('aromos', PAULA.email, 'admin');
+    const account = await service.authenticate('paula');
+    expect(account.superadmin).toBe(false);
+    expect(() => service.requireSuperadmin(account)).toThrow(/superadmin/);
+  });
+
+  it('sin invitación, quien no es superadmin sigue sin entrar', async () => {
+    const { service, users } = setup({ paula: PAULA }, [
+      'otra@vigente.example',
+    ]);
+    expect(await statusOf(service.authenticate('paula'))).toMatchObject({
+      status: 403,
+      body: { code: 'not_invited' },
+    });
+    expect(users).toHaveLength(0);
   });
 });

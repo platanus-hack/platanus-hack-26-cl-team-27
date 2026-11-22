@@ -44,7 +44,7 @@ El camino del pitch es un solo caso con dos personas reales y sin bots: Paula Ro
 - **Los números salen de reglas.** Cantidades, precios unitarios y ruta crítica; ningún modelo de lenguaje los inventa. El mismo guion da siempre el mismo resultado.
 - **La sala no tiene usuarios.** Un celular toma un asiento del elenco sin cuenta, y el flujo de 4 pasos funciona igual.
   - El elenco, el grafo del proyecto y el registro de documentos con sus dueños están en la base. En local se siembran con `pnpm db:seed` desde [`data/main/seed/los-aromos.ts`](../data/main/seed/los-aromos.ts).
-  - Las cuentas con Auth0 (organizaciones, roles y crear proyectos) y los conectores de Google Sheets y Autodesk son una capa opcional: se activan con sus variables ([arquitectura](arquitectura.md#web-y-api)) y no tocan la sala.
+  - Las cuentas con Auth0 (entrar por invitación, organizaciones, roles y crear proyectos) y los conectores de Google Sheets y Autodesk son una capa opcional: se activan con sus variables ([arquitectura](arquitectura.md#web-y-api)) y no tocan la sala.
 - **Se reinicia en un paso.** `pnpm etl reiniciar` vacía la sala y hace la carga inicial.
 
 ## El proyecto: Edificio Los Aromos

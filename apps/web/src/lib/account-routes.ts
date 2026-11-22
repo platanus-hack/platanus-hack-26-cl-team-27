@@ -18,6 +18,7 @@ const ACCOUNT_API = [
   '/api/organizations',
   '/api/integrations/projects',
   '/api/integrations/google',
+  '/api/admin',
 ];
 
 export const needsAccountToken = (pathname: string): boolean =>

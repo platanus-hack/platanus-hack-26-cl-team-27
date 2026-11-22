@@ -31,6 +31,7 @@ const DANIELA: Account = {
   id: 'u1',
   email: 'daniela@example.com',
   name: 'Daniela',
+  superadmin: false,
   memberships: [
     {
       organizationId: 'aromos',

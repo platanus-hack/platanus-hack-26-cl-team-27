@@ -1,16 +1,20 @@
-import { projectBody } from '../../../src/modules/accounts/accounts.controller.ts';
 import {
-  freeProjectId,
-  projectNameKey,
+  organizationBody,
+  projectBody,
+} from '../../../src/modules/accounts/accounts.controller.ts';
+import {
+  freeId,
+  nameKey,
+  organizationSlug,
   projectSlug,
 } from '../../../src/modules/accounts/project-id.ts';
 
-describe('projectNameKey', () => {
+describe('nameKey', () => {
   it('no distingue mayúsculas, tildes ni espacios de más', () => {
-    expect(projectNameKey('  Edificio  Las Éncinas ')).toBe(
-      projectNameKey('edificio las encinas'),
+    expect(nameKey('  Edificio  Las Éncinas ')).toBe(
+      nameKey('edificio las encinas'),
     );
-    expect(projectNameKey('Torre Sur')).not.toBe(projectNameKey('Torre Norte'));
+    expect(nameKey('Torre Sur')).not.toBe(nameKey('Torre Norte'));
   });
 });
 
@@ -25,12 +29,19 @@ describe('projectSlug', () => {
   });
 });
 
-describe('freeProjectId', () => {
-  it('usa el slug si está libre y si no, el primer sufijo libre', () => {
-    expect(freeProjectId('torre', ['los-aromos'])).toBe('torre');
-    expect(freeProjectId('torre', ['torre', 'torre-2', 'torre-4'])).toBe(
-      'torre-3',
+describe('organizationSlug', () => {
+  it('arma el id con el nombre, o «organizacion» si no queda nada', () => {
+    expect(organizationSlug('Constructora Sur Ltda.')).toBe(
+      'constructora-sur-ltda',
     );
+    expect(organizationSlug('¡¡!!')).toBe('organizacion');
+  });
+});
+
+describe('freeId', () => {
+  it('usa el slug si está libre y si no, el primer sufijo libre', () => {
+    expect(freeId('torre', ['los-aromos'])).toBe('torre');
+    expect(freeId('torre', ['torre', 'torre-2', 'torre-4'])).toBe('torre-3');
   });
 });
 
@@ -54,4 +65,19 @@ describe('projectBody', () => {
   ])('rechaza %j', (body) => {
     expect(projectBody.safeParse(body).success).toBe(false);
   });
+});
+
+describe('organizationBody', () => {
+  it('recorta el nombre', () => {
+    expect(organizationBody.parse({ name: '  Constructora Sur ' })).toEqual({
+      name: 'Constructora Sur',
+    });
+  });
+
+  it.each([[{ name: '   ' }], [{ name: 'x'.repeat(121) }], [{}]])(
+    'rechaza %j',
+    (body) => {
+      expect(organizationBody.safeParse(body).success).toBe(false);
+    },
+  );
 });
