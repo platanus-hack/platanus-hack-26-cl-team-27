@@ -18,6 +18,17 @@ Los conectores reales. Hoy hay uno, **Google Sheets**, y es un canal de conexió
   - `TokenCipher`: AES-256-GCM con una clave derivada de `INTEGRATIONS_ENCRYPTION_KEY`.
   - `PrismaConnectionRepository` (guarda el refresh token cifrado), `PrismaSourceLinkRepository` e `InMemorySnapshotCache`.
 
+## Autodesk
+
+Lo que Vigente entiende de los cambios en Autodesk, sin red. El catálogo completo y lo que falta: [docs/spec/cambios-autodesk.md](../../docs/spec/cambios-autodesk.md).
+
+- **Dominio** (`src/domain/autodesk/`)
+  - `AutodeskEvent.ts`: el catálogo `AUTODESK_EVENTS` de los eventos de webhook de APS (Data Management, Model Derivative, Revit en la nube y las incidencias de ACC) y `defineAutodeskEvent(evento, sistema)`, que agrupa Cost Management y deja lo nuevo como `unknown`.
+  - `AutodeskChange.ts`: `parseAutodeskWebhook(cuerpo)` da un `AutodeskChange` con `kind`, recurso, hora, autor, `needsElementDiff` y `dedupeKey`.
+  - `ElementDiff.ts`: `toElementChanges` lee el diff de AEC Data Model y `toMinuteChanges` lo convierte en los cambios de la minuta del add-in, con lo que no entra en `ignored`; `countBySubject` cuenta los elementos por clave para `cantidad`.
+  - `MinuteId.ts`: `minuteIdFor(modelo, desde, hasta)`, un UUID estable para no duplicar la revisión.
+- **Adapter**: `verifyApsWebhook(cuerpo, cabecera, secreto)` y `signApsWebhook` revisan la firma `x-adsk-signature` (HMAC-SHA1 del cuerpo crudo).
+
 ## Cómo se escucha una planilla
 
 - **Al vincular**, `LinkSpreadsheet` abre la planilla con la cuenta conectada, guarda su hash como primera revisión y deja sus celdas en memoria. No avisa nada.

@@ -8,6 +8,7 @@ Esta carpeta junta en un solo lugar qué es Vigente, qué está construido, cóm
 | [ia.md](ia.md)                               | Un agente de código | Invariantes, mapa del código, la cadena de un cambio, cada tarea con su evidencia y recetas para construir               |
 | [fuente-de-verdad.md](fuente-de-verdad.md)   | Todos               | El flujo de 4 pasos del pitch: el caso P-12 y la bandeja E-B-03, la verdad central, el choque, la propuesta y sus textos |
 | [integraciones.md](integraciones.md)         | El equipo           | Los conectores de Google Sheets y ACC: conectar y escuchar, lo construido y lo que sigue                                  |
+| [cambios-autodesk.md](cambios-autodesk.md)   | El equipo           | Todo lo que puede cambiar en Autodesk, por dónde se entera Vigente y cómo llega a la minuta                              |
 | [flujo-usuario.drawio](flujo-usuario.drawio) | Todos               | El flujo de usuario de un cambio, desde que el autor guarda hasta «Obra consensuada»                                     |
 | [arquitectura.drawio](arquitectura.drawio)   | Todos               | La arquitectura de software, con lo construido, lo simulado y lo que falta                                               |
 

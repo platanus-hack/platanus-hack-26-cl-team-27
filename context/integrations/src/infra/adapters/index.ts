@@ -1,4 +1,9 @@
 export {
+  APS_SIGNATURE_HEADER,
+  signApsWebhook,
+  verifyApsWebhook,
+} from './ApsWebhookSignature.ts';
+export {
   emailFromIdToken,
   GOOGLE_SCOPES,
   GoogleOAuthClient,
