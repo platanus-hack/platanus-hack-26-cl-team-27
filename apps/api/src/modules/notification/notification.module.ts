@@ -5,6 +5,7 @@ import {
   DeliverNotifications,
   GetNotification,
   ListNotifications,
+  NotifyConflict,
   NotifyStakeholders,
   ReopenResponse,
   RespondToNotification,
@@ -30,6 +31,10 @@ export const buildNotification = (
   const notifications = new PrismaNotificationRepository(db, project.id);
   return {
     notifyStakeholders: new NotifyStakeholders(directory, notifications),
+    notifyConflict: new NotifyConflict(
+      new InMemoryStakeholderDirectory(project.cast),
+      notifications,
+    ),
     attachClashes: new AttachClashes(notifications),
     listNotifications: new ListNotifications(notifications),
     getNotification: new GetNotification(notifications),

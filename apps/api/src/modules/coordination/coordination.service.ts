@@ -1,5 +1,8 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import type { AddressedFinding } from '@team27/context-notification';
+import {
+  type AddressedFinding,
+  isChangeNotice,
+} from '@team27/context-notification';
 import { InlineFactExtractor } from '@team27/context-lake/adapters';
 import type { PrismaClient } from '@team27/data-main';
 
@@ -13,6 +16,8 @@ import {
   type Decision,
   formatValue,
   type IngestedRevision,
+  isLiveOverlap,
+  type Overlap,
   type OverlapVoteKind,
   type ProposalDraft,
   type RevisionDraft,
@@ -23,7 +28,7 @@ import { elementsFromBaseline } from './elements-from-baseline.ts';
 import { diffEvents, type EventDraft, emitEvents, observe } from './events.ts';
 import { fail } from './http-errors.ts';
 import { underAnalysisOf } from './impact.ts';
-import { overlapClashes } from './notices.ts';
+import { conflictToNotify, overlapClashes } from './notices.ts';
 import {
   checkRevision,
   knownDocument,
@@ -235,13 +240,14 @@ export class CoordinationService {
     const resolved = (await lake.resolveOverlaps.execute()).map(
       (overlap) => overlap.id,
     );
-    await lake.openOverlaps.execute({
+    const openedOverlaps = await lake.openOverlaps.execute({
       revisionId: result.revision.id,
       proposalIds: opened.map((proposal) => proposal.id),
     });
     const settled = await lake.settleOverlaps.execute();
     resolved.push(...settled.resolved.map((overlap) => overlap.id));
     await this.attachClashes(db, project, opened);
+    await this.notifyConflicts(db, project, openedOverlaps);
     const title = revisionTitle(result.revision);
     const events: EventDraft[] = [
       ...lead,
@@ -301,6 +307,36 @@ export class CoordinationService {
           changeId: proposal.changeId,
         }),
       });
+    }
+  }
+
+  private async notifyConflicts(
+    db: Db,
+    project: ProjectCatalog,
+    opened: readonly Overlap[],
+  ): Promise<void> {
+    if (opened.length === 0) return;
+    const lake = buildLake(db, project);
+    const [overlaps, proposals, revisions] = await Promise.all([
+      lake.ports.overlaps.list(),
+      lake.ports.proposals.list(),
+      lake.ports.revisions.list(),
+    ]);
+    const impacts = await buildImpact(db, project).getImpacts.execute([
+      ...new Set(proposals.flatMap((proposal) => proposal.changeIds)),
+    ]);
+    const notification = buildNotification(db, project);
+    const openedIds = new Set(opened.map((overlap) => overlap.id));
+    for (const overlap of overlaps) {
+      if (!openedIds.has(overlap.id) || !isLiveOverlap(overlap)) continue;
+      const conflict = conflictToNotify({
+        project,
+        overlap,
+        proposals,
+        revisions,
+        impacts: new Map(impacts.map((impact) => [impact.changeId, impact])),
+      });
+      if (conflict) await notification.notifyConflict.execute(conflict);
     }
   }
 
@@ -528,6 +564,13 @@ export class CoordinationService {
         'Ese aviso no es para ti',
       );
     }
+    if (!isChangeNotice(found)) {
+      throw fail(
+        HttpStatus.CONFLICT,
+        'invalid_state',
+        'Ese aviso es de un choque: se responde validando el solapamiento',
+      );
+    }
     const candidates = (await lake.ports.proposals.list()).filter(
       (proposal) => proposal.changeId === found.changeId,
     );
@@ -685,6 +728,7 @@ export class CoordinationService {
               await notifications.listNotifications.execute({
                 changeIds: [proposal.changeId],
                 stakeholderId: reviewerId,
+                kind: 'change',
               });
             if (notification) {
               await notifications.reopenResponse.execute(notification.id);

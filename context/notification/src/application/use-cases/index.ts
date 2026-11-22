@@ -7,6 +7,7 @@ export {
 export { GetNotification } from './GetNotification.ts';
 export { ListNotifications } from './ListNotifications.ts';
 export { ListStakeholders } from './ListStakeholders.ts';
+export { NotifyConflict } from './NotifyConflict.ts';
 export { NotifyStakeholders } from './NotifyStakeholders.ts';
 export { ReopenResponse } from './ReopenResponse.ts';
 export {

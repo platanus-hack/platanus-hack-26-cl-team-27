@@ -9,6 +9,7 @@ import { useResource } from '@/hooks/use-resource';
 import {
   type ChangeDetail,
   type CombinedImpactView,
+  type ConflictNoticePreview,
   type ConflictView,
   getChangeConflicts,
   getChangeNotices,
@@ -88,7 +89,11 @@ const channelText: Record<NoticeChannel, string> = {
   slack: 'Slack',
 };
 
-function NoticeCard({ notice }: { readonly notice: NoticePreview }) {
+function NoticeCard({
+  notice,
+}: {
+  readonly notice: NoticePreview | ConflictNoticePreview;
+}) {
   return (
     <li className="rounded-lg border border-hairline p-4">
       <p className="text-sm font-medium text-ink">
@@ -103,6 +108,35 @@ function NoticeCard({ notice }: { readonly notice: NoticePreview }) {
       )}
       <p className="mt-2 text-sm whitespace-pre-wrap text-ink">{notice.text}</p>
     </li>
+  );
+}
+
+function NoticeGroup({
+  title,
+  hint,
+  empty,
+  notices,
+}: {
+  readonly title: string;
+  readonly hint: string;
+  readonly empty: string;
+  readonly notices: readonly (NoticePreview | ConflictNoticePreview)[];
+}) {
+  return (
+    <div>
+      <h4 className="mb-2 text-sm font-semibold text-ink">
+        {title} <span className="font-normal text-ink-2">· {hint}</span>
+      </h4>
+      {notices.length === 0 ? (
+        <Muted>{empty}</Muted>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {notices.map((notice) => (
+            <NoticeCard key={notice.notificationId} notice={notice} />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -291,14 +325,25 @@ export function ChangeAnalysis({
           <Muted>{notices.error}</Muted>
         ) : !notices.data ? (
           <Muted>Redactando el aviso de cada persona…</Muted>
-        ) : notices.data.notices.length === 0 ? (
+        ) : notices.data.notices.length +
+            notices.data.conflictNotices.length ===
+          0 ? (
           <Muted>Este cambio no tiene a quién avisar.</Muted>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {notices.data.notices.map((notice) => (
-              <NoticeCard key={notice.notificationId} notice={notice} />
-            ))}
-          </ul>
+          <div className="flex flex-col gap-5">
+            <NoticeGroup
+              title="Aviso de cambio"
+              hint="Solo a los afectados"
+              empty="Este cambio no afecta a nadie más."
+              notices={notices.data.notices}
+            />
+            <NoticeGroup
+              title="Aviso de conflicto"
+              hint="A ambos autores y afectados"
+              empty="Este cambio no choca con otro."
+              notices={notices.data.conflictNotices}
+            />
+          </div>
         )}
       </Block>
     </>

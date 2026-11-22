@@ -4,8 +4,13 @@ import type {
   NotificationFilter,
   NotificationRepository,
 } from '../../application/ports/NotificationRepository.ts';
-import type { NoticeClash, NoticeContext } from '../../domain/Notice.ts';
 import {
+  type NoticeClash,
+  type NoticeContext,
+  noticeKindOf,
+} from '../../domain/Notice.ts';
+import {
+  isChangeNotice,
   type Notification,
   type NotificationDraft,
   type NotificationFinding,
@@ -93,7 +98,13 @@ export class PrismaNotificationRepository implements NotificationRepository {
       },
       orderBy: { sentAt: 'desc' },
     });
-    return rows.map(toNotification);
+    const { kind } = filter;
+    return rows
+      .map(toNotification)
+      .filter(
+        (notification) =>
+          kind === undefined || noticeKindOf(notification.context) === kind,
+      );
   }
 
   async respond(
@@ -138,7 +149,10 @@ export class PrismaNotificationRepository implements NotificationRepository {
     const rows = await this.prisma.notification.findMany({
       where: { projectId: this.projectId, changeId },
     });
-    for (const row of rows) {
+    const changeRows = rows.filter((row) =>
+      isChangeNotice(toNotification(row)),
+    );
+    for (const row of changeRows) {
       await this.prisma.notification.update({
         where: { id: row.id },
         data: {
@@ -149,6 +163,6 @@ export class PrismaNotificationRepository implements NotificationRepository {
         },
       });
     }
-    return rows.length;
+    return changeRows.length;
   }
 }

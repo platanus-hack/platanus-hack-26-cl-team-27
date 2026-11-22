@@ -11,6 +11,7 @@ import type {
   OverlapStatus,
   ProposalStatus,
 } from '@team27/context-lake';
+import { isChangeNotice } from '@team27/context-notification';
 import type { PrismaClient } from '@team27/data-main';
 
 import type { Env } from '../../config/index.ts';
@@ -29,6 +30,7 @@ import {
 } from './conflicts.ts';
 import { combinedImpactOf } from './impact.ts';
 import {
+  conflictPreviews,
   estimatedClashes,
   noticePreviews,
   overlapClashes,
@@ -122,9 +124,34 @@ export class QueryService {
       notifications,
     );
     const impact = snapshot.impacts.get(change.id);
+    const overlapIds = new Set(
+      snapshot.overlaps
+        .filter(
+          (overlap) =>
+            proposal !== undefined &&
+            (overlap.proposalId === proposal.id ||
+              overlap.otherProposalId === proposal.id),
+        )
+        .map((overlap) => overlap.id),
+    );
+    const teamOrder = (stakeholderId: string): number =>
+      project.cast.findIndex((member) => member.id === stakeholderId);
     return {
       changeId: change.id,
       inference,
+      conflictNotices: conflictPreviews({
+        project,
+        notifications: snapshot.conflictNotices
+          .filter(
+            (notification) =>
+              notification.changeId === change.id ||
+              overlapIds.has(notification.context?.conflict?.overlapId ?? ''),
+          )
+          .sort(
+            (a, b) => teamOrder(a.stakeholderId) - teamOrder(b.stakeholderId),
+          ),
+        baseUrl: this.baseUrl,
+      }),
       notices: noticePreviews({
         project,
         notifications,
@@ -248,7 +275,7 @@ export class QueryService {
     const changeIds = [
       ...new Set(proposals.flatMap((proposal) => proposal.changeIds)),
     ];
-    const [impacts, notifications] = await Promise.all([
+    const [impacts, notices] = await Promise.all([
       buildImpact(this.prisma, project).getImpacts.execute(changeIds),
       buildNotification(this.prisma, project).listNotifications.execute({
         changeIds,
@@ -267,7 +294,8 @@ export class QueryService {
       impacts: new Map<string, Impact>(
         impacts.map((impact) => [impact.changeId, impact]),
       ),
-      notifications,
+      notifications: notices.filter(isChangeNotice),
+      conflictNotices: notices.filter((notice) => !isChangeNotice(notice)),
     };
   }
 
