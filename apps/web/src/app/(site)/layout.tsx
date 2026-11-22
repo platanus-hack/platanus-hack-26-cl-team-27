@@ -2,6 +2,7 @@ import { BrandMark, BrandWordmark } from '@team27/ui';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import { HeaderTools } from '@/components/common/HeaderTools';
 import { SiteNav, type NavMode } from '@/components/common/SiteNav';
 import { auth0 } from '@/lib/auth0';
 import { APP_TAGLINE } from '@/lib/brand';
@@ -16,10 +17,11 @@ export default async function SiteLayout({
 }: {
   readonly children: ReactNode;
 }) {
+  const mode = await navMode();
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-hairline bg-surface/85 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-6xl items-stretch justify-between gap-4 px-4 sm:px-8">
+        <div className="mx-auto flex h-14 max-w-7xl items-stretch justify-between gap-4 px-4 sm:px-8">
           <Link
             href="/"
             className="group flex items-center gap-2.5"
@@ -31,10 +33,13 @@ export default async function SiteLayout({
               {APP_TAGLINE}
             </span>
           </Link>
-          <SiteNav mode={await navMode()} />
+          <div className="flex items-stretch gap-3">
+            <SiteNav mode={mode} />
+            {mode === 'member' && <HeaderTools />}
+          </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8 sm:py-8">
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
         {children}
       </main>
     </>

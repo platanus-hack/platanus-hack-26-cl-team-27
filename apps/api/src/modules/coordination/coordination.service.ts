@@ -280,7 +280,7 @@ export class CoordinationService {
         ),
       ),
     );
-    await this.advisor.adviseAll(
+    this.advisor.enqueue(
       project,
       proposals.map((proposal) => ({
         changeId: proposal.changeId,

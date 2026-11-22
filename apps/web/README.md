@@ -120,3 +120,9 @@ El login es de Auth0, con `@auth0/nextjs-auth0` en el servidor de Next: la aplic
 - `IconBadge.tsx` también trae `PlanMark` (el plano con el muro en cian que se redibuja, del brand book), `ChangedValue` (el valor nuevo en cian sobre azul tinta, con la onda de 1,2 s) y `Meter` (barra de probabilidad o de consenso).
 - El movimiento vive en `globals.css`: `animate-rise` al entrar a cada página (`app/(site)/template.tsx`), `stagger` para listas, `animate-draw` (600 ms), `animate-wave`, `animate-pop`, `animate-ping-soft` y `skeleton` al cargar. Con `prefers-reduced-motion` todo queda quieto.
 - `next dev` en marcha reescribe `.next/dev/types` y rompe `next build` (`TS6196` en `validator.ts`): detén el `dev` antes de correr el build.
+
+## Modelo 3D, avisos y campana
+
+- `/proyectos/<id>/modelo`: eliges el rol (Arquitectura, Presupuesto o Cañerías), el elemento y el valor nuevo, y publicas la versión; la API la recibe como un cambio de Autodesk y avisa.
+- `/proyectos/<id>/avisos`: el historial de avisos por persona, con el correo tal como salió y su estado de envío.
+- La barra de arriba muestra el proyecto en el que estás y una campana que trae los eventos del proyecto cada 5 s.

@@ -104,7 +104,7 @@ export const routeDelivery = (
   };
 };
 
-export const NOTICE_GRACE_MS = 12_000;
+export const NOTICE_GRACE_MS = 15_000;
 
 export interface PendingDelivery {
   readonly id: string;

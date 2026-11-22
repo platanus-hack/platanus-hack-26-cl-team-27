@@ -58,8 +58,22 @@ export function ProjectView({ projectId }: { readonly projectId: string }) {
         actions={
           <div className="flex flex-wrap gap-2">
             <Link
-              href={projectPage(projectId, '/archivos') as Route}
+              href={projectPage(projectId, '/modelo') as Route}
               className={buttonLink('primary', 'sm')}
+            >
+              <Icon name="layers" />
+              Modelo 3D
+            </Link>
+            <Link
+              href={projectPage(projectId, '/avisos') as Route}
+              className={buttonLink('secondary', 'sm')}
+            >
+              <Icon name="bell" />
+              Avisos
+            </Link>
+            <Link
+              href={projectPage(projectId, '/archivos') as Route}
+              className={buttonLink('secondary', 'sm')}
             >
               <Icon name="sheet" />
               Archivos

@@ -5,6 +5,7 @@ import { ImpactModule } from '../impact/impact.module.ts';
 import { ChunkReader } from './chunk-reader.ts';
 import { CoordinationController } from './coordination.controller.ts';
 import { CoordinationService } from './coordination.service.ts';
+import { ModelController } from './model.controller.ts';
 import { EventsService } from './events.service.ts';
 import { FollowUpService } from './follow-up.service.ts';
 import { NoticeAdvisor } from './notice-advisor.ts';
@@ -20,6 +21,6 @@ import { QueryService } from './query.service.ts';
     NoticeAdvisor,
     QueryService,
   ],
-  controllers: [CoordinationController],
+  controllers: [CoordinationController, ModelController],
 })
 export class CoordinationModule {}

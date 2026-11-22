@@ -436,3 +436,10 @@ export class ModelImager {
     return this.parts;
   }
 }
+
+let shared: ModelImager | null = null;
+
+export const modelImager = (): ModelImager => {
+  shared ??= new ModelImager();
+  return shared;
+};
