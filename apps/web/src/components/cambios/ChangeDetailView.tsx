@@ -14,6 +14,7 @@ import { getChange } from '@/lib/changes-api';
 import { projectPage } from '@/lib/project-paths';
 import { DEFAULT_INTERVAL_MS } from '@/lib/pulse';
 
+import { ChangeAnalysis } from './ChangeAnalysis';
 import { ChangeDetailBody, changeTitle } from './ChangeDetailBody';
 import { ChangeResponse } from './ChangeResponse';
 
@@ -57,6 +58,7 @@ export function ChangeDetailView({ changeId }: { readonly changeId: string }) {
           <ChangeResponse change={data} userId={userId} onDone={reload} />
         }
       />
+      <ChangeAnalysis projectId={projectId} changeId={changeId} />
     </article>
   );
 }

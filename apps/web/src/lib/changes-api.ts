@@ -93,3 +93,73 @@ export const getChange = (
   request<ChangeDetail>(projectApi(projectId, `/changes/${changeId}`), {
     signal,
   });
+
+export type ProbabilityBand = 'alta' | 'media' | 'baja';
+
+export interface AffectedSuggestionView {
+  readonly stakeholderId: string;
+  readonly probability: number;
+  readonly band: ProbabilityBand;
+  readonly reason: string;
+  readonly evidence: string;
+  readonly question: string;
+  readonly name: string;
+  readonly role: string | null;
+}
+
+export interface ChangeSuggestions {
+  readonly changeId: string;
+  readonly notifiedIds: readonly string[];
+  readonly ask: readonly AffectedSuggestionView[];
+  readonly watch: readonly AffectedSuggestionView[];
+}
+
+export const getChangeSuggestions = (
+  projectId: string,
+  changeId: string,
+  signal?: AbortSignal,
+): Promise<ChangeSuggestions> =>
+  request<ChangeSuggestions>(
+    projectApi(projectId, `/changes/${changeId}/suggestions`),
+    { signal },
+  );
+
+export interface ConflictView {
+  readonly otherChangeId: string;
+  readonly probability: number;
+  readonly band: ProbabilityBand;
+  readonly reason: string;
+  readonly question: string;
+  readonly otherSummary: string;
+  readonly otherElement: {
+    readonly id: string;
+    readonly name: string;
+    readonly category: string;
+  } | null;
+  readonly otherDetectedAt: string | null;
+}
+
+export interface ChangeOverlapView {
+  readonly id: string;
+  readonly status: string;
+  readonly title: string;
+}
+
+export interface ChangeConflicts {
+  readonly changeId: string;
+  readonly overlaps: readonly ChangeOverlapView[];
+  readonly conflicts: readonly ConflictView[];
+  readonly watch: readonly ConflictView[];
+  readonly inference: 'ok' | 'unavailable';
+  readonly inferenceMessage: string | null;
+}
+
+export const getChangeConflicts = (
+  projectId: string,
+  changeId: string,
+  signal?: AbortSignal,
+): Promise<ChangeConflicts> =>
+  request<ChangeConflicts>(
+    projectApi(projectId, `/changes/${changeId}/conflicts`),
+    { signal },
+  );

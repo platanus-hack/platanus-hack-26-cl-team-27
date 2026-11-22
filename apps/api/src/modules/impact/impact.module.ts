@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   AnalyzeChange,
+  DetectConflicts,
   ExtractClaims,
   GetImpacts,
   SuggestAffected,
@@ -17,10 +18,13 @@ import type { Env } from '../../config/index.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
 import { chooseAffectedEstimator } from './affected-estimator.ts';
 import { chooseClaimReader } from './claim-reader.ts';
+import { chooseConflictEstimator } from './conflict-estimator.ts';
 
 export const CLAIM_READER = 'CLAIM_READER';
 
 export const AFFECTED_ESTIMATOR = 'AFFECTED_ESTIMATOR';
+
+export const CONFLICT_ESTIMATOR = 'CONFLICT_ESTIMATOR';
 
 export const buildImpact = (db: PrismaClient, project: ProjectCatalog) => {
   const graph = new InMemoryProjectGraph(project.graph);
@@ -54,9 +58,22 @@ export const buildImpact = (db: PrismaClient, project: ProjectCatalog) => {
           },
         ).estimator,
     },
+    {
+      provide: CONFLICT_ESTIMATOR,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) =>
+        chooseConflictEstimator(
+          config.get('ANTHROPIC_API_KEY', { infer: true }),
+          {
+            apiKey: config.get('GEMINI_API_KEY', { infer: true }),
+            model: config.get('GEMINI_MODEL', { infer: true }),
+          },
+        ).estimator,
+    },
     provideUseCase(ExtractClaims, [CLAIM_READER]),
     provideUseCase(SuggestAffected, [AFFECTED_ESTIMATOR]),
+    provideUseCase(DetectConflicts, [CONFLICT_ESTIMATOR]),
   ],
-  exports: [ExtractClaims, SuggestAffected],
+  exports: [ExtractClaims, SuggestAffected, DetectConflicts],
 })
 export class ImpactModule {}

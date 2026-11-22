@@ -46,6 +46,7 @@ Ningún modelo calcula costos ni plazos: eso sale solo de las reglas. Lo que dev
 | `AnalyzeChange`   | Analiza un cambio contra el grafo y guarda el impacto                                                                                                                                                                          |
 | `GetImpacts`      | Los impactos de varios cambios                                                                                                                                                                                                 |
 | `SuggestAffected` | `{ change, vocabulary, notifiedIds, authorId, evidence, threshold? }`: consulta solo por quienes no avisaron las reglas ni son la autora, y devuelve `{ ask, watch }`. Umbral por defecto: 0,5                                 |
+| `DetectConflicts` | `{ change, others, vocabulary, threshold? }`, con cada cambio como `ChangeBrief` (`id`, `subjectId`, `summary`, `detectedAt`): pregunta al `ConflictEstimator` qué otros cambios chocan con este y devuelve `{ conflicts, watch }`, sin el propio cambio ni ids que no estaban. Sin otros cambios no llama a ningún modelo. Umbral por defecto: 0,5 |
 | `ExtractClaims`   | `{ evidence, vocabulary, minConfidence? }`: lee la evidencia y devuelve `{ accepted, rejected }`. Confianza mínima por defecto: 0,7. La API lo usa para anclar los fragmentos de texto libre (WhatsApp, libro de obra, actas) |
 
 `SuggestAffected` recibe un `AffectedEstimator` y, opcionalmente, un `DependencyScorer`:

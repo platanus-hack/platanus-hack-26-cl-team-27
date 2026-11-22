@@ -1,5 +1,9 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { type Impact, SuggestAffected } from '@team27/context-impact';
+import {
+  DetectConflicts,
+  type Impact,
+  SuggestAffected,
+} from '@team27/context-impact';
 import type { OverlapStatus, ProposalStatus } from '@team27/context-lake';
 import type { PrismaClient } from '@team27/data-main';
 
@@ -10,6 +14,11 @@ import { buildLake } from '../lake/lake.module.ts';
 import { buildNotification } from '../notification/notification.module.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
 import { fail } from './http-errors.ts';
+import {
+  CONFLICT_WINDOW,
+  detectForChange,
+  liveOverlapsOf,
+} from './conflicts.ts';
 import { suggestForChange } from './suggestions.ts';
 import {
   areasResponse,
@@ -31,13 +40,62 @@ export type ProposalFilter = ProposalStatus | 'active' | 'replaced';
 export class QueryService {
   private readonly prisma: PrismaClient;
   private readonly suggest: SuggestAffected;
+  private readonly detect: DetectConflicts;
 
   constructor(
     @Inject(PRISMA_CLIENT) prisma: PrismaClient,
     @Inject(SuggestAffected) suggest: SuggestAffected,
+    @Inject(DetectConflicts) detect: DetectConflicts,
   ) {
     this.prisma = prisma;
     this.suggest = suggest;
+    this.detect = detect;
+  }
+
+  async conflicts(project: ProjectCatalog, id: string) {
+    const lake = buildLake(this.prisma, project);
+    const change = await lake.getChange.execute(id);
+    if (!change) {
+      throw fail(
+        HttpStatus.NOT_FOUND,
+        'not_found',
+        `No existe el cambio ${id}`,
+      );
+    }
+    const [recent, snapshot] = await Promise.all([
+      lake.listChanges.execute(CONFLICT_WINDOW + 1),
+      this.snapshot(project),
+    ]);
+    const proposal = snapshot.proposals.find((item) =>
+      item.changeIds.includes(change.id),
+    );
+    const result = await detectForChange(this.detect, {
+      change,
+      others: recent,
+      vocabulary: buildVocabulary(project),
+    });
+    const byId = new Map(recent.map((item) => [item.id, item]));
+    const withChange = (item: (typeof result.conflicts)[number]) => {
+      const other = byId.get(item.otherChangeId);
+      return {
+        ...item,
+        otherSummary: other?.summary ?? item.otherChangeId,
+        otherElement: other?.element ?? null,
+        otherDetectedAt: other?.detectedAt ?? null,
+      };
+    };
+    return {
+      changeId: change.id,
+      overlaps: liveOverlapsOf(
+        snapshot.overlaps,
+        change,
+        proposal?.id ?? null,
+      ).map((overlap) => overlapView(snapshot, overlap)),
+      conflicts: result.conflicts.map(withChange),
+      watch: result.watch.map(withChange),
+      inference: result.inference,
+      inferenceMessage: result.inferenceMessage,
+    };
   }
 
   async snapshot(project: ProjectCatalog): Promise<LakeSnapshot> {
