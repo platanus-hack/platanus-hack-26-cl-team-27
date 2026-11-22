@@ -17,6 +17,8 @@ export { ListChanges, MAX_CHANGES } from './ListChanges.ts';
 export { ListProposals } from './ListProposals.ts';
 export type { ListProposalsInput } from './ListProposals.ts';
 export { ListStale } from './ListStale.ts';
+export { ExcuseReviewer } from './ExcuseReviewer.ts';
+export type { ExcusedReviewer, ExcuseReviewerInput } from './ExcuseReviewer.ts';
 export { ListOverlaps } from './ListOverlaps.ts';
 export type { ListOverlapsInput } from './ListOverlaps.ts';
 export { OpenOverlaps } from './OpenOverlaps.ts';

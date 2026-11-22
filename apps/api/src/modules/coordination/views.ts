@@ -353,7 +353,10 @@ export const proposalView = (snapshot: LakeSnapshot, proposal: Proposal) => {
     filtered: proposal.filtered.map((filtered) => ({
       stakeholderId: filtered.id,
       name: project.castName(filtered.id),
+      role: project.castMember(filtered.id)?.role ?? '',
       reason: filtered.reason,
+      notAffected: filtered.notAffected === true,
+      at: filtered.at ?? null,
     })),
     progress: {
       approved: progress.approved,
@@ -827,7 +830,7 @@ export const inboxResponse = (snapshot: LakeSnapshot, castId: string) => {
     );
   const filtered = snapshot.proposals.flatMap((proposal) => {
     const entry = proposal.filtered.find((item) => item.id === castId);
-    if (!entry || proposal.changeId === null) return [];
+    if (!entry || entry.notAffected || proposal.changeId === null) return [];
     return [
       {
         type: 'filtered' as const,

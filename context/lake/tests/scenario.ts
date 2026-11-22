@@ -5,6 +5,7 @@ import { GetConsensus } from '../src/application/use-cases/GetConsensus.ts';
 import { IngestRevision } from '../src/application/use-cases/IngestRevision.ts';
 import { ListStale } from '../src/application/use-cases/ListStale.ts';
 import { OpenProposal } from '../src/application/use-cases/OpenProposal.ts';
+import { ExcuseReviewer } from '../src/application/use-cases/ExcuseReviewer.ts';
 import { RecordReview } from '../src/application/use-cases/RecordReview.ts';
 import { ListOverlaps } from '../src/application/use-cases/ListOverlaps.ts';
 import { OpenOverlaps } from '../src/application/use-cases/OpenOverlaps.ts';
@@ -102,6 +103,7 @@ export const buildLake = (catalog: Record<string, ClaimDraft[]> = {}) => {
     ),
     open: new OpenProposal(lake.proposals, lake.baseline),
     review: new RecordReview(lake.proposals, lake.baseline, lake.overlaps),
+    excuse: new ExcuseReviewer(lake.proposals, lake.baseline, lake.overlaps),
     stale: new ListStale(
       lake.revisions,
       lake.claims,

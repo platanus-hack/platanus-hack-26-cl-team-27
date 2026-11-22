@@ -10,7 +10,7 @@ import {
 } from './Notice.ts';
 import type { Channel, Stakeholder } from './Stakeholder.ts';
 
-export const RESPONSE_KINDS = ['reviewed', 'issue'] as const;
+export const RESPONSE_KINDS = ['reviewed', 'issue', 'not_affected'] as const;
 
 export type ResponseKind = (typeof RESPONSE_KINDS)[number];
 

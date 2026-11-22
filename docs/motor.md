@@ -95,7 +95,8 @@ Un hecho «usa» distinto de lo vigente deja el documento desfasado desde el ing
 
 Una **propuesta** es el PR de la obra: **una por cada revisión con autoridad que cambia algo**, con un **hunk** por cada fragmento que cambia (`subject`, `attribute`, `before`, `after`, localizador). Los fragmentos que coinciden con lo vigente quedan como contexto sin cambio. Reutiliza `DetectChanges` (el antes y el después de cada elemento del modelo) e `impact` (costo, plazo, un hallazgo por afectado y los filtrados con su razón). El costo es la suma de los hunks y el atraso, la suma de los atrasos por elemento. Los **revisores** son la unión de los afectados notificados por cualquier hunk, con un solo aviso por revisor y por propuesta, que lista sus hallazgos; los filtrados se muestran con su razón y no votan.
 
-- Cada revisor aprueba o disputa, con nota opcional (en `notification`, `reviewed` o `issue`).
+- Cada revisor aprueba, disputa o dice que no le afecta, con nota opcional (en `notification`, `reviewed`, `issue` o `not_affected`).
+- Quien dice **«No me afecta»** sale de los revisores y queda entre los filtrados, con su nota como razón (`excuseReviewer`, `ExcuseReviewer`): la propuesta se decide con el resto, y si era el último que faltaba se fusiona.
 - La propuesta se **fusiona** a lo vigente cuando todos los revisores aprobaron y no queda ningún solapamiento abierto o confirmado: es atómica, todos los hunks entran juntos y la versión del proyecto sube en uno. Con cero revisores se fusiona sola apenas no tiene solapamientos. No hay botón de fusionar.
 - Una **disputa** deja la propuesta en disputa y lo vigente no cambia.
 - Un **solapamiento** abierto o confirmado de cualquier hunk bloquea la propuesta entera, aunque todos hayan aprobado. Su vista trae `blockedByOverlap` y dice «Espera la validación del solapamiento».
@@ -136,9 +137,9 @@ Los contextos nunca se importan entre sí: la API los compone.
 
 ### `lake`
 
-- **Dominio**: `Space`, `Revision`, `Chunk`, `Claim`, `Authority`, `BaselineEntry`, `Proposal`, `Review`, `Discrepancy`, `Overlap`, `AreaCell`, `Acknowledgement`, `ModelElement`, `Change`. Funciones puras: `classifyClaims`, `buildProposalDraft`, `detectOverlaps`, `reassessOverlaps`, `decideProposal`, `decideOverlap`, `reopenFor`, `computeStaleness`, `consensusIndex`, `buildProvenance`, `diffSnapshots`. Las huellas (`footprint`) no son del lago: la API le pasa el modelo de áreas del proyecto como un `FootprintModel`.
+- **Dominio**: `Space`, `Revision`, `Chunk`, `Claim`, `Authority`, `BaselineEntry`, `Proposal`, `Review`, `Discrepancy`, `Overlap`, `AreaCell`, `Acknowledgement`, `ModelElement`, `Change`. Funciones puras: `classifyClaims`, `buildProposalDraft`, `detectOverlaps`, `reassessOverlaps`, `decideProposal`, `excuseReviewer`, `decideOverlap`, `reopenFor`, `computeStaleness`, `consensusIndex`, `buildProvenance`, `diffSnapshots`. Las huellas (`footprint`) no son del lago: la API le pasa el modelo de áreas del proyecto como un `FootprintModel`.
 - **Puertos**: un repositorio por agregado (con `ChunkRepository`, `OverlapRepository` y `ChangeRepository`) y `FactExtractor`.
-- **Casos de uso**: `IngestRevision`, `OpenProposal`, `RecordReview`, `ReopenProposal`, `WithdrawProposal`, `DismissDiscrepancy`, `OpenOverlaps`, `VoteOverlap`, `ResolveOverlaps`, `SettleOverlaps`, `ListOverlaps`, `AcknowledgeStale`, `GetBaseline`, `GetProvenance`, `ListStale`, `ListProposals`, `GetConsensus`, `DetectChanges`, `GetChange`, `ListChanges`; y `SeedLake`, que la API no usa. `ChangeDraft` lleva `sourceId` (la revisión de origen); `DetectChanges({ sourceId, base, next })` envuelve `diffSnapshots`, persiste un cambio por elemento y lo devuelve.
+- **Casos de uso**: `IngestRevision`, `OpenProposal`, `RecordReview`, `ExcuseReviewer`, `ReopenProposal`, `WithdrawProposal`, `DismissDiscrepancy`, `OpenOverlaps`, `VoteOverlap`, `ResolveOverlaps`, `SettleOverlaps`, `ListOverlaps`, `AcknowledgeStale`, `GetBaseline`, `GetProvenance`, `ListStale`, `ListProposals`, `GetConsensus`, `DetectChanges`, `GetChange`, `ListChanges`; y `SeedLake`, que la API no usa. `ChangeDraft` lleva `sourceId` (la revisión de origen); `DetectChanges({ sourceId, base, next })` envuelve `diffSnapshots`, persiste un cambio por elemento y lo devuelve.
 - **Adapters** (subpath `/adapters`): Prisma por repositorio e `InlineFactExtractor` (los hechos vienen en la revisión).
 
 ### `notification`
@@ -158,7 +159,7 @@ Los contextos nunca se importan entre sí: la API los compone.
 
 ## API
 
-Todas las rutas cuelgan de `/api/projects/:projectId` y piden la cuenta (`Authorization: Bearer`, que agrega la web). Las que escriben aceptan `x-action-id` para la idempotencia (en memoria, por proceso). El voto es `{ kind: 'reviewed' | 'issue', note? }`. Los eventos llevan `seq`, `kind`, `message`, `refs` y `at`.
+Todas las rutas cuelgan de `/api/projects/:projectId` y piden la cuenta (`Authorization: Bearer`, que agrega la web). Las que escriben aceptan `x-action-id` para la idempotencia (en memoria, por proceso). El voto es `{ kind: 'reviewed' | 'issue' | 'not_affected', note? }`. Los eventos llevan `seq`, `kind`, `message`, `refs` y `at`.
 
 | Método y ruta                                    | Qué hace                                                                                                             |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
@@ -172,7 +173,7 @@ Todas las rutas cuelgan de `/api/projects/:projectId` y piden la cuenta (`Author
 | `POST /overlaps/:id/vote`                        | Voto de un validador: `se_tocan` o `no_se_tocan`, con nota opcional                                                  |
 | `GET /inbox`                                     | Tu bandeja: solapamientos por validar, votos, discrepancias, desfases, filtrados y tus propuestas                    |
 | `GET /proposals?status`                          | Propuestas (el PR de la obra) con hunks, checks, revisores (con `notificationId` y `decision`), filtrados y respaldo |
-| `POST /notifications/:id/response`               | Voto `reviewed` o `issue` con nota; fusiona si hay consenso                                                          |
+| `POST /notifications/:id/response`               | Voto `reviewed`, `issue` o `not_affected` con nota; fusiona si hay consenso                                          |
 | `POST /proposals/:id/reopen`, `/withdraw`        | Reabrir con la observación; retirar                                                                                  |
 | `POST /discrepancies/:id/dismiss`                | Descartar una discrepancia                                                                                           |
 | `POST /stale/acknowledge`                        | Confirmar sin cambio con nota                                                                                        |
@@ -307,9 +308,9 @@ Sondeo corto con cursor, sin SSE ni WebSockets: el `rewrite` de Next puede buffe
 
 ## La web
 
-Las pantallas del motor viven dentro de cada proyecto y piden la sesión: `/proyectos/[projectId]` (con el botón «Espacios»), `/proyectos/[projectId]/espacios` (espacios, documentos y revisiones, con `?espacio=`, `?documento=` y `?revision=`), `/proyectos/[projectId]/cambios/[id]` (el detalle de una propuesta, donde el afectado responde «Revisado» o «Tengo un problema») y `/proyectos/[projectId]/valor/[subjectId]/[attribute]` (la procedencia completa de un valor). El detalle está en el [README de la web](../apps/web/README.md).
+Las pantallas del motor viven dentro de cada proyecto y piden la sesión: `/proyectos/[projectId]` (con el botón «Espacios»), `/proyectos/[projectId]/espacios` (espacios, documentos y revisiones, con `?espacio=`, `?documento=` y `?revision=`), `/proyectos/[projectId]/cambios/[id]` (el detalle de una propuesta, donde el afectado responde «Revisado», «Tengo un problema» o «No me afecta», y quien valida un solapamiento vota «Se tocan» o «No se tocan») y `/proyectos/[projectId]/valor/[subjectId]/[attribute]` (la procedencia completa de un valor). El detalle está en el [README de la web](../apps/web/README.md).
 
-La web todavía no tiene la bandeja, ni las acciones del autor (reabrir, retirar), ni descartar una discrepancia, confirmar sin cambio o votar un solapamiento: esas acciones existen solo en la API.
+La web todavía no tiene la bandeja, ni las acciones del autor (reabrir, retirar), ni descartar una discrepancia o confirmar sin cambio: esas acciones existen solo en la API.
 
 ## Lo que falta
 

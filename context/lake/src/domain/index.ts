@@ -110,6 +110,8 @@ export type { DraftSource } from './buildProposalDraft.ts';
 export {
   applyReview,
   decideProposal,
+  excuseReviewer,
+  NOT_AFFECTED_REASON,
   isActive,
   reopenFor,
   subjectsOf,

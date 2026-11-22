@@ -2,6 +2,7 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   type AddressedFinding,
   isChangeNotice,
+  type ResponseKind,
 } from '@team27/context-notification';
 import { InlineFactExtractor } from '@team27/context-lake/adapters';
 import type { PrismaClient } from '@team27/data-main';
@@ -53,7 +54,7 @@ import {
 type Db = PrismaClient;
 
 export interface VoteInput {
-  readonly kind: 'reviewed' | 'issue';
+  readonly kind: ResponseKind;
   readonly note?: string | null | undefined;
 }
 
@@ -584,12 +585,19 @@ export class CoordinationService {
     }
     await lockProposal(db, target.id);
     const decision: Decision = vote.kind === 'reviewed' ? 'approve' : 'dispute';
-    const recorded = await lake.recordReview.execute({
-      proposalId: target.id,
-      reviewerId: actor,
-      decision,
-      note: vote.note ?? null,
-    });
+    const recorded =
+      vote.kind === 'not_affected'
+        ? await lake.excuseReviewer.execute({
+            proposalId: target.id,
+            reviewerId: actor,
+            reason: vote.note ?? null,
+          })
+        : await lake.recordReview.execute({
+            proposalId: target.id,
+            reviewerId: actor,
+            decision,
+            note: vote.note ?? null,
+          });
     const updated = recorded.changed
       ? await notifications.respondToNotification.execute(notificationId, {
           kind: vote.kind,
@@ -601,7 +609,14 @@ export class CoordinationService {
     if (recorded.changed) {
       const progress = progressOf(project, recorded.proposal);
       const title = proposalTitle(project, recorded.proposal);
-      if (decision === 'approve') {
+      const said = vote.note?.trim();
+      if (vote.kind === 'not_affected') {
+        events.push({
+          kind: 'review.not_affected',
+          message: `${project.castName(actor)} dice que no le afecta ${title}${said ? `: «${said}»` : ''}. La propuesta sigue con ${progress.required === 1 ? '1 revisor' : `${progress.required} revisores`}.`,
+          refs: { proposalId: target.id, castId: actor },
+        });
+      } else if (decision === 'approve') {
         events.push({
           kind: 'review.approved',
           message: `${project.castName(actor)} aprobó ${title} (${progress.approved} de ${progress.required}).`,

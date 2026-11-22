@@ -22,7 +22,9 @@ export class RespondToNotification {
 
   execute(id: string, input: ResponseInput): Promise<Notification | null> {
     if (!RESPONSE_KINDS.includes(input.kind)) {
-      throw new ValidationError('La respuesta debe ser reviewed o issue');
+      throw new ValidationError(
+        'La respuesta debe ser reviewed, issue o not_affected',
+      );
     }
     const note = normalizeNote(input.note);
     if (note && note.length > MAX_NOTE_LENGTH) {

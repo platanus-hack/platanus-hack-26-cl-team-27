@@ -34,7 +34,33 @@ export interface ProposalReviewer {
 export interface ProposalFiltered {
   readonly stakeholderId: string;
   readonly name: string;
+  readonly role: string;
   readonly reason: string;
+  readonly notAffected: boolean;
+  readonly at: string | null;
+}
+
+export interface OverlapView {
+  readonly id: string;
+  readonly status: 'abierto' | 'descartado' | 'confirmado' | 'resuelto';
+  readonly title: string;
+  readonly subjectName: string;
+  readonly otherSubjectName: string;
+  readonly validators: readonly string[];
+  readonly validatorsInfo: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly role: string;
+  }[];
+  readonly votes: readonly {
+    readonly validatorId: string;
+    readonly validatorName: string;
+    readonly kind: 'se_tocan' | 'no_se_tocan';
+    readonly note: string | null;
+    readonly at: string;
+  }[];
+  readonly resolution: string | null;
+  readonly resolvedAt: string | null;
 }
 
 export interface ProposalView {
@@ -56,6 +82,9 @@ export interface ProposalView {
   readonly filtered: readonly ProposalFiltered[];
   readonly progress: Progress;
   readonly backedBy: readonly string[];
+  readonly overlaps: readonly OverlapView[];
+  readonly blockedByOverlap: boolean;
+  readonly waitingFor: string | null;
 }
 
 export interface ProposalsResponse {

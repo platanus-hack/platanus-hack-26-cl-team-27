@@ -6,6 +6,24 @@ import { isActive } from '@/lib/proposals-api';
 
 import { VoteForm } from './VoteForm';
 
+const ANSWER = {
+  reviewed: {
+    tone: 'good',
+    icon: 'check',
+    label: 'Respondiste: Revisado',
+  },
+  issue: {
+    tone: 'critical',
+    icon: 'alert',
+    label: 'Respondiste: Tengo un problema',
+  },
+  not_affected: {
+    tone: 'neutral',
+    icon: 'ban',
+    label: 'Respondiste: No me afecta',
+  },
+} as const;
+
 export function ChangeResponse({
   change,
   userId,
@@ -25,15 +43,7 @@ export function ChangeResponse({
   if (mine?.response)
     return (
       <section className="border-t border-hairline pt-5">
-        <StateMark
-          tone={mine.response.kind === 'reviewed' ? 'good' : 'critical'}
-          icon={mine.response.kind === 'reviewed' ? 'check' : 'alert'}
-          label={
-            mine.response.kind === 'reviewed'
-              ? 'Respondiste: Revisado'
-              : 'Respondiste: Tengo un problema'
-          }
-        />
+        <StateMark {...ANSWER[mine.response.kind]} />
         {mine.response.note && (
           <p className="mt-1 text-sm text-ink">«{mine.response.note}»</p>
         )}
