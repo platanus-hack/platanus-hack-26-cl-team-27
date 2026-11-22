@@ -10,6 +10,7 @@ import { EventsService } from './events.service.ts';
 import { FollowUpService } from './follow-up.service.ts';
 import { NoticeAdvisor } from './notice-advisor.ts';
 import { QueryService } from './query.service.ts';
+import { SheetPoller } from './sheet-poller.ts';
 
 @Module({
   imports: [AccountsModule, ImpactModule],
@@ -20,6 +21,7 @@ import { QueryService } from './query.service.ts';
     FollowUpService,
     NoticeAdvisor,
     QueryService,
+    SheetPoller,
   ],
   controllers: [CoordinationController, ModelController],
 })
