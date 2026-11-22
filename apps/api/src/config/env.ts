@@ -36,6 +36,8 @@ export const envSchema = z
       .string()
       .optional()
       .transform((value) => (value && value.trim() !== '' ? value : undefined)),
+    GEMINI_API_KEY: optionalText,
+    GEMINI_MODEL: optionalText,
     AUTH0_DOMAIN: optionalText,
     AUTH0_AUDIENCE: optionalText,
     SUPERADMIN_EMAILS: z

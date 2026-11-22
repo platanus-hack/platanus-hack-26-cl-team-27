@@ -38,6 +38,18 @@ describe('elección del lector de afirmaciones', () => {
     expect(chooseClaimReader('sk-ant-prueba').mode).toBe('claude');
   });
 
+  it('sin clave de Claude y con una de Gemini usa a Gemini', () => {
+    expect(chooseClaimReader(undefined, { apiKey: 'AIza-prueba' }).mode).toBe(
+      'gemini',
+    );
+  });
+
+  it('con las dos claves prefiere a Claude', () => {
+    expect(
+      chooseClaimReader('sk-ant-prueba', { apiKey: 'AIza-prueba' }).mode,
+    ).toBe('claude');
+  });
+
   it('sin clave, un fragmento de texto llega como 503', async () => {
     const reader = new ChunkReader(
       new ExtractClaims(chooseClaimReader(undefined).reader),
