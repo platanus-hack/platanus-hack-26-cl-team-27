@@ -11,6 +11,7 @@ describe('envSchema', () => {
       GOOGLE_REDIRECT_URI:
         'http://localhost:3000/api/integrations/google/callback',
       INTEGRATIONS_POLL_SECONDS: 60,
+      SUPERADMIN_EMAILS: [],
     });
   });
 
@@ -32,6 +33,14 @@ describe('envSchema', () => {
     expect(
       envSchema.safeParse({ GOOGLE_REDIRECT_URI: 'no es una url' }).success,
     ).toBe(false);
+  });
+
+  it('SUPERADMIN_EMAILS es una lista de correos en minúsculas', () => {
+    expect(
+      envSchema.parse({
+        SUPERADMIN_EMAILS: ' Ana@Vigente.example, ,bruno@vigente.example ',
+      }).SUPERADMIN_EMAILS,
+    ).toEqual(['ana@vigente.example', 'bruno@vigente.example']);
   });
 
   it('la clave de Anthropic es opcional: ausente o vacía deja la lectura determinista', () => {

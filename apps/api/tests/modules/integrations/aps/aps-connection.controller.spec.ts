@@ -21,6 +21,7 @@ const accountFor = (role: 'admin' | 'member'): Account => ({
   id: 'user-1',
   email: 'fernanda@aromos.cl',
   name: 'Fernanda',
+  superadmin: false,
   memberships: [
     {
       organizationId: 'aromos',
