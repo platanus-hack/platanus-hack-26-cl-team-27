@@ -26,5 +26,4 @@ export interface ProposalRepository {
   list(status?: ProposalStatus): Promise<Proposal[]>;
   listActive(): Promise<Proposal[]>;
   clear(): Promise<void>;
-  deleteByDocuments(documentIds: readonly string[]): Promise<void>;
 }

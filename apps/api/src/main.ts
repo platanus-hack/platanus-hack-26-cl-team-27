@@ -5,13 +5,13 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module.ts';
-import { setupApp } from './app.setup.ts';
+import { APP_OPTIONS, setupApp } from './app.setup.ts';
 import type { Env } from './config/index.ts';
 
 const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
-  const app = setupApp(await NestFactory.create(AppModule));
+  const app = setupApp(await NestFactory.create(AppModule, APP_OPTIONS));
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 
   app.enableCors({ origin: config.get('CORS_ALLOW_ORIGINS', { infer: true }) });

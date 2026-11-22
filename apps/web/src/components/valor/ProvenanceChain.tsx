@@ -1,3 +1,5 @@
+'use client';
+
 import { cx } from '@team27/ui';
 import Link from 'next/link';
 import type { Route } from 'next';
@@ -9,7 +11,9 @@ import {
   ProposalStatusChip,
   ValueStatusChip,
 } from '@/components/common/status';
+import { useProjectId } from '@/components/proyectos/ProjectContext';
 import { formatClock, formatValue } from '@/lib/format';
+import { projectPage } from '@/lib/project-paths';
 import type { ProvenanceResponse, ProvenanceStep } from '@/lib/provenance-api';
 
 const DECISION = {
@@ -18,8 +22,15 @@ const DECISION = {
   none: 'Sin respuesta',
 } as const;
 
-export const documentPath = (spaceId: string, revisionId: string): string =>
-  `/espacios?espacio=${encodeURIComponent(spaceId)}&revision=${encodeURIComponent(revisionId)}`;
+export const documentPath = (
+  projectId: string,
+  spaceId: string,
+  revisionId: string,
+): string =>
+  projectPage(
+    projectId,
+    `/espacios?espacio=${encodeURIComponent(spaceId)}&revision=${encodeURIComponent(revisionId)}`,
+  );
 
 function Step({
   step,
@@ -28,6 +39,7 @@ function Step({
   readonly step: ProvenanceStep;
   readonly changeIdOf: (proposalId: string) => string | null;
 }) {
+  const projectId = useProjectId();
   const changeId = step.proposal ? changeIdOf(step.proposal.id) : null;
   return (
     <li className="relative pb-6 pl-7 last:pb-0">
@@ -121,7 +133,7 @@ function Step({
           )}
           {changeId && (
             <Link
-              href={`/cambios/${changeId}` as Route}
+              href={projectPage(projectId, `/cambios/${changeId}`) as Route}
               className={cx(textLink, 'mt-2 text-sm')}
             >
               Ver la propuesta →
@@ -131,7 +143,7 @@ function Step({
       )}
 
       <Link
-        href={documentPath(step.space.id, step.revision.id) as Route}
+        href={documentPath(projectId, step.space.id, step.revision.id) as Route}
         className={cx(textLink, 'mt-2 text-sm')}
       >
         Ver el documento →

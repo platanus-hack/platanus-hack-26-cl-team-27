@@ -103,17 +103,15 @@ describe('GmailEmailSender', () => {
   });
 
   it('si Google no renueva, pide volver a autorizar', async () => {
-    const fetcher = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(
-        Response.json(
-          {
-            error: 'invalid_grant',
-            error_description: 'Token has been expired or revoked.',
-          },
-          { status: 400 },
-        ),
-      );
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json(
+        {
+          error: 'invalid_grant',
+          error_description: 'Token has been expired or revoked.',
+        },
+        { status: 400 },
+      ),
+    );
 
     await expect(
       new GmailEmailSender(credentials, 'a@b.example', fetcher).send(email),

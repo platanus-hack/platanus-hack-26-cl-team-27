@@ -1,6 +1,6 @@
 # @team27/data-main
 
-Prisma 7 sobre PostgreSQL 18. Contiene el schema (`prisma/schema.prisma`), las migraciones (`prisma/migrations`) y el cliente generado en `generated/`, que no se versiona ni se edita. El código propio es `index.ts` (el cliente generado y `createPrismaClient(url)`), `project/` (la definición de un proyecto y cómo se guarda y se lee) y `seed/` (la semilla de Los Aromos).
+Prisma 7 sobre PostgreSQL 18. Contiene el schema (`prisma/schema.prisma`), las migraciones (`prisma/migrations`) y el cliente generado en `generated/`, que no se versiona ni se edita. El código propio es `index.ts` (el cliente generado y `createPrismaClient(url)`), `project/` (la definición de un proyecto y cómo se lee, y las organizaciones y sus invitaciones) y `seed/` (la semilla de la organización base).
 
 ## Modelos
 
@@ -21,35 +21,42 @@ Prisma 7 sobre PostgreSQL 18. Contiene el schema (`prisma/schema.prisma`), las m
 | `Overlap` (`overlaps`) | `lake` | Un solapamiento: tipo (`mismo-elemento`, `misma-area` o `simultaneo`), área (nivel, celda y sistemas), los dos elementos, la propuesta y el fragmento que lo abrieron, quién respalda al otro elemento, los validadores y su estado (`abierto`, `confirmado`, `descartado` o `resuelto`, con la razón de la resolución) |
 | `OverlapVote` (`overlap_votes`) | `lake` | El voto de cada validador de un solapamiento: `se_tocan` o `no_se_tocan`, con nota y hora. Único por solapamiento y validador |
 | `Acknowledgement` (`acknowledgements`) | `lake` | La confirmación sin cambio de un documento desfasado, con su nota y la firma del desfase |
-| `Seat` (`seats`) | API (sala) | Un asiento tomado: el hash SHA-256 del token y el último latido |
-| `RoomEvent` (`room_events`) | API (sala) | Los eventos del ticker: `seq` autoincremental, época, tipo, mensaje en español y referencias |
-| `RoomState` (`room_state`) | API (sala) | Una fila por proyecto: la época |
+| `ProjectEvent` (`project_events`) | API (coordinación) | Los eventos de cada proyecto: `seq` autoincremental (el cursor del sondeo), tipo, mensaje en español y referencias |
 | `Organization` (`organizations`) | API (cuentas) | Un cliente: id y nombre. Tiene sus proyectos, miembros e invitaciones |
 | `User` (`users`) | API (cuentas) | Una persona con cuenta: el `sub` de Auth0 (`auth_subject`), su correo confirmado y su nombre. Únicos el `sub` y el correo |
 | `Membership` (`memberships`) | API (cuentas) | Una persona en una organización con su rol (`admin` o `member`). Clave `(organization_id, user_id)` |
 | `Invitation` (`invitations`) | API (cuentas) | Un correo invitado a una organización con un rol; `accepted_at` cuando esa persona entra. Única por organización y correo |
 | `ApsConnection` (`aps_connections`) | API (conexión con Autodesk) | La cuenta de Autodesk de una organización (una por organización, se borra con ella): quién la conectó (`connected_by_id`, queda nulo si se borra esa persona), el usuario de Autodesk, los scopes, el access y el refresh token cifrados con AES-256-GCM (`*_ciphertext`), cuándo vence el access token, la última renovación y el estado (`active` o `reconnect_required`, con un CHECK) |
-| `Project` (`projects`) | API (proyecto) | Un proyecto de una organización (`organization_id`, que no se puede borrar mientras tenga proyectos): nombre, lugar, descripción, autor, dueños del costo y del plazo, el documento del modelo de Revit y los ejes de la grilla |
+| `Project` (`projects`) | API (proyecto) | Un proyecto de una organización (`organization_id`, que no se puede borrar mientras tenga proyectos): nombre, lugar, descripción, autor, dueños del costo y del plazo, el documento del modelo y los ejes de la grilla |
 | `ProjectMember`, `ProjectSpace`, `ProjectDocument`, `ProjectAttribute`, `ProjectSubject`, `ModelElement`, `BudgetItem`, `ScheduleTask`, `ProjectDependency`, `ProjectLevel`, `ProjectSystem` (`project_*`, `model_elements`, `budget_items`, `schedule_tasks`) | API (proyecto) | La definición del proyecto: elenco, espacios, documentos con su dueño, atributos, sujetos (sección, categoría, atributos con unidad y huella en JSON), elementos del modelo, partidas, tareas, dependencias, niveles y sistemas. Clave `(project_id, id)` y `position` para el orden |
-| `IntegrationConnection` (`integration_connections`) | `integrations` | Una cuenta conectada por proveedor (`google`): el correo, los permisos y el refresh token cifrado con `INTEGRATIONS_ENCRYPTION_KEY` |
-| `IntegrationSource` (`integration_sources`) | `integrations` | Una planilla vinculada (única por id externo): el título, el link, el hash de sus celdas, la última revisión, el último cambio y el último error. Lo que cambió no se guarda. Se borra con su conexión |
+| `IntegrationConnection` (`integration_connections`) | `integrations` | La cuenta de un proveedor (`google`) que conectó una persona (`user_id`, única por persona y proveedor): el correo, los permisos y el refresh token cifrado con `INTEGRATIONS_ENCRYPTION_KEY` |
+| `IntegrationSource` (`integration_sources`) | `integrations` | Una planilla vinculada a un proyecto (`project_id`, única por proyecto e id externo: la misma planilla puede estar en dos proyectos) y la cuenta con que se lee (`connection_id`): el título, el link, el hash de sus celdas, la última revisión, el último cambio con quién lo hizo (`changed_by`, JSON) y el último error, y el canal de avisos de Drive (`watch_channel_id`, único, `watch_resource_id`, `watch_token` y `watch_expires_at`). Lo que cambió no se guarda. Si se borra la cuenta, la planilla queda sin cuenta (`connection_id` nulo) hasta que alguien la vuelva a vincular |
+| `AutodeskEvent` (`autodesk_events`) | `integrations` | Cada webhook de Autodesk que se recibió una vez: la llave (`dedupe_key`, única, que descarta los reintentos), el evento y su `kind`, el sistema, el hook, el recurso (tipo, urn, linaje, nombre, versión, carpeta y proyecto de Autodesk), quién lo hizo, cuándo pasó, si pide el diff por elemento y cuándo llegó. Índice por `lineage_urn` |
 
-- Cada tabla es de un solo contexto, salvo las de la sala y el proyecto, que son de la API. No hay llaves foráneas entre tablas de contextos distintos: los ids viajan como valores.
-- Las tablas de la sala, el lago, los cambios, los impactos y los avisos llevan `project_id` (sin llave foránea), y sus claves compuestas lo incluyen: una revisión es única por proyecto, documento y etiqueta; lo vigente, por proyecto, sujeto y atributo; un asiento, por proyecto y elenco. `reviews` y `overlap_votes` lo heredan de su propuesta o solapamiento.
-- La migración `proyecto_en_cada_tabla` vació esas tablas: después de aplicarla, recarga la muestra con `pnpm etl reiniciar`.
-- La migración `cuentas_y_organizaciones` borró las definiciones de proyecto (no tenían organización): después de aplicarla, `pnpm db:seed`. El lago y la sala no se tocan.
-- El reinicio de la sala no toca las tablas de `integrations`: las cuentas y las planillas vinculadas sobreviven.
+- Cada tabla es de un solo contexto, salvo las de eventos, cuentas y proyecto, que son de la API. No hay llaves foráneas entre tablas de contextos distintos: los ids viajan como valores.
+- Las tablas de eventos, el lago, los cambios, los impactos y los avisos llevan `project_id` (sin llave foránea), y sus claves compuestas lo incluyen: una revisión es única por proyecto, documento y etiqueta; lo vigente, por proyecto, sujeto y atributo. `reviews` y `overlap_votes` lo heredan de su propuesta o solapamiento. Por eso borrar un proyecto no borra su lago: hay que hacerlo por `project_id`, como hace la migración `sin_la_muestra`.
+- La migración `planillas_por_proyecto` borró las cuentas y planillas vinculadas, que no tenían dueño: después de aplicarla, cada persona vuelve a conectar su cuenta de Google y a vincular sus planillas en `/conectores`.
+- La migración `sin_la_muestra` borra el proyecto `los-aromos` con todo lo que el lago, los avisos y los conectores guardaron de él, y la organización `inmobiliaria-los-aromos` solo si queda sin proyectos. Además borra las tablas `seats`, `room_state` y `room_events`, y crea `project_events` vacía.
 - Las tablas y columnas van en `snake_case` con `@@map` y `@map`; los modelos y campos, en `camelCase`.
 
 ## El proyecto
 
 - **`ProjectDefinition`** ([`project/definition.ts`](project/definition.ts)) es la definición completa de un proyecto como datos planos. La API la valida al cargarla.
 - **`saveOrganization(prisma, organización)`** crea o actualiza una organización, que tiene que existir antes que sus proyectos; **`inviteToOrganization(prisma, { organizationId, email, role })`** invita un correo.
-- **`saveProjectDefinition(prisma, definición)`** la guarda en una transacción: crea o actualiza la fila de `projects` y reemplaza sus filas hijas. No toca el lago, la sala ni los avisos.
-- **Un proyecto creado desde la web** lo escribe la API directo en `projects` y `project_members`: solo lo básico y su creador en el elenco, con las demás tablas vacías. `loadProjectDefinition` lo lee igual, pero no pasa la validación del catálogo de la sala (no tiene grilla).
-- **`loadProjectDefinition(prisma, id)`** la lee en el orden de `position`, y **`listProjectIds(prisma)`** lista los proyectos por fecha de creación.
-- **La semilla** ([`seed/los-aromos.ts`](seed/los-aromos.ts)) es el Edificio Los Aromos de la [muestra](../../docs/muestra.md#el-proyecto-edificio-los-aromos). Los tests de la API la importan desde `@team27/data-main/seed`.
+- **Un proyecto creado desde la web** lo escribe la API directo en `projects` y `project_members`: solo lo básico y su creador en el elenco, con las demás tablas vacías.
+- **`loadProjectDefinition(prisma, id)`** la lee en el orden de `position`, o devuelve `null` si no existe. La API la carga en cada pedido de un proyecto; uno recién creado también pasa la validación, aunque no tenga grilla.
+- **Un proyecto completo** de ejemplo, con elenco, grilla, modelo, presupuesto y plazos, vive en los tests de la API (`apps/api/tests/fixtures/los-aromos.ts`). No está en la base ni en la semilla.
 - **Las huellas** de cada sujeto van en `project_subjects.spatial`: tipo (`soporte` u `ocupante`), niveles, celdas (`{ kind: 'all' }`, `{ kind: 'axis', axis }` o `{ kind: 'position', attribute, axis }`) y sistemas.
+
+## La semilla
+
+[`seed/main.ts`](seed/main.ts) deja una organización base, sin proyectos ni archivos: **Constructora Cordillera** (`constructora-cordillera`, en [`seed/cordillera.ts`](seed/cordillera.ts)).
+
+- **`pnpm db:seed`** (en local) crea o actualiza la organización e invita a seis personas: un administrador y cinco miembros. Puedes correrla las veces que quieras: no duplica nada.
+- **Sin `SEED_EMAIL`**, los correos son inventados, en el dominio reservado `cordillera.test`: `admin@cordillera.test` (`admin`), y `ana.soto`, `bruno.diaz`, `carla.mena`, `diego.fuentes` y `elena.parra` (`member`). La organización queda poblada, pero nadie puede entrar con ellos: Auth0 manda el código de entrada al correo, y esas bandejas no existen.
+- **Con `SEED_EMAIL=tu@gmail.com`**, los correos llevan un `+` sobre el tuyo: `tu+admin@gmail.com`, `tu+ana@gmail.com`, `tu+bruno@gmail.com`… Para Auth0 son personas distintas, pero todos los códigos te llegan a ti, así que puedes entrar como cada rol (por ejemplo, en ventanas de incógnito). Tu correo queda en tu `.env`, que no se versiona.
+- **`node seed/main.ts --si-no-hay`** (lo corre la imagen de la API al arrancar) crea la organización solo si la base no tiene ninguna organización, y sin personas. En producción, quien entra primero es un superadmin (`SUPERADMIN_EMAILS`), que invita a la gente desde `/admin`. Si después alguien la borra y quedan otras organizaciones, no vuelve a aparecer.
+- Las invitaciones se aceptan solas cuando esa persona entra con su correo confirmado ([API, cuentas](../../apps/api/README.md#cuentas-organizaciones-y-roles)).
 
 ## Comandos
 
@@ -58,9 +65,9 @@ cp .env.example .env                      # en la raíz: DATABASE_URL
 pnpm db:up                                # Postgres de docker compose en :5427
 pnpm --filter @team27/data-main migrate:dev -- --name <nombre>   # crea y aplica una migración desde el schema
 pnpm db:migrate                           # aplica las migraciones pendientes (prisma migrate deploy)
-pnpm db:seed                              # siembra Inmobiliaria Los Aromos y su proyecto; si ya está, reemplaza su definición
-SEED_ADMIN_EMAIL=<correo> pnpm db:seed    # además invita ese correo como administrador de la organización
-pnpm --filter @team27/data-main exec node seed/main.ts --si-no-hay   # siembra solo si la base no tiene proyectos (así arranca la imagen de la API)
+pnpm db:seed                              # Constructora Cordillera con su administrador y sus miembros invitados
+SEED_EMAIL=<tu correo> pnpm db:seed       # lo mismo, con correos «+» sobre el tuyo, para poder entrar con cada uno
+pnpm --filter @team27/data-main exec node seed/main.ts --si-no-hay   # solo la organización, si la base no tiene ninguna (así arranca la imagen de la API)
 pnpm db:studio                            # Prisma Studio
 pnpm nx run @team27/data-main:generate    # el cliente; lo corren solas las tareas que dependen de él
 ```
@@ -70,5 +77,3 @@ pnpm nx run @team27/data-main:generate    # el cliente; lo corren solas las tare
 - Una migración aplicada no se edita: se escribe otra.
 - El `typecheck` de este paquete usa todo su directorio como input, schema incluido. El cliente generado no se versiona y Nx no lo ve, así que, sin el schema, la caché podría devolver los tipos de un cliente viejo.
 - Lo que Prisma no modela (CHECK, triggers, roles) va en el SQL de la migración.
-
-El caso de 4 pasos de la muestra (`/api/flow`) usa las tablas del lago tal como están (sujetos `caso.*`, documentos `losaromos-*`): no necesitó ninguna migración.

@@ -21,8 +21,4 @@ export class ActionLog {
     }
     return pending;
   }
-
-  clear(): void {
-    this.results.clear();
-  }
 }

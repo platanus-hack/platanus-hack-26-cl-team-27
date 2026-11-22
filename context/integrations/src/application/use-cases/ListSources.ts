@@ -8,7 +8,7 @@ export class ListSources {
     this.sources = sources;
   }
 
-  execute(): Promise<SourceLink[]> {
-    return this.sources.list();
+  execute(projectId?: string): Promise<SourceLink[]> {
+    return this.sources.list(projectId);
   }
 }

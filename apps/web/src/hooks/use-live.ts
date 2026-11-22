@@ -3,17 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { describeError, isAbort } from '@/lib/http';
-import type { RoomEvent } from '@/lib/events-api';
+import type { ProjectEvent } from '@/lib/events-api';
 
-import { useRoomPulse, type PulseStatus } from './use-room-pulse';
+import { useProjectPulse, type PulseStatus } from './use-project-pulse';
 
 export interface LiveOptions<T> {
   readonly load: (signal: AbortSignal) => Promise<T>;
   readonly intervalMs: number;
   readonly dependencyKey?: string;
-  readonly castId?: string | null;
-  readonly seatToken?: string | null;
-  readonly enabled?: boolean;
+  readonly projectId?: string | null;
   readonly onReset?: () => void;
 }
 
@@ -21,7 +19,7 @@ export interface Live<T> {
   readonly data: T | null;
   readonly error: string | null;
   readonly loading: boolean;
-  readonly events: readonly RoomEvent[];
+  readonly events: readonly ProjectEvent[];
   readonly status: PulseStatus;
   readonly reload: () => void;
 }
@@ -36,9 +34,7 @@ export const useLive = <T>({
   load,
   intervalMs,
   dependencyKey = '',
-  castId = null,
-  seatToken = null,
-  enabled = true,
+  projectId = null,
   onReset,
 }: LiveOptions<T>): Live<T> => {
   const [slot, setSlot] = useState<Slot<T>>({
@@ -78,11 +74,9 @@ export const useLive = <T>({
     return () => current.current?.abort();
   }, [reload, dependencyKey]);
 
-  const { events, status } = useRoomPulse({
+  const { events, status } = useProjectPulse({
+    projectId,
     intervalMs,
-    castId,
-    seatToken,
-    enabled,
     onEvents: reload,
     onReset: () => {
       if (onReset) onReset();

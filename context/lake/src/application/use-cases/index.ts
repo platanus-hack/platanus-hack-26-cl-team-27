@@ -1,17 +1,14 @@
 export { AcknowledgeStale } from './AcknowledgeStale.ts';
 export type { AcknowledgeStaleInput } from './AcknowledgeStale.ts';
-export { ClearScope } from './ClearScope.ts';
-export type { ClearScopeInput } from './ClearScope.ts';
 export { DetectChanges } from './DetectChanges.ts';
 export type { DetectChangesInput } from './DetectChanges.ts';
 export { DismissDiscrepancy } from './DismissDiscrepancy.ts';
 export type { DismissDiscrepancyInput } from './DismissDiscrepancy.ts';
-export { EnsureBaseline } from './EnsureBaseline.ts';
 export { GetBaseline } from './GetBaseline.ts';
 export type { BaselineView } from './GetBaseline.ts';
 export { GetChange } from './GetChange.ts';
 export { GetConsensus } from './GetConsensus.ts';
-export type { Consensus, LakeExclusion } from './GetConsensus.ts';
+export type { Consensus } from './GetConsensus.ts';
 export { GetProvenance } from './GetProvenance.ts';
 export type { GetProvenanceInput } from './GetProvenance.ts';
 export { IngestRevision } from './IngestRevision.ts';
@@ -26,11 +23,6 @@ export { OpenOverlaps } from './OpenOverlaps.ts';
 export type { OpenOverlapsInput } from './OpenOverlaps.ts';
 export { OpenProposal } from './OpenProposal.ts';
 export type { OpenedProposal, OpenProposalInput } from './OpenProposal.ts';
-export { RecordRevision } from './RecordRevision.ts';
-export type {
-  RecordedRevision,
-  RecordRevisionInput,
-} from './RecordRevision.ts';
 export { RecordReview } from './RecordReview.ts';
 export type { RecordedReview, RecordReviewInput } from './RecordReview.ts';
 export { ReopenProposal } from './ReopenProposal.ts';

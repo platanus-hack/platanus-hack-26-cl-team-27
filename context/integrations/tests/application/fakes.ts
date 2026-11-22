@@ -2,6 +2,8 @@ import type {
   AccountAuthorizer,
   ChangeListener,
   ConnectionRepository,
+  EditorLookup,
+  FileWatcher,
   SourceLinkRepository,
   SpreadsheetContent,
   SpreadsheetReader,
@@ -15,6 +17,7 @@ export const SHEET_ID = '1AbCdEfGhIjKlMnOpQrStUvWxYz_0123456789-ab';
 
 export const CONNECTION: StoredConnection = {
   id: 'c1',
+  userId: 'u1',
   provider: 'google',
   accountEmail: 'daniela@example.com',
   scopes: ['email'],
@@ -31,6 +34,7 @@ export const CONTENT: SpreadsheetContent = {
 
 export const SOURCE: SourceLink = {
   id: 's1',
+  projectId: 'los-aromos',
   connectionId: 'c1',
   provider: 'google',
   externalId: SHEET_ID,
@@ -39,11 +43,16 @@ export const SOURCE: SourceLink = {
   contentHash: CONTENT.contentHash,
   checkedAt: new Date('2026-11-21T10:00:00Z'),
   changedAt: null,
+  changedBy: null,
   lastError: null,
+  channel: null,
   createdAt: new Date('2026-11-21T10:00:00Z'),
 };
 
 export const connections = (found: StoredConnection | null = CONNECTION) => ({
+  findForUser: vi
+    .fn<ConnectionRepository['findForUser']>()
+    .mockResolvedValue(found),
   find: vi.fn<ConnectionRepository['find']>().mockResolvedValue(found),
   save: vi.fn<ConnectionRepository['save']>(),
   remove: vi.fn<ConnectionRepository['remove']>(),
@@ -66,12 +75,22 @@ export const sources = (found: SourceLink | null = SOURCE) => ({
     .fn<SourceLinkRepository['list']>()
     .mockResolvedValue(found ? [found] : []),
   find: vi.fn<SourceLinkRepository['find']>().mockResolvedValue(found),
-  findByExternalId: vi
-    .fn<SourceLinkRepository['findByExternalId']>()
+  findInProject: vi
+    .fn<SourceLinkRepository['findInProject']>()
     .mockResolvedValue(null),
   create: vi
     .fn<SourceLinkRepository['create']>()
     .mockImplementation(async (draft) => ({ ...SOURCE, ...draft })),
+  relink: vi
+    .fn<SourceLinkRepository['relink']>()
+    .mockImplementation(async (_id, relink) => ({
+      ...SOURCE,
+      connectionId: relink.connectionId,
+      title: relink.title,
+      contentHash: relink.contentHash,
+      checkedAt: relink.at,
+      lastError: null,
+    })),
   recordCheck: vi
     .fn<SourceLinkRepository['recordCheck']>()
     .mockImplementation(async (_id, check) => ({
@@ -80,6 +99,7 @@ export const sources = (found: SourceLink | null = SOURCE) => ({
       contentHash: check.contentHash,
       checkedAt: check.at,
       changedAt: check.changed ? check.at : SOURCE.changedAt,
+      changedBy: check.changed ? (check.by ?? null) : SOURCE.changedBy,
     })),
   recordError: vi
     .fn<SourceLinkRepository['recordError']>()
@@ -87,6 +107,12 @@ export const sources = (found: SourceLink | null = SOURCE) => ({
       ...SOURCE,
       lastError: error,
     })),
+  findByChannel: vi
+    .fn<SourceLinkRepository['findByChannel']>()
+    .mockResolvedValue(found),
+  saveChannel: vi
+    .fn<SourceLinkRepository['saveChannel']>()
+    .mockImplementation(async (_id, channel) => ({ ...SOURCE, channel })),
   remove: vi.fn<SourceLinkRepository['remove']>().mockResolvedValue(true),
 });
 
@@ -94,4 +120,17 @@ export const snapshots = () => new InMemorySnapshotCache();
 
 export const listener = () => ({
   changed: vi.fn<ChangeListener['changed']>().mockResolvedValue(undefined),
+});
+
+export const watcher = () => ({
+  watch: vi.fn<FileWatcher['watch']>().mockResolvedValue({
+    id: 'ch-2',
+    resourceId: 'res-1',
+    token: 'secret-2',
+    expiresAt: new Date('2026-11-22T21:00:00Z'),
+  }),
+  stop: vi.fn<FileWatcher['stop']>().mockResolvedValue(undefined),
+  lastEditor: vi
+    .fn<EditorLookup['lastEditor']>()
+    .mockResolvedValue({ name: 'Daniela Soto', email: 'daniela@example.com' }),
 });

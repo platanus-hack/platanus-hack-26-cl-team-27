@@ -1,9 +1,12 @@
+import type { Editor, PushChannel } from './Push.ts';
+
 export const PROVIDERS = ['google'] as const;
 
 export type Provider = (typeof PROVIDERS)[number];
 
 export interface Connection {
   readonly id: string;
+  readonly userId: string;
   readonly provider: Provider;
   readonly accountEmail: string;
   readonly scopes: readonly string[];
@@ -17,6 +20,7 @@ export interface AccountGrant {
 }
 
 export interface ConnectionGrant extends AccountGrant {
+  readonly userId: string;
   readonly provider: Provider;
 }
 
@@ -27,7 +31,8 @@ export interface SourceError {
 
 export interface SourceLink {
   readonly id: string;
-  readonly connectionId: string;
+  readonly projectId: string;
+  readonly connectionId: string | null;
   readonly provider: Provider;
   readonly externalId: string;
   readonly title: string;
@@ -35,11 +40,14 @@ export interface SourceLink {
   readonly contentHash: string | null;
   readonly checkedAt: Date | null;
   readonly changedAt: Date | null;
+  readonly changedBy: Editor | null;
   readonly lastError: SourceError | null;
+  readonly channel: PushChannel | null;
   readonly createdAt: Date;
 }
 
 export interface SourceLinkDraft {
+  readonly projectId: string;
   readonly connectionId: string;
   readonly provider: Provider;
   readonly externalId: string;
@@ -54,4 +62,12 @@ export interface SourceCheck {
   readonly title: string;
   readonly contentHash: string;
   readonly changed: boolean;
+  readonly by?: Editor | null;
+}
+
+export interface SourceRelink {
+  readonly connectionId: string;
+  readonly at: Date;
+  readonly title: string;
+  readonly contentHash: string;
 }

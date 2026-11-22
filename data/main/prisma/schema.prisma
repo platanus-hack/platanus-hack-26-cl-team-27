@@ -286,35 +286,16 @@ model OverlapVote {
   @@map("overlap_votes")
 }
 
-model Seat {
-  projectId  String   @map("project_id")
-  castId     String   @map("cast_id")
-  tokenHash  String   @map("token_hash")
-  claimedAt  DateTime @default(now()) @map("claimed_at")
-  lastBeatAt DateTime @default(now()) @map("last_beat_at")
-
-  @@id([projectId, castId])
-  @@map("seats")
-}
-
-model RoomEvent {
+model ProjectEvent {
   projectId String   @map("project_id")
   seq       Int      @id @default(autoincrement())
-  epoch     Int
   kind      String
   message   String
   refs      Json
   at        DateTime @default(now())
 
-  @@index([projectId, epoch])
-  @@map("room_events")
-}
-
-model RoomState {
-  projectId String @id @map("project_id")
-  epoch     Int    @default(1)
-
-  @@map("room_state")
+  @@index([projectId, seq])
+  @@map("project_events")
 }
 
 model Organization {
@@ -550,30 +531,39 @@ model ProjectSystem {
 
 model IntegrationConnection {
   id                 String              @id @default(uuid()) @db.Uuid
-  provider           String              @unique
+  userId             String              @map("user_id") @db.Uuid
+  provider           String
   accountEmail       String              @map("account_email")
   scopes             String[]
   refreshTokenSealed String              @map("refresh_token_sealed")
   connectedAt        DateTime            @default(now()) @map("connected_at")
   sources            IntegrationSource[]
 
+  @@unique([userId, provider])
   @@map("integration_connections")
 }
 
 model IntegrationSource {
-  id           String                @id @default(uuid()) @db.Uuid
-  connectionId String                @map("connection_id") @db.Uuid
-  provider     String
-  externalId   String                @unique @map("external_id")
-  title        String
-  pointer      String
-  contentHash  String?               @map("content_hash")
-  checkedAt    DateTime?             @map("checked_at")
-  changedAt    DateTime?             @map("changed_at")
-  lastError    Json?                 @map("last_error")
-  createdAt    DateTime              @default(now()) @map("created_at")
-  connection   IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  id              String                 @id @default(uuid()) @db.Uuid
+  projectId       String                 @map("project_id")
+  connectionId    String?                @map("connection_id") @db.Uuid
+  provider        String
+  externalId      String                 @map("external_id")
+  title           String
+  pointer         String
+  contentHash     String?                @map("content_hash")
+  checkedAt       DateTime?              @map("checked_at")
+  changedAt       DateTime?              @map("changed_at")
+  changedBy       Json?                  @map("changed_by")
+  lastError       Json?                  @map("last_error")
+  watchChannelId  String?                @unique @map("watch_channel_id")
+  watchResourceId String?                @map("watch_resource_id")
+  watchToken      String?                @map("watch_token")
+  watchExpiresAt  DateTime?              @map("watch_expires_at")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  connection      IntegrationConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
 
+  @@unique([projectId, externalId])
   @@index([connectionId])
   @@map("integration_sources")
 }
@@ -597,4 +587,27 @@ model ApsConnection {
 
   @@index([connectedById])
   @@map("aps_connections")
+}
+
+model AutodeskEvent {
+  id               String    @id @default(uuid()) @db.Uuid
+  dedupeKey        String    @unique @map("dedupe_key")
+  event            String
+  kind             String
+  source           String
+  hookId           String?   @map("hook_id")
+  resourceKind     String    @map("resource_kind")
+  resourceUrn      String?   @map("resource_urn")
+  lineageUrn       String?   @map("lineage_urn")
+  name             String?
+  version          Int?
+  folderUrn        String?   @map("folder_urn")
+  projectId        String?   @map("project_id")
+  actorId          String?   @map("actor_id")
+  occurredAt       DateTime? @map("occurred_at")
+  needsElementDiff Boolean   @map("needs_element_diff")
+  receivedAt       DateTime  @default(now()) @map("received_at")
+
+  @@index([lineageUrn])
+  @@map("autodesk_events")
 }

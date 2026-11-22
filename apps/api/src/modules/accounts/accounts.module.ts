@@ -4,11 +4,13 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../config/index.ts';
 import { AccountGuard } from './account.guard.ts';
 import { AccountsController } from './accounts.controller.ts';
-import { AccountsService, IDENTITY } from './accounts.service.ts';
+import { AccountsService, IDENTITY, SUPERADMINS } from './accounts.service.ts';
+import { AdminController } from './admin.controller.ts';
+import { AdminService } from './admin.service.ts';
 import { Auth0Identity } from './identity.ts';
 
 @Module({
-  controllers: [AccountsController],
+  controllers: [AccountsController, AdminController],
   providers: [
     {
       provide: IDENTITY,
@@ -21,7 +23,14 @@ import { Auth0Identity } from './identity.ts';
           : null;
       },
     },
+    {
+      provide: SUPERADMINS,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) =>
+        config.get('SUPERADMIN_EMAILS', { infer: true }),
+    },
     AccountsService,
+    AdminService,
     AccountGuard,
   ],
   exports: [AccountsService, AccountGuard],

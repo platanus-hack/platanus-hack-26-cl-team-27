@@ -1,15 +1,17 @@
 import type { SourceLink } from '../../domain/Connection.ts';
+import { canWatch, type Editor } from '../../domain/Push.ts';
 import { diffSnapshots } from '../../domain/Sheet.ts';
 import { IntegrationError, ProviderError } from '../errors.ts';
 import type {
   AccountAuthorizer,
   ChangeListener,
   ConnectionRepository,
+  EditorLookup,
   SnapshotCache,
   SourceLinkRepository,
   SpreadsheetReader,
 } from '../ports/index.ts';
-import { requireGoogle } from './requireGoogle.ts';
+import { connectionOf, sourceNotFound } from './requireGoogle.ts';
 
 export type WatchStatus = 'changed' | 'unchanged' | 'failed';
 
@@ -44,6 +46,7 @@ export class WatchSource {
   private readonly snapshots: SnapshotCache;
   private readonly listener: ChangeListener;
   private readonly now: () => Date;
+  private readonly editors: EditorLookup | null;
 
   constructor(
     connections: ConnectionRepository,
@@ -53,6 +56,7 @@ export class WatchSource {
     snapshots: SnapshotCache,
     listener: ChangeListener,
     now: () => Date = () => new Date(),
+    editors: EditorLookup | null = null,
   ) {
     this.connections = connections;
     this.authorizer = authorizer;
@@ -61,15 +65,16 @@ export class WatchSource {
     this.snapshots = snapshots;
     this.listener = listener;
     this.now = now;
+    this.editors = editors;
   }
 
-  async execute(id: string): Promise<WatchResult> {
+  async execute(id: string, projectId?: string): Promise<WatchResult> {
     const source = await this.sources.find(id);
-    if (source === null) {
-      throw new IntegrationError(
-        'source_not_found',
-        'Esa planilla ya no está vinculada',
-      );
+    if (
+      source === null ||
+      (projectId !== undefined && source.projectId !== projectId)
+    ) {
+      throw sourceNotFound();
     }
     try {
       return await this.check(source);
@@ -90,7 +95,7 @@ export class WatchSource {
   }
 
   private async check(source: SourceLink): Promise<WatchResult> {
-    const connection = await requireGoogle(this.connections);
+    const connection = await connectionOf(this.connections, source);
     const token = await this.authorizer.accessToken(connection.refreshToken);
     const content = await this.reader.read(token, source.externalId);
     const at = this.now();
@@ -103,11 +108,15 @@ export class WatchSource {
           ? diffSnapshots(previous, content)
           : null;
     const changed = cells === null || cells.length > 0;
+    const by = changed
+      ? await this.editorOf(connection.scopes, token, source.externalId)
+      : null;
     const updated = await this.sources.recordCheck(source.id, {
       at,
       title: content.title,
       contentHash: content.contentHash,
       changed,
+      by,
     });
     if (!changed) {
       return {
@@ -117,12 +126,25 @@ export class WatchSource {
         cells: 0,
       };
     }
-    await this.listener.changed({ source: updated, at, cells });
+    await this.listener.changed({ source: updated, at, cells, by });
     return {
       status: 'changed',
       source: updated,
       message: changedMessage(cells?.length ?? null),
       cells: cells?.length ?? null,
     };
+  }
+
+  private async editorOf(
+    scopes: readonly string[],
+    token: string,
+    fileId: string,
+  ): Promise<Editor | null> {
+    if (this.editors === null || !canWatch(scopes)) return null;
+    try {
+      return await this.editors.lastEditor(token, fileId);
+    } catch {
+      return null;
+    }
   }
 }

@@ -11,7 +11,6 @@ import type {
   DocumentDef,
   ProjectCatalog,
 } from '../project/project-catalog.ts';
-import { PROJECT_CATALOG } from '../project/project.module.ts';
 import { fail } from './http-errors.ts';
 import type { RawChunk } from './revision-body.ts';
 
@@ -25,17 +24,13 @@ const sourceOf = (document: DocumentDef): TextSource =>
 @Injectable()
 export class ChunkReader {
   private readonly extractClaims: ExtractClaims;
-  private readonly vocabulary: ReturnType<typeof buildVocabulary>;
 
-  constructor(
-    @Inject(ExtractClaims) extractClaims: ExtractClaims,
-    @Inject(PROJECT_CATALOG) project: ProjectCatalog,
-  ) {
+  constructor(@Inject(ExtractClaims) extractClaims: ExtractClaims) {
     this.extractClaims = extractClaims;
-    this.vocabulary = buildVocabulary(project);
   }
 
   async read(
+    project: ProjectCatalog,
     document: DocumentDef,
     label: string,
     chunks: readonly RawChunk[],
@@ -52,12 +47,15 @@ export class ChunkReader {
         });
         continue;
       }
-      drafts.push(await this.readText(document, label, chunk, chunk.text));
+      drafts.push(
+        await this.readText(project, document, label, chunk, chunk.text),
+      );
     }
     return drafts;
   }
 
   private async readText(
+    project: ProjectCatalog,
     document: DocumentDef,
     label: string,
     chunk: RawChunk,
@@ -71,7 +69,7 @@ export class ChunkReader {
           title: `${document.name} ${label}`,
           text,
         },
-        vocabulary: this.vocabulary,
+        vocabulary: buildVocabulary(project),
       });
       return {
         locator: chunk.locator,

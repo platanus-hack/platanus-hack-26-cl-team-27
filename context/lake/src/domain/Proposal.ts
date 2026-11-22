@@ -20,7 +20,6 @@ export interface ProposalChange {
   readonly after: ClaimValue;
   readonly claimId: string | null;
   readonly locator: string | null;
-  readonly revisionId?: string | null;
 }
 
 export interface ProposalContext {

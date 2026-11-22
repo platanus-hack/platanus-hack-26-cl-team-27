@@ -1,6 +1,6 @@
 # @team27/context-lake
 
-El lago de hechos con procedencia y el consenso. Cada revisión de cada documento se ingiere como un conjunto de hechos con puntero a su origen y se compara contra **lo vigente**. Una revisión con autoridad que cambia algo produce un borrador de propuesta (el PR de la obra, con un hunk por cambio), una diferencia sin autoridad abre una discrepancia, un fragmento que toca el mismo elemento o la misma área que otro abre un solapamiento con su validación conjunta, y lo vigente solo cambia cuando todos los revisores aprueban y no queda ningún solapamiento abierto o confirmado ([diseño](../../docs/solapamientos.md)). Además detecta qué cambió en cada elemento del modelo entre una base y un siguiente estado, con la revisión de origen. El contexto no conoce a `impact` ni `notification`: la API lo compone con ellos ([diseño completo](../../docs/multijugador.md#el-lago-y-el-consenso)).
+El lago de hechos con procedencia y el consenso. Cada revisión de cada documento se ingiere como un conjunto de hechos con puntero a su origen y se compara contra **lo vigente**. Una revisión con autoridad que cambia algo produce un borrador de propuesta (el PR de la obra, con un hunk por cambio), una diferencia sin autoridad abre una discrepancia, un fragmento que toca el mismo elemento o la misma área que otro abre un solapamiento con su validación conjunta, y lo vigente solo cambia cuando todos los revisores aprueban y no queda ningún solapamiento abierto o confirmado ([diseño](../../docs/solapamientos.md)). Además detecta qué cambió en cada elemento del modelo entre una base y un siguiente estado, con la revisión de origen. El contexto no conoce a `impact` ni `notification`: la API lo compone con ellos ([diseño completo](../../docs/motor.md)).
 
 ## Dominio
 
@@ -34,16 +34,6 @@ Todo es puro: las funciones reciben los datos y devuelven el resultado.
 - **`valueStatus`:** `confirmed`, `proposed` o `disputed`, según las propuestas abiertas que tocan el valor.
 - **`diffSnapshots(base, siguiente, sourceId)`:** compara elementos del modelo por `id`. Un elemento puede ser `added`, `removed` o `modified`; si es `modified`, solo entran las propiedades cuyo valor cambió. Cada cambio trae `before` y `after` completos (clave → valor) y un `summary` legible, por ejemplo `Espesor: 15 cm → 20 cm`, con coma decimal (`formatValue`).
 
-## Dominio espacial
-
-`domain/spatial/` es la geometría del flujo de choques. Todo es puro y en metros.
-
-- **`Box`:** caja alineada a los ejes (`min` y `max` como `[x, y, z]`), con `makeBox`, `translate`, `overlapOn`, `gapBetween` (la mayor separación entre ejes; negativa si se intersectan). Las coordenadas se redondean a 1e-6.
-- **`detectClashes(elementos, reglas, eje)`:** un par choca si su separación es menor que la holgura de su par de disciplinas (`ClearanceRule`, `meters: null` exime al par; sin regla vale 0, es decir, solo choca si se intersectan). Los soportes (`support: true`, como las losas) nunca chocan. Cada `Clash` trae la penetración medida sobre el eje de la causa.
-- **`proposeFix`:** el arreglo determinista para un elemento movible. Traslada el elemento en la dirección de la causa el mínimo que recupera la holgura (penetración más holgura, redondeado hacia arriba a múltiplos de 0,05 m), lo valida contra todos los demás y, si un candidato falla, prueba el siguiente múltiplo hasta 1,0 m. Devuelve `delta`, la caja nueva, la holgura resultante y un chequeo por elemento, o `null` («sin arreglo automático»).
-- **`encodeBox`, `decodeBox` y `roundBox`:** el texto canónico de una caja (`x 29.8..30.2 · y 5.7..6.3 · z 0..2.55`, coordenadas con hasta 4 decimales) y su inverso exacto; `decodeBox` devuelve `null` si el texto no es una caja. El flujo guarda las cajas como valores del lago con este texto.
-- **`FlowProposalStatus` y `canAdvance`:** `propuesta` → `aceptada` → `aplicada` → `resuelta`, o `propuesta` → `rechazada`; los demás pasos no existen.
-
 ## Casos de uso
 
 | Caso de uso          | Entrada → salida                                                                                                                                                                                                                                                               |
@@ -68,12 +58,7 @@ Todo es puro: las funciones reciben los datos y devuelven el resultado.
 | `DetectChanges`      | `{ sourceId, base, next }` → `Change[]`: compara, guarda un cambio por elemento y los devuelve. Si nada cambió no guarda. Rechaza ids repetidos y un `sourceId` vacío (`ValidationError`)                                                                                      |
 | `ListChanges`        | `limit?` → `Change[]`: los más recientes primero, hasta `MAX_CHANGES` (50)                                                                                                                                                                                                     |
 | `GetChange`          | `id` → `Change` o `null`                                                                                                                                                                                                                                                       |
-| `RecordRevision`     | `{ revision, chunks }` → `{ revision, chunks, claims, alreadyRecorded }`: guarda una revisión inmutable con sus fragmentos y hechos, idempotente por documento y etiqueta. No clasifica, no abre discrepancias y no toca lo vigente |
-| `EnsureBaseline`     | `SeedLakeInput` → `{ seeded }`: siembra las revisiones que aún no existen y los valores vigentes que falten, también de revisiones ya sembradas (versión 1, sin chequeo de autoridad). Nunca borra nada                                                              |
-| `ClearScope`         | `{ documentIds, subjectPrefix }`: borra las propuestas y revisiones de esos documentos (con sus fragmentos, hechos y respuestas) y los valores vigentes con ese prefijo, con su historia. El resto del lago queda igual                    |
 | `SeedLake`           | `{ revisions: { revision, chunks }[] }` → `SeededLake`. Borra el lago, guarda las revisiones y siembra lo vigente con el primer hecho con autoridad de cada valor; dos valores con autoridad distintos son `ValidationError`                                                   |
-
-Un `ProposalChange` puede traer `revisionId`: al fusionar, el valor vigente apunta a esa revisión y, si falta, a la de origen de la propuesta. Así un solo PR puede fusionar valores que salen de documentos distintos. Los puertos de revisiones, propuestas y valores vigentes suman `deleteByDocuments` y `deleteBySubjectPrefix`.
 
 `IngestRevision` no abre propuestas ni sabe de costos o avisos: devuelve los borradores y quien lo llama decide. Las violaciones de invariantes lanzan `ValidationError`.
 
@@ -84,7 +69,7 @@ Subpath `@team27/context-lake/adapters`.
 - `PrismaRevisionRepository`, `PrismaChunkRepository`, `PrismaClaimRepository`, `PrismaBaselineRepository`, `PrismaProposalRepository`, `PrismaDiscrepancyRepository`, `PrismaOverlapRepository`, `PrismaAcknowledgementRepository` y `PrismaChangeRepository`, sobre las tablas del lago de [`data/main`](../../data/main/README.md). Reciben un `PrismaClient`. Al reemplazar un valor vigente, `PrismaBaselineRepository` guarda el anterior en el historial en la misma transacción. `PrismaChangeRepository` usa la tabla `changes`: las diferencias y los valores van en JSON, y `source_id` es el id de la revisión de origen, sin llave foránea.
 - `InlineFactExtractor(chunks)`: los fragmentos que ya trae la revisión, con sus hechos; entrega una copia de ellos para cualquier revisión.
 
-Los fragmentos estructurados salen del conector (los parsers del ETL, [`apps/etl`](../../apps/etl/README.md), o el add-in de Revit). Los de texto libre los lee la API con `context/impact` antes de entrar al lago, y el lago recibe el resultado detrás del mismo puerto `FactExtractor`, con la confianza de cada hecho y lo rechazado.
+Los fragmentos estructurados salen del conector, que llama a `POST /api/projects/:projectId/revisions` con los hechos ya leídos. Los de texto libre los lee la API con `context/impact` antes de entrar al lago, y el lago recibe el resultado detrás del mismo puerto `FactExtractor`, con la confianza de cada hecho y lo rechazado.
 
 ## Pruebas
 

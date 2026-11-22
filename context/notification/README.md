@@ -1,6 +1,6 @@
 # @team27/context-notification
 
-Lleva el impacto a cada afectado. `NotifyStakeholders` junta los hallazgos de cada persona en un solo aviso (`Notification`) por cambio, en el canal de esa persona, con el enlace al detalle (`/cambios/<cambio>?para=<afectado>`). `RespondToNotification` guarda lo que contesta.
+Lleva el impacto a cada afectado. `NotifyStakeholders` junta los hallazgos de cada persona en un solo aviso (`Notification`) por cambio, en el canal de esa persona, con el enlace al detalle del cambio en su proyecto (`/proyectos/<proyecto>/cambios/<cambio>`). `RespondToNotification` guarda lo que contesta.
 
 ## Dominio
 
@@ -20,7 +20,7 @@ Lleva el impacto a cada afectado. `NotifyStakeholders` junta los hallazgos de ca
 | `ListStakeholders`      | El directorio                                               |
 | `DeliverNotifications`  | Una vuelta de envío: toma de la cola los avisos pendientes y los manda por correo |
 
-- `InMemoryStakeholderDirectory`: el elenco del guion de la muestra.
+- `InMemoryStakeholderDirectory`: el equipo de un proyecto, que la API le pasa al armarlo (todos menos el autor).
 - `PrismaNotificationRepository`: la tabla `notifications`, con los hallazgos en JSON. Al guardar un aviso escribe, en la misma transacción, su entrega por correo en `notification_deliveries`.
 - `PrismaDeliveryQueue`: la cola de envío sobre `notification_deliveries`.
 - `GmailEmailSender`: manda un correo con la API de Gmail (`users.messages.send`) desde la cuenta autorizada. Renueva el access token con el refresh token y lo reusa hasta un minuto antes de que venza; si Gmail responde 401, lo olvida.
@@ -35,7 +35,7 @@ Cada aviso guardado deja una entrega por correo en la cola (outbox), en la misma
 - **Mandar.** Un MIME `multipart/alternative` (texto y HTML en UTF-8) con el id de la entrega en `X-Vigente-Delivery`. Gmail no tiene idempotencia: si el envío sale pero la API se cae antes de marcarlo, se puede repetir. Sin destinatario y sin desvío, la entrega queda `skipped`.
 - **Reintentar.** Si falla, espera 1, 4, 16 y 60 minutos; al quinto intento queda `failed` con el último error.
 
-En la API, `DeliveryWorker` corre una vuelta cada 5 segundos si están `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` y `GMAIL_REFRESH_TOKEN`. `EMAIL_REDIRECT_TO` manda todos los correos a una sola dirección, para la demo. Sin esas variables, el envío está apagado y los avisos solo se ven en la web, con los canales simulados de la muestra ([espacio controlado](../../docs/muestra.md#espacio-controlado)).
+En la API, `DeliveryWorker` corre una vuelta cada 5 segundos si están `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` y `GMAIL_REFRESH_TOKEN`. `EMAIL_REDIRECT_TO` manda todos los correos a una sola dirección, para probar sin escribirle a los afectados. Sin esas variables, el envío está apagado y los avisos solo se ven en la web, en el detalle de su cambio.
 
 ## Autorizar la cuenta que manda
 

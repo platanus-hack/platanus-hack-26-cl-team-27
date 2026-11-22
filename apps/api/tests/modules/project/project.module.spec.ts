@@ -1,13 +1,13 @@
+import { HttpException } from '@nestjs/common';
 import type { PrismaClient, ProjectDefinition } from '@team27/data-main';
-import { LOS_AROMOS } from '@team27/data-main/seed';
+
+import { LOS_AROMOS } from '../../fixtures/los-aromos.ts';
 
 const store = vi.hoisted(() => ({
-  ids: [] as string[],
   definitions: new Map<string, unknown>(),
 }));
 
 vi.mock('@team27/data-main', () => ({
-  listProjectIds: () => Promise.resolve(store.ids),
   loadProjectDefinition: (_prisma: unknown, id: string) =>
     Promise.resolve(store.definitions.get(id) ?? null),
 }));
@@ -18,40 +18,28 @@ const { loadProjectCatalog } =
 const prisma = {} as PrismaClient;
 
 const stored = (...projects: ProjectDefinition[]) => {
-  store.ids = projects.map((project) => project.id);
   store.definitions = new Map(projects.map((project) => [project.id, project]));
 };
 
 describe('loadProjectCatalog', () => {
-  it('con un solo proyecto en la base, lo carga sin PROJECT_ID', async () => {
-    stored(LOS_AROMOS);
-    const catalog = await loadProjectCatalog(prisma, undefined);
-    expect(catalog.id).toBe('los-aromos');
+  it('carga el proyecto que se pide', async () => {
+    stored(LOS_AROMOS, { ...LOS_AROMOS, id: 'otro' });
+    const catalog = await loadProjectCatalog(prisma, 'otro');
+    expect(catalog.id).toBe('otro');
     expect(catalog.author.id).toBe('fernanda-lagos');
     expect(catalog.stakeholders).toHaveLength(7);
   });
 
-  it('sin proyectos, pide sembrar la base', async () => {
-    stored();
-    await expect(loadProjectCatalog(prisma, undefined)).rejects.toThrow(
-      /pnpm db:seed/,
-    );
-  });
-
-  it('con varios proyectos, carga el más antiguo salvo que PROJECT_ID diga otro', async () => {
-    stored(LOS_AROMOS, { ...LOS_AROMOS, id: 'otro' });
-    expect((await loadProjectCatalog(prisma, undefined)).id).toBe('los-aromos');
-    expect((await loadProjectCatalog(prisma, 'otro')).id).toBe('otro');
-  });
-
-  it('un PROJECT_ID que no está en la base no arranca', async () => {
+  it('un proyecto que no está en la base responde 404', async () => {
     stored(LOS_AROMOS);
-    await expect(loadProjectCatalog(prisma, 'nada')).rejects.toThrow(
-      /no tiene el proyecto nada/,
+    const error: unknown = await loadProjectCatalog(prisma, 'nada').catch(
+      (caught: unknown) => caught,
     );
+    expect(error).toBeInstanceOf(HttpException);
+    expect((error as HttpException).getStatus()).toBe(404);
   });
 
-  it('un proyecto mal formado no arranca', async () => {
+  it('un proyecto mal formado falla y dice por qué', async () => {
     stored({
       ...LOS_AROMOS,
       members: LOS_AROMOS.members.map((member) => ({
@@ -59,15 +47,51 @@ describe('loadProjectCatalog', () => {
         channel: 'paloma',
       })),
     });
-    await expect(loadProjectCatalog(prisma, undefined)).rejects.toThrow(
+    await expect(loadProjectCatalog(prisma, 'los-aromos')).rejects.toThrow(
       /no es válido/,
     );
   });
 
-  it('un autor que no está en el elenco no arranca', async () => {
+  it('un autor que no está en el elenco falla', async () => {
     stored({ ...LOS_AROMOS, authorId: 'nadie' });
-    await expect(loadProjectCatalog(prisma, undefined)).rejects.toThrow(
+    await expect(loadProjectCatalog(prisma, 'los-aromos')).rejects.toThrow(
       /autor nadie/,
     );
+  });
+
+  it('un proyecto recién creado, solo con quien lo creó, también carga', async () => {
+    stored({
+      ...LOS_AROMOS,
+      id: 'nuevo',
+      members: [
+        {
+          id: 'creador',
+          name: 'Ana Soto',
+          role: 'Creador del proyecto',
+          channel: 'email',
+          handle: 'ana.soto@cordillera.test',
+        },
+      ],
+      authorId: 'creador',
+      costOwnerId: 'creador',
+      scheduleOwnerId: 'creador',
+      modelDocumentId: null,
+      spaces: [],
+      documents: [],
+      attributes: [],
+      subjects: [],
+      elements: [],
+      budgetItems: [],
+      tasks: [],
+      dependencies: [],
+      levels: [],
+      longitudinalAxes: [],
+      transversalAxes: [],
+      systems: [],
+    });
+    const catalog = await loadProjectCatalog(prisma, 'nuevo');
+    expect(catalog.author.id).toBe('creador');
+    expect(catalog.stakeholders).toEqual([]);
+    expect(catalog.documents).toEqual([]);
   });
 });

@@ -6,7 +6,7 @@ import { isLiveOverlap } from '../../domain/Overlap.ts';
 import type { Overlap } from '../../domain/Overlap.ts';
 import { isActive } from '../../domain/Proposal.ts';
 import type { Proposal } from '../../domain/Proposal.ts';
-import { type LakeExclusion, loadLakeState } from '../loadLakeState.ts';
+import { loadLakeState } from '../loadLakeState.ts';
 import type { AcknowledgementRepository } from '../ports/AcknowledgementRepository.ts';
 import type { BaselineRepository } from '../ports/BaselineRepository.ts';
 import type { ClaimRepository } from '../ports/ClaimRepository.ts';
@@ -51,25 +51,18 @@ export class GetConsensus {
     this.acknowledgements = acknowledgements;
   }
 
-  async execute(exclusion?: LakeExclusion): Promise<Consensus> {
-    const excluded = new Set(exclusion?.documentIds ?? []);
-    const state = await loadLakeState(
-      {
-        revisions: this.revisions,
-        claims: this.claims,
-        baseline: this.baseline,
-        proposals: this.proposals,
-        acknowledgements: this.acknowledgements,
-      },
-      exclusion,
-    );
-    const [allDiscrepancies, overlaps] = await Promise.all([
+  async execute(): Promise<Consensus> {
+    const state = await loadLakeState({
+      revisions: this.revisions,
+      claims: this.claims,
+      baseline: this.baseline,
+      proposals: this.proposals,
+      acknowledgements: this.acknowledgements,
+    });
+    const [discrepancies, overlaps] = await Promise.all([
       this.discrepancies.list(),
       this.overlaps.list(),
     ]);
-    const discrepancies = allDiscrepancies.filter(
-      (item) => !excluded.has(item.documentId),
-    );
     const index = consensusIndex({
       overlaps,
       revisions: state.revisions,
@@ -87,5 +80,3 @@ export class GetConsensus {
     };
   }
 }
-
-export type { LakeExclusion };

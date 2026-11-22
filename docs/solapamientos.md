@@ -1,6 +1,6 @@
 # Solapamientos: cada documento es un PR contra la fuente única
 
-Vigente mantiene **una sola verdad del proyecto**: lo vigente. Todo lo que llega (un plano, una planilla, un mensaje, un folio, la minuta de Revit) se parte en fragmentos y se compara contra esa verdad, como un pull request contra `main`. Así se detecta no solo cuándo un documento cambia un dato, sino también cuándo **toca la misma área** que otro documento, aunque hablen de elementos distintos. El lago y el consenso están en [multijugador](multijugador.md), y el problema, en [negocio](negocio.md).
+Vigente mantiene **una sola verdad del proyecto**: lo vigente. Todo lo que llega (un plano, una planilla, un mensaje, un folio, una versión del modelo) se parte en fragmentos y se compara contra esa verdad, como un pull request contra `main`. Así se detecta no solo cuándo un documento cambia un dato, sino también cuándo **toca la misma área** que otro documento, aunque hablen de elementos distintos. El lago y el consenso están en [motor](motor.md), y el problema, en [negocio](negocio.md).
 
 ## La analogía
 
@@ -19,13 +19,13 @@ Vigente mantiene **una sola verdad del proyecto**: lo vigente. Todo lo que llega
 
 ## La fuente única tiene áreas
 
-Lo vigente sabe el valor de cada dato y, además, qué ocupa cada elemento:
+Lo vigente sabe el valor de cada dato y, además, qué ocupa cada elemento. El modelo de áreas sale de la definición de cada proyecto (`project_levels`, `project_systems`, los ejes de `projects` y la huella de cada sujeto):
 
-- **Niveles:** del 1 al 5, más la cubierta.
-- **Grilla de ejes:** longitudinales A a E, a 0, 4, 8, 12 y 16 m del eje A, y transversales del 1 al 4. Una **celda** es un tramo con un eje transversal, por ejemplo `C-D/3`.
-- **Sistemas:** estructura, arquitectura, sanitarias y eléctricas. Costos y plazo no ocupan espacio.
+- **Niveles:** por ejemplo, del 1 al 5, más la cubierta.
+- **Grilla de ejes:** los longitudinales con su distancia en metros (por ejemplo A a E, a 0, 4, 8, 12 y 16 m del eje A) y los transversales (por ejemplo del 1 al 4). Una **celda** es un tramo con un eje transversal, por ejemplo `C-D/3`.
+- **Sistemas:** por ejemplo estructura, arquitectura, sanitarias y eléctricas. Costos y plazo no ocupan espacio.
 
-La **huella** de cada elemento se calcula a partir de sus valores:
+La **huella** de cada elemento es una regla en datos, que se calcula a partir de sus valores: el tipo (`soporte` u `ocupante`), los niveles, las celdas (todas, las de un eje transversal, o la del tramo donde cae un atributo de posición sobre un eje) y los sistemas. Por ejemplo:
 
 | Elemento       | Huella                                                                                        | Tipo     |
 | -------------- | --------------------------------------------------------------------------------------------- | -------- |
@@ -34,16 +34,18 @@ La **huella** de cada elemento se calcula a partir de sus valores:
 | Ventanas norte | Niveles 1 a 5, fachada norte (eje 1), arquitectura                                            | Ocupante |
 | Colector B2    | Nivel 3, la celda que da su distancia al eje A en el eje 3, sanitarias                        | Ocupante |
 
+Un proyecto sin ejes ni niveles no tiene áreas: sus elementos no generan solapamientos de área.
+
 Los soportes no generan solapamientos de área, porque lo que los atraviesa ya lo cubren las dependencias de impacto: la calculista se entera de las perforaciones del shaft.
 
 ## Fragmentos
 
 Cada revisión llega partida en fragmentos, y cada hecho guarda el localizador de su fragmento:
 
-- **Estructurados:** una fila de un cuadro de un plano, una fila de una planilla o un parámetro de la minuta de Revit. Traen sus hechos ya extraídos por el conector.
+- **Estructurados:** una fila de un cuadro de un plano, una fila de una planilla o un parámetro de un modelo BIM. Traen sus hechos ya extraídos por el conector.
 - **Texto libre:** un mensaje de WhatsApp, un folio del libro de obra o un acuerdo de un acta. Los lee la API con `context/impact`, y cada hecho queda con su confianza. Lo que no alcanza 0,7 se ve, pero no tiene efecto.
-  - Con `ANTHROPIC_API_KEY`, lee Claude y la primera respuesta queda grabada.
-  - Sin la clave (la variable va vacía en `.env.example`), la lectura es **determinista**: se usan respuestas fijas y grabadas, y nada sale a la red.
+  - Con `ANTHROPIC_API_KEY`, lee Claude, y la API recuerda en memoria la respuesta de cada consulta.
+  - Sin la clave (la variable va vacía en `.env.example`), la API no lee texto libre: una revisión con un fragmento de texto responde `503 inference_unavailable`.
 
 ## Detección, en anillos
 
@@ -65,21 +67,13 @@ Un solapamiento no cambia nada por sí solo: abre una validación.
 - **Mientras haya un solapamiento abierto o confirmado, el PR no entra**, aunque todos sus revisores hayan aprobado.
 - **El conflicto se resuelve** cuando llega una revisión que separa las huellas (la detección corre de nuevo después de cada ingreso y de cada merge), o cuando el PR se retira o se reemplaza. Al resolverse, si el PR ya tenía todas las aprobaciones, entra solo.
 
-## En la muestra
+## Un ejemplo
 
-1. La carga inicial suma el plano **IS-301** (instalaciones sanitarias, nivel 3), de Javier, con el colector B2 a 10 m del eje A: celda C-D/3.
-2. Llega el **A-201 rev D** y el shaft S1 pasa de 6 a 8,5 m. Es un PR con un hunk que cambia (la posición del shaft) y cuatro de contexto sin cambio (las ventanas y el ancho del shaft). Avisa a 3 de 7 y no tiene costo ni atraso.
-3. **Antes de que nadie lo diga**, el telón muestra: «Solapamiento: Shaft S1 (A-201 rev D) y Colector B2 (IS-301 rev A) · nivel 3 · C-D/3 · sanitarias».
-4. Javier confirma «Se tocan»: «El shaft a 8,5 m cruza el colector B2 en el nivel 3». El PR del shaft queda bloqueado aunque sus revisores lo aprueben.
-5. Paso x3: Javier sube el **IS-301 rev B** y mueve el colector a 13,5 m (D-E/3). El solapamiento queda resuelto y el PR del shaft entra solo.
-
-Las cifras del guion no cambian:
-
-| Cambio   | Costo       | Plazo  | Revisores                                          |
-| -------- | ----------- | ------ | -------------------------------------------------- |
-| Losa     | +$3.636.500 | +1 día | 4                                                  |
-| Ventanas | +$1.998.000 | —      | 4, y Marcos queda filtrado por 38 días de holgura  |
-| Shaft    | —           | —      | 3, bloqueado por el colector hasta el IS-301 rev B |
+1. El plano **IS-301** (instalaciones sanitarias, nivel 3), de quien lleva sanitarias, pone el colector B2 a 10 m del eje A: celda C-D/3.
+2. Llega el **A-201 rev D** y el shaft S1 pasa de 6 a 8,5 m. Es un PR con un hunk que cambia (la posición del shaft) y otros de contexto sin cambio.
+3. **Antes de que nadie lo diga**, se abre el solapamiento «Shaft S1 (A-201 rev D) y Colector B2 (IS-301 rev A) · nivel 3 · C-D/3 · sanitarias», que validan el autor del A-201 y el dueño del IS-301.
+4. El dueño del IS-301 confirma «Se tocan»: el PR del shaft queda bloqueado aunque sus revisores lo aprueben.
+5. Llega el **IS-301 rev B**, que mueve el colector a 13,5 m (D-E/3). El solapamiento queda resuelto y el PR del shaft entra solo.
 
 ## Glosario
 

@@ -4,16 +4,14 @@ import { cx } from '@team27/ui';
 import { useCallback, useState } from 'react';
 
 import { Icon } from '@/components/common/Icon';
-import {
-  Loading,
-  LoadError,
-  WaitingForLake,
-} from '@/components/common/LoadState';
+import { EmptyPanel, Loading, LoadError } from '@/components/common/LoadState';
 import { RelativeTime } from '@/components/common/RelativeTime';
 import { SPACE_ICON } from '@/components/common/space-icon';
 import { DocumentStateChip } from '@/components/common/status';
+import { useProjectId } from '@/components/proyectos/ProjectContext';
 import { useLive } from '@/hooks/use-live';
 import { plural } from '@/lib/format';
+import { projectPage } from '@/lib/project-paths';
 import { DEFAULT_INTERVAL_MS } from '@/lib/pulse';
 import {
   findDocument,
@@ -26,12 +24,20 @@ import {
 
 import { DocumentDrawer } from './DocumentDrawer';
 
-const syncUrl = (spaceId: string | null, documentId: string | null) => {
+const syncUrl = (
+  projectId: string,
+  spaceId: string | null,
+  documentId: string | null,
+) => {
   const params = new URLSearchParams();
   if (spaceId) params.set('espacio', spaceId);
   if (documentId) params.set('documento', documentId);
   const query = params.toString();
-  window.history.replaceState(null, '', `/espacios${query ? `?${query}` : ''}`);
+  window.history.replaceState(
+    null,
+    '',
+    projectPage(projectId, `/espacios${query ? `?${query}` : ''}`),
+  );
 };
 
 function SpaceNav({
@@ -85,9 +91,16 @@ export function SpaceExplorer({
   readonly initialDocument: string | null;
   readonly initialRevision: string | null;
 }) {
+  const projectId = useProjectId();
+  const load = useCallback(
+    (signal: AbortSignal) => getSpaces(projectId, signal),
+    [projectId],
+  );
   const { data, error, loading } = useLive({
-    load: getSpaces,
+    load,
     intervalMs: DEFAULT_INTERVAL_MS,
+    dependencyKey: projectId,
+    projectId,
   });
   const [chosenSpace, setChosenSpace] = useState(initialSpace);
   const [openDocument, setOpenDocument] = useState<{
@@ -108,16 +121,16 @@ export function SpaceExplorer({
   const chooseSpace = (id: string) => {
     setChosenSpace(id);
     setOpenDocument(null);
-    syncUrl(id, null);
+    syncUrl(projectId, id, null);
   };
   const openDoc = (documentId: string) => {
     setOpenDocument({ documentId, revisionId: null });
-    syncUrl(active?.id ?? null, documentId);
+    syncUrl(projectId, active?.id ?? null, documentId);
   };
   const close = useCallback(() => {
     setOpenDocument(null);
-    syncUrl(active?.id ?? null, null);
-  }, [active?.id]);
+    syncUrl(projectId, active?.id ?? null, null);
+  }, [projectId, active?.id]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -133,6 +146,12 @@ export function SpaceExplorer({
 
       {loading && !data && <Loading />}
       {error && !data && <LoadError message={error} />}
+      {data && spaces.length === 0 && (
+        <EmptyPanel title="Todavía no hay espacios">
+          Cuando conectes las carpetas, los chats o el libro de obra del
+          proyecto, sus documentos van a aparecer aquí.
+        </EmptyPanel>
+      )}
       {data && spaces.length > 0 && active && (
         <div className="grid gap-6 md:grid-cols-[14rem_minmax(0,1fr)]">
           <SpaceNav
@@ -156,9 +175,9 @@ export function SpaceExplorer({
               </p>
             </div>
             {active.documents.length === 0 ? (
-              <WaitingForLake>
+              <EmptyPanel title="Todavía no hay documentos">
                 Este espacio todavía no tiene documentos.
-              </WaitingForLake>
+              </EmptyPanel>
             ) : (
               <div className="overflow-hidden rounded-xl border border-hairline bg-surface">
                 <table className="w-full">

@@ -1,19 +1,17 @@
-import type { EventsResponse, RoomEvent } from './events-api';
+import type { EventsResponse, ProjectEvent } from './events-api';
 
 export interface PulseState {
-  readonly epoch: number | null;
   readonly cursor: number | null;
-  readonly events: readonly RoomEvent[];
+  readonly events: readonly ProjectEvent[];
 }
 
 export interface PulseStep {
   readonly state: PulseState;
-  readonly fresh: readonly RoomEvent[];
+  readonly fresh: readonly ProjectEvent[];
   readonly reset: boolean;
 }
 
 export const INITIAL_PULSE: PulseState = {
-  epoch: null,
   cursor: null,
   events: [],
 };
@@ -21,7 +19,6 @@ export const INITIAL_PULSE: PulseState = {
 export const TICKER_LIMIT = 40;
 export const BACKOFF_CAP_MS = 3000;
 export const JITTER_MS = 150;
-export const SALA_INTERVAL_MS = 700;
 export const DEFAULT_INTERVAL_MS = 1000;
 
 export const applyPulse = (
@@ -29,11 +26,10 @@ export const applyPulse = (
   response: EventsResponse,
   limit: number = TICKER_LIMIT,
 ): PulseStep => {
-  const synced = state.cursor !== null && state.epoch !== null;
-  const reset = synced && (response.reset || response.epoch !== state.epoch);
-  if (reset) {
+  const synced = state.cursor !== null;
+  if (synced && response.reset) {
     return {
-      state: { epoch: response.epoch, cursor: response.cursor, events: [] },
+      state: { cursor: response.cursor, events: [] },
       fresh: [],
       reset: true,
     };
@@ -46,7 +42,6 @@ export const applyPulse = (
   const lastSeq = fresh.length > 0 ? (fresh[fresh.length - 1]?.seq ?? 0) : 0;
   return {
     state: {
-      epoch: response.epoch,
       cursor: Math.max(state.cursor ?? 0, response.cursor, lastSeq),
       events,
     },

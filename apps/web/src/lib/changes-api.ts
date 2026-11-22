@@ -1,5 +1,6 @@
 import { request } from './http';
 import type { FactValue } from './format';
+import { projectApi } from './project-paths';
 import type { ProposalView } from './proposals-api';
 
 export interface PropertyDiff {
@@ -85,7 +86,10 @@ export interface ChangeDetail {
 }
 
 export const getChange = (
+  projectId: string,
   changeId: string,
   signal?: AbortSignal,
 ): Promise<ChangeDetail> =>
-  request<ChangeDetail>(`/api/changes/${changeId}`, { signal });
+  request<ChangeDetail>(projectApi(projectId, `/changes/${changeId}`), {
+    signal,
+  });

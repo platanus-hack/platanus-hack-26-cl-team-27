@@ -54,7 +54,7 @@ El impacto se decide con reglas sobre el grafo del proyecto, no a criterio:
 - **Costo.** Lo que cambia la cantidad de cada partida, multiplicado por su precio unitario. Si el total cambia, se entera quien lleva el presupuesto.
 - **Plazo.** Lo que cambia la duración de las tareas que dependen de esa cantidad, recorrido por la ruta crítica. Quien lleva el plazo se entera solo si la entrega se mueve; si la holgura absorbe el cambio, no se le avisa y queda registrada la razón.
 
-Cómo se decide qué es un cambio y cuándo pasa a lo vigente (autoridad, discrepancias, consenso, desfases y procedencia) está en [multijugador](multijugador.md#el-lago-y-el-consenso). La muestra que presentamos aplica este flujo a un proyecto ficticio: [la muestra](muestra.md).
+Cómo se decide qué es un cambio y cuándo pasa a lo vigente (autoridad, discrepancias, consenso, desfases y procedencia) está en [motor](motor.md#el-lago-y-el-consenso).
 
 ## Actores
 

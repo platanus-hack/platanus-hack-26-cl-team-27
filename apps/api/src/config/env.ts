@@ -1,11 +1,15 @@
 import { z } from 'zod';
 
-export const DEV_PRESENTER_KEY = 'sala-los-aromos';
-
 const optionalText = z
   .string()
   .optional()
   .transform((value) => value?.trim() || undefined);
+
+const blankAsUndefined = (value: unknown): unknown =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
+
+const blankAsDefault = <T extends z.ZodType>(schema: T) =>
+  z.preprocess(blankAsUndefined, schema);
 
 export const envSchema = z
   .object({
@@ -28,14 +32,21 @@ export const envSchema = z
               .map((origin) => origin.trim())
               .filter(Boolean),
       ),
-    PROJECT_ID: optionalText,
-    PRESENTER_KEY: z.string().min(8).optional(),
     ANTHROPIC_API_KEY: z
       .string()
       .optional()
       .transform((value) => (value && value.trim() !== '' ? value : undefined)),
     AUTH0_DOMAIN: optionalText,
     AUTH0_AUDIENCE: optionalText,
+    SUPERADMIN_EMAILS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        (value ?? '')
+          .split(',')
+          .map((email) => email.trim().toLowerCase())
+          .filter(Boolean),
+      ),
     APS_CLIENT_ID: optionalText,
     APS_CLIENT_SECRET: optionalText,
     APS_BUCKET_KEY: optionalText,
@@ -46,6 +57,7 @@ export const envSchema = z
         .regex(/^[0-9a-fA-F]{64}$/, 'deben ser 64 caracteres hexadecimales')
         .optional(),
     ),
+    APS_WEBHOOK_SECRET: optionalText,
     GOOGLE_CLIENT_ID: optionalText,
     GOOGLE_CLIENT_SECRET: optionalText,
     GOOGLE_REDIRECT_URI: z
@@ -55,22 +67,32 @@ export const envSchema = z
       (value) => value === undefined || value.length >= 16,
       'la clave de cifrado necesita al menos 16 caracteres',
     ),
-    APP_BASE_URL: z.url().default('http://localhost:3000'),
+    APP_BASE_URL: blankAsDefault(z.url().default('http://localhost:3000')),
     GMAIL_CLIENT_ID: optionalText,
     GMAIL_CLIENT_SECRET: optionalText,
     GMAIL_REFRESH_TOKEN: optionalText,
-    EMAIL_FROM: z
-      .string()
-      .trim()
-      .min(3)
-      .default('Vigente <appvigente@gmail.com>'),
+    EMAIL_FROM: blankAsDefault(
+      z.string().trim().min(3).default('Vigente <appvigente@gmail.com>'),
+    ),
     EMAIL_REDIRECT_TO: optionalText.pipe(z.email().optional()),
-    INTEGRATIONS_POLL_SECONDS: z.coerce
-      .number()
-      .int()
-      .min(0)
-      .max(3600)
-      .default(60),
+    INTEGRATIONS_POLL_SECONDS: blankAsDefault(
+      z.coerce.number().int().min(0).max(3600).default(60),
+    ),
+    GOOGLE_WEBHOOK_URL: optionalText.pipe(
+      z
+        .url()
+        .refine(
+          (value) => value.startsWith('https://'),
+          'Google solo avisa a una URL con HTTPS',
+        )
+        .optional(),
+    ),
+    INTEGRATIONS_WATCH_HOURS: blankAsDefault(
+      z.coerce.number().min(1).max(24).default(24),
+    ),
+    INTEGRATIONS_FALLBACK_SECONDS: blankAsDefault(
+      z.coerce.number().int().min(60).max(86_400).default(900),
+    ),
   })
   .refine(
     (env) => env.NODE_ENV !== 'production' || env.CORS_ALLOW_ORIGINS !== true,
@@ -78,17 +100,6 @@ export const envSchema = z
       path: ['CORS_ALLOW_ORIGINS'],
       message: 'en producción no se permite "*"',
     },
-  )
-  .refine(
-    (env) => env.NODE_ENV !== 'production' || env.PRESENTER_KEY !== undefined,
-    {
-      path: ['PRESENTER_KEY'],
-      message: 'en producción la clave del presentador es obligatoria',
-    },
-  )
-  .transform((env) => ({
-    ...env,
-    PRESENTER_KEY: env.PRESENTER_KEY ?? DEV_PRESENTER_KEY,
-  }));
+  );
 
 export type Env = z.output<typeof envSchema>;

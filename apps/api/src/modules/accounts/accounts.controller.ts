@@ -1,8 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
+  HttpCode,
+  HttpStatus,
   Inject,
   Param,
   Post,
@@ -24,6 +27,10 @@ export const projectBody = z.object({
   description: z.string().trim().max(1000).default(''),
 });
 
+export const organizationBody = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+
 const invitationBody = z.object({
   email: z.string().trim().email().max(254),
   role: z.enum(ROLES),
@@ -43,6 +50,7 @@ export class AccountsController {
   me(@CurrentAccount() account: Account) {
     return {
       user: { id: account.id, email: account.email, name: account.name },
+      superadmin: account.superadmin,
       organizations: account.memberships.map((item) => ({
         id: item.organizationId,
         name: item.organizationName,
@@ -71,6 +79,28 @@ export class AccountsController {
     @Param('projectId', { schema: projectId }) id: string,
   ) {
     return this.accounts.project(account, id);
+  }
+
+  @Post('organizations')
+  async createOrganization(
+    @CurrentAccount() account: Account,
+    @Body({ schema: organizationBody }) body: z.output<typeof organizationBody>,
+  ) {
+    const created = await this.accounts.createOrganization(account, body.name);
+    return {
+      id: created.organizationId,
+      name: created.organizationName,
+      role: created.role,
+    };
+  }
+
+  @Delete('organizations/:organizationId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteOrganization(
+    @CurrentAccount() account: Account,
+    @Param('organizationId', { schema: organizationId }) id: string,
+  ): Promise<void> {
+    await this.accounts.deleteOrganization(account, id);
   }
 
   @Get('organizations/:organizationId/members')

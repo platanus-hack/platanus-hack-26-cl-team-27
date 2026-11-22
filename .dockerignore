@@ -15,6 +15,5 @@
 .env.*
 !.env.example
 docs
-tool-use-case
 **/*.rvt
 **/*.rvt.*

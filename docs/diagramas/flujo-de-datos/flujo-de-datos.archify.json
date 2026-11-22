@@ -61,7 +61,7 @@
       "label": "Consenso"
     },
     {
-      "label": "Lo vigente y la sala"
+      "label": "Lo vigente y la web"
     }
   ],
   "nodes": [
@@ -117,8 +117,8 @@
     {
       "id": "notify",
       "type": "messagebus",
-      "label": "Avisos por canal",
-      "sublabel": "correo · WhatsApp · Slack",
+      "label": "Avisos",
+      "sublabel": "uno por afectado, con su canal",
       "stage": 3,
       "row": 0,
       "tag": "notification",
@@ -127,8 +127,8 @@
     {
       "id": "tray",
       "type": "frontend",
-      "label": "Bandeja del asiento",
-      "sublabel": "persona o ETL",
+      "label": "Bandeja de la persona",
+      "sublabel": "responde con su cuenta",
       "stage": 3,
       "row": 2,
       "width": 148
@@ -156,8 +156,8 @@
     {
       "id": "room",
       "type": "frontend",
-      "label": "/sala y asientos",
-      "sublabel": "refrescan su snapshot",
+      "label": "Pantallas del proyecto",
+      "sublabel": "refrescan sus datos",
       "stage": 4,
       "row": 0,
       "width": 148
@@ -167,14 +167,14 @@
     {
       "from": "auth_docs",
       "to": "ingest",
-      "label": "POST /api/revisions",
+      "label": "POST …/revisions",
       "classification": "con autoridad",
       "variant": "emphasis"
     },
     {
       "from": "weak_docs",
       "to": "ingest",
-      "label": "POST /api/revisions",
+      "label": "POST …/revisions",
       "classification": "sin autoridad"
     },
     {
@@ -239,7 +239,7 @@
     {
       "from": "baseline",
       "to": "room",
-      "label": "RoomEvent",
+      "label": "ProjectEvent",
       "classification": "sondeo cada 1 s",
       "variant": "dashed",
       "labelAt": [
@@ -253,7 +253,7 @@
       "dot": "cyan",
       "title": "Ingesta",
       "items": [
-        "El ETL, o un conector como Revit, manda cada revisión con sus hechos a POST /api/revisions",
+        "Un conector manda cada revisión con sus hechos a POST /api/projects/:projectId/revisions",
         "Cada revisión se guarda inmutable y se parte en hechos con localizador",
         "Igual a lo vigente corrobora; distinto abre propuesta o discrepancia"
       ]
@@ -272,8 +272,8 @@
       "title": "Persistencia y tiempo real",
       "items": [
         "Toda la cadena corre en una transacción de Postgres con advisory lock",
-        "Cada mutación escribe sus RoomEvent en la misma transacción",
-        "Las pantallas sondean GET /api/events y vuelven a pedir su snapshot"
+        "Cada mutación escribe sus eventos en project_events en la misma transacción",
+        "Las pantallas sondean GET /api/projects/:projectId/events y vuelven a pedir sus datos"
       ]
     }
   ]

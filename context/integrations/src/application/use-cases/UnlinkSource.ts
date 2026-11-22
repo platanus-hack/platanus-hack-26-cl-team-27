@@ -1,5 +1,5 @@
-import { IntegrationError } from '../errors.ts';
 import type { SnapshotCache, SourceLinkRepository } from '../ports/index.ts';
+import { sourceNotFound } from './requireGoogle.ts';
 
 export class UnlinkSource {
   private readonly sources: SourceLinkRepository;
@@ -10,13 +10,12 @@ export class UnlinkSource {
     this.snapshots = snapshots;
   }
 
-  async execute(id: string): Promise<void> {
-    this.snapshots.delete(id);
-    if (!(await this.sources.remove(id))) {
-      throw new IntegrationError(
-        'source_not_found',
-        'Esa planilla ya no está vinculada',
-      );
+  async execute(projectId: string, id: string): Promise<void> {
+    const source = await this.sources.find(id);
+    if (source === null || source.projectId !== projectId) {
+      throw sourceNotFound();
     }
+    this.snapshots.delete(id);
+    if (!(await this.sources.remove(id))) throw sourceNotFound();
   }
 }

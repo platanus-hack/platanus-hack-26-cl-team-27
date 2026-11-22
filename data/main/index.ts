@@ -6,10 +6,8 @@ export * from './generated/prisma/client.ts';
 export type * from './project/definition.ts';
 export {
   inviteToOrganization,
-  listProjectIds,
   loadProjectDefinition,
   saveOrganization,
-  saveProjectDefinition,
 } from './project/store.ts';
 
 export const createPrismaClient = (connectionString: string): PrismaClient =>

@@ -10,38 +10,23 @@ export class ApiError extends Error {
   }
 }
 
-export interface Auth {
-  readonly seatToken?: string | null;
-  readonly presenterKey?: string | null;
-  readonly actAs?: string | null;
-}
-
-export interface RequestOptions extends Auth {
+export interface RequestOptions {
   readonly method?: 'GET' | 'POST' | 'DELETE';
   readonly body?: unknown;
   readonly signal?: AbortSignal;
   readonly write?: boolean;
 }
 
-export const SEAT_HEADER = 'x-seat-token';
-export const PRESENTER_HEADER = 'x-presenter-key';
-export const ACT_AS_HEADER = 'x-act-as';
 export const ACTION_HEADER = 'x-action-id';
 
 export const newActionId = (): string => crypto.randomUUID();
 
 export const buildHeaders = ({
-  seatToken,
-  presenterKey,
-  actAs,
   body,
   write,
 }: RequestOptions): Record<string, string> => {
   const headers: Record<string, string> = { accept: 'application/json' };
   if (body !== undefined) headers['content-type'] = 'application/json';
-  if (seatToken) headers[SEAT_HEADER] = seatToken;
-  if (presenterKey) headers[PRESENTER_HEADER] = presenterKey;
-  if (actAs) headers[ACT_AS_HEADER] = actAs;
   if (write) headers[ACTION_HEADER] = newActionId();
   return headers;
 };
@@ -102,15 +87,13 @@ export const isAbort = (error: unknown): boolean =>
 export const describeError = (error: unknown): string => {
   if (error instanceof ApiError) {
     switch (error.code) {
-      case 'seat_taken':
-        return 'Alguien se te adelantó con ese asiento.';
-      case 'seat_held':
-        return 'Ese asiento lo tiene otra persona.';
       case 'login_required':
       case 'invalid_token':
         return 'Tu sesión venció. Vuelve a entrar.';
       case 'email_not_verified':
         return 'Confirma tu correo antes de entrar.';
+      case 'not_invited':
+        return 'Tu correo no tiene una invitación. Pídele a un administrador de tu organización que te invite y vuelve a entrar.';
       case 'auth_not_configured':
         return 'Las cuentas no están configuradas en la API.';
       case 'admin_required':
@@ -119,18 +102,32 @@ export const describeError = (error: unknown): string => {
         return 'No eres parte de esa organización.';
       case 'already_member':
         return 'Esa persona ya es parte de la organización.';
+      case 'organization_name_taken':
+        return 'Ya eres parte de una organización con ese nombre. Elige otro.';
+      case 'organization_has_projects':
+        return 'La organización tiene proyectos, así que no se puede eliminar.';
+      case 'last_organization':
+        return 'Es tu única organización: si la eliminas, te quedas sin acceso.';
       case 'project_name_taken':
         return 'Ya hay un proyecto con ese nombre en la organización. Elige otro.';
       case 'aps_oauth_not_configured':
         return 'La conexión con Autodesk no está configurada en la API.';
+      case 'superadmin_required':
+        return 'Solo un superadmin de Vigente puede administrar la plataforma.';
+      case 'organization_not_found':
+        return 'Esa organización no existe.';
+      case 'not_on_team':
+        return 'No eres parte del equipo de este proyecto.';
+      case 'inference_unavailable':
+        return 'No pudimos leer el texto libre: falta configurar Claude en la API.';
       default:
     }
-    if (error.status === 401) return 'Tu asiento o tu clave ya no son válidos.';
-    if (error.status === 403) return 'Esa acción no le toca a tu asiento.';
+    if (error.status === 401) return 'Tu sesión venció. Vuelve a entrar.';
+    if (error.status === 403) return 'Esa acción no te toca.';
     if (error.status === 404) return 'Eso ya no existe.';
     if (error.status === 429) return 'Vas muy rápido. Espera un momento.';
     return error.message;
   }
   if (isAbort(error)) return '';
-  return 'No pudimos hablar con la sala. Revisa tu conexión.';
+  return 'No pudimos hablar con Vigente. Revisa tu conexión.';
 };

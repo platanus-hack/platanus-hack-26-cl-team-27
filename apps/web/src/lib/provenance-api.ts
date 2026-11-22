@@ -1,5 +1,6 @@
 import { request } from './http';
 import type { FactValue } from './format';
+import { projectApi, projectPage } from './project-paths';
 
 export interface ProvenanceStep {
   readonly value: FactValue;
@@ -54,14 +55,25 @@ export interface ProvenanceResponse {
 }
 
 export const getProvenance = (
+  projectId: string,
   subjectId: string,
   attribute: string,
   signal?: AbortSignal,
 ): Promise<ProvenanceResponse> =>
   request<ProvenanceResponse>(
-    `/api/baseline/${encodeURIComponent(subjectId)}/${encodeURIComponent(attribute)}/provenance`,
+    projectApi(
+      projectId,
+      `/baseline/${encodeURIComponent(subjectId)}/${encodeURIComponent(attribute)}/provenance`,
+    ),
     { signal },
   );
 
-export const valuePath = (subjectId: string, attribute: string): string =>
-  `/valor/${encodeURIComponent(subjectId)}/${encodeURIComponent(attribute)}`;
+export const valuePath = (
+  projectId: string,
+  subjectId: string,
+  attribute: string,
+): string =>
+  projectPage(
+    projectId,
+    `/valor/${encodeURIComponent(subjectId)}/${encodeURIComponent(attribute)}`,
+  );

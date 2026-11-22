@@ -1,40 +1,13 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { GetImpacts, type Impact } from '@team27/context-impact';
-import {
-  type BaselineRepository,
-  type ChunkRepository,
-  type ClaimRepository,
-  type DiscrepancyRepository,
-  GetChange,
-  GetConsensus,
-  GetProvenance,
-  ListChanges,
-  ListOverlaps,
-  ListProposals,
-  type OverlapRepository,
-  type OverlapStatus,
-  type ProposalRepository,
-  type ProposalStatus,
-  type RevisionRepository,
-} from '@team27/context-lake';
-import { ListNotifications } from '@team27/context-notification';
+import type { Impact } from '@team27/context-impact';
+import type { OverlapStatus, ProposalStatus } from '@team27/context-lake';
+import type { PrismaClient } from '@team27/data-main';
 
+import { PRISMA_CLIENT } from '../database/database.module.ts';
+import { buildImpact } from '../impact/impact.module.ts';
+import { buildLake } from '../lake/lake.module.ts';
+import { buildNotification } from '../notification/notification.module.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
-import { PROJECT_CATALOG } from '../project/project.module.ts';
-import {
-  BASELINE_REPOSITORY,
-  CHUNK_REPOSITORY,
-  CLAIM_REPOSITORY,
-  DISCREPANCY_REPOSITORY,
-  OVERLAP_REPOSITORY,
-  PROPOSAL_REPOSITORY,
-  REVISION_REPOSITORY,
-} from '../lake/lake.module.ts';
-import {
-  CASE_DOCUMENT_IDS,
-  CASE_EXCLUSION,
-  CASE_SUBJECT_PREFIX,
-} from '../../scenario/caso-p12.ts';
 import { fail } from './http-errors.ts';
 import {
   areasResponse,
@@ -45,8 +18,6 @@ import {
   overlapView,
   proposalView,
   provenanceResponse,
-  type RoomExtras,
-  roomResponse,
   spacesResponse,
 } from './views.ts';
 
@@ -56,115 +27,44 @@ export type ProposalFilter = ProposalStatus | 'active' | 'replaced';
 
 @Injectable()
 export class QueryService {
-  private readonly revisions: RevisionRepository;
-  private readonly chunks: ChunkRepository;
-  private readonly claims: ClaimRepository;
-  private readonly baseline: BaselineRepository;
-  private readonly proposals: ProposalRepository;
-  private readonly discrepancies: DiscrepancyRepository;
-  private readonly overlaps: OverlapRepository;
-  private readonly getConsensus: GetConsensus;
-  private readonly getProvenance: GetProvenance;
-  private readonly listProposals: ListProposals;
-  private readonly listOverlaps: ListOverlaps;
-  private readonly getImpacts: GetImpacts;
-  private readonly listNotifications: ListNotifications;
-  private readonly listChanges: ListChanges;
-  private readonly getChange: GetChange;
-  private readonly project: ProjectCatalog;
+  private readonly prisma: PrismaClient;
 
-  constructor(
-    @Inject(REVISION_REPOSITORY) revisions: RevisionRepository,
-    @Inject(CHUNK_REPOSITORY) chunks: ChunkRepository,
-    @Inject(CLAIM_REPOSITORY) claims: ClaimRepository,
-    @Inject(BASELINE_REPOSITORY) baseline: BaselineRepository,
-    @Inject(PROPOSAL_REPOSITORY) proposals: ProposalRepository,
-    @Inject(DISCREPANCY_REPOSITORY) discrepancies: DiscrepancyRepository,
-    @Inject(OVERLAP_REPOSITORY) overlaps: OverlapRepository,
-    @Inject(GetConsensus) getConsensus: GetConsensus,
-    @Inject(GetProvenance) getProvenance: GetProvenance,
-    @Inject(ListProposals) listProposals: ListProposals,
-    @Inject(ListOverlaps) listOverlaps: ListOverlaps,
-    @Inject(GetImpacts) getImpacts: GetImpacts,
-    @Inject(ListNotifications) listNotifications: ListNotifications,
-    @Inject(ListChanges) listChanges: ListChanges,
-    @Inject(GetChange) getChange: GetChange,
-    @Inject(PROJECT_CATALOG) project: ProjectCatalog,
-  ) {
-    this.revisions = revisions;
-    this.chunks = chunks;
-    this.claims = claims;
-    this.baseline = baseline;
-    this.proposals = proposals;
-    this.discrepancies = discrepancies;
-    this.overlaps = overlaps;
-    this.getConsensus = getConsensus;
-    this.getProvenance = getProvenance;
-    this.listProposals = listProposals;
-    this.listOverlaps = listOverlaps;
-    this.getImpacts = getImpacts;
-    this.listNotifications = listNotifications;
-    this.listChanges = listChanges;
-    this.getChange = getChange;
-    this.project = project;
+  constructor(@Inject(PRISMA_CLIENT) prisma: PrismaClient) {
+    this.prisma = prisma;
   }
 
-  async snapshot(withCase = false): Promise<LakeSnapshot> {
+  async snapshot(project: ProjectCatalog): Promise<LakeSnapshot> {
+    const lake = buildLake(this.prisma, project);
     const [
-      allRevisions,
-      allChunks,
-      allClaims,
-      allBaseline,
-      allProposals,
+      revisions,
+      chunks,
+      claims,
+      baseline,
+      proposals,
       discrepancies,
       overlaps,
       consensus,
     ] = await Promise.all([
-      this.revisions.list(),
-      this.chunks.list(),
-      this.claims.list(),
-      this.baseline.list(),
-      this.proposals.list(),
-      this.discrepancies.list(),
-      this.overlaps.list(),
-      this.getConsensus.execute(withCase ? undefined : CASE_EXCLUSION),
+      lake.ports.revisions.list(),
+      lake.ports.chunks.list(),
+      lake.ports.claims.list(),
+      lake.ports.baseline.list(),
+      lake.ports.proposals.list(),
+      lake.ports.discrepancies.list(),
+      lake.ports.overlaps.list(),
+      lake.consensus.execute(),
     ]);
-    const caseRevisionIds = new Set(
-      allRevisions
-        .filter((revision) => CASE_DOCUMENT_IDS.includes(revision.documentId))
-        .map((revision) => revision.id),
-    );
-    const outside = <T>(keep: (item: T) => boolean, list: readonly T[]) =>
-      withCase ? list : list.filter(keep);
-    const revisions = outside(
-      (revision) => !caseRevisionIds.has(revision.id),
-      allRevisions,
-    );
-    const chunks = outside(
-      (chunk) => !caseRevisionIds.has(chunk.revisionId),
-      allChunks,
-    );
-    const claims = outside(
-      (claim) => !caseRevisionIds.has(claim.revisionId),
-      allClaims,
-    );
-    const baseline = outside(
-      (entry) => !entry.subject.startsWith(CASE_SUBJECT_PREFIX),
-      allBaseline,
-    );
-    const proposals = outside(
-      (proposal) => !CASE_DOCUMENT_IDS.includes(proposal.documentId),
-      allProposals,
-    );
     const changeIds = [
       ...new Set(proposals.flatMap((proposal) => proposal.changeIds)),
     ];
     const [impacts, notifications] = await Promise.all([
-      this.getImpacts.execute(changeIds),
-      this.listNotifications.execute({ changeIds }),
+      buildImpact(this.prisma, project).getImpacts.execute(changeIds),
+      buildNotification(this.prisma, project).listNotifications.execute({
+        changeIds,
+      }),
     ]);
     return {
-      project: this.project,
+      project,
       revisions,
       chunks,
       claims,
@@ -180,20 +80,23 @@ export class QueryService {
     };
   }
 
-  async room(extras: RoomExtras) {
-    return roomResponse(await this.snapshot(), extras);
+  async inbox(project: ProjectCatalog, castId: string) {
+    return inboxResponse(await this.snapshot(project), castId);
   }
 
-  async inbox(castId: string) {
-    return inboxResponse(await this.snapshot(), castId);
+  async baselineView(project: ProjectCatalog, section: string | undefined) {
+    return baselineResponse(await this.snapshot(project), section);
   }
 
-  async baselineView(section: string | undefined) {
-    return baselineResponse(await this.snapshot(), section);
-  }
-
-  async provenance(subject: string, attribute: string) {
-    const provenance = await this.getProvenance.execute({ subject, attribute });
+  async provenance(
+    project: ProjectCatalog,
+    subject: string,
+    attribute: string,
+  ) {
+    const provenance = await buildLake(
+      this.prisma,
+      project,
+    ).getProvenance.execute({ subject, attribute });
     if (!provenance) {
       throw fail(
         HttpStatus.NOT_FOUND,
@@ -201,53 +104,48 @@ export class QueryService {
         `No hay un valor vigente para ${subject}.${attribute}`,
       );
     }
-    return provenanceResponse(await this.snapshot(true), provenance);
+    return provenanceResponse(await this.snapshot(project), provenance);
   }
 
-  async spaces() {
-    return spacesResponse(await this.snapshot());
+  async spaces(project: ProjectCatalog) {
+    return spacesResponse(await this.snapshot(project));
   }
 
-  async proposalList(filter: ProposalFilter | undefined) {
+  async proposalList(
+    project: ProjectCatalog,
+    filter: ProposalFilter | undefined,
+  ) {
     const status = filter === 'replaced' ? 'superseded' : filter;
     const [list, snapshot] = await Promise.all([
-      this.listProposals.execute(status ? { status } : {}),
-      this.snapshot(),
+      buildLake(this.prisma, project).listProposals.execute(
+        status ? { status } : {},
+      ),
+      this.snapshot(project),
     ]);
     return {
-      proposals: list
-        .filter((proposal) => !CASE_DOCUMENT_IDS.includes(proposal.documentId))
-        .map((proposal) => proposalView(snapshot, proposal)),
+      proposals: list.map((proposal) => proposalView(snapshot, proposal)),
     };
   }
 
-  async overlapList(filter: OverlapFilter | undefined) {
+  async overlapList(
+    project: ProjectCatalog,
+    filter: OverlapFilter | undefined,
+  ) {
     const [list, snapshot] = await Promise.all([
-      this.listOverlaps.execute(filter ? { status: filter } : {}),
-      this.snapshot(),
+      buildLake(this.prisma, project).listOverlaps.execute(
+        filter ? { status: filter } : {},
+      ),
+      this.snapshot(project),
     ]);
     return { overlaps: list.map((overlap) => overlapView(snapshot, overlap)) };
   }
 
-  async overlap(id: string) {
-    const snapshot = await this.snapshot();
-    const found = snapshot.overlaps.find((overlap) => overlap.id === id);
-    if (!found) {
-      throw fail(
-        HttpStatus.NOT_FOUND,
-        'not_found',
-        `No existe el solapamiento ${id}`,
-      );
-    }
-    return overlapView(snapshot, found);
+  async areas(project: ProjectCatalog) {
+    return areasResponse(await this.snapshot(project));
   }
 
-  async areas() {
-    return areasResponse(await this.snapshot());
-  }
-
-  async proposal(id: string) {
-    const snapshot = await this.snapshot();
+  async proposal(project: ProjectCatalog, id: string) {
+    const snapshot = await this.snapshot(project);
     const proposal = snapshot.proposals.find((item) => item.id === id);
     if (!proposal) {
       throw fail(
@@ -259,10 +157,10 @@ export class QueryService {
     return proposalView(snapshot, proposal);
   }
 
-  async changes(limit: number) {
+  async changes(project: ProjectCatalog, limit: number) {
     const [changes, snapshot] = await Promise.all([
-      this.listChanges.execute(limit),
-      this.snapshot(),
+      buildLake(this.prisma, project).listChanges.execute(limit),
+      this.snapshot(project),
     ]);
     return changes.map((change) =>
       changeView(
@@ -275,8 +173,8 @@ export class QueryService {
     );
   }
 
-  async change(id: string) {
-    const change = await this.getChange.execute(id);
+  async change(project: ProjectCatalog, id: string) {
+    const change = await buildLake(this.prisma, project).getChange.execute(id);
     if (!change) {
       throw fail(
         HttpStatus.NOT_FOUND,
@@ -284,7 +182,7 @@ export class QueryService {
         `No existe el cambio ${id}`,
       );
     }
-    const snapshot = await this.snapshot();
+    const snapshot = await this.snapshot(project);
     return changeView(
       snapshot,
       change,

@@ -10,7 +10,7 @@ const pending: Notification = {
   channel: 'email',
   title: 'Losa nivel 3',
   findings: [],
-  link: '/cambios/c1',
+  link: '/proyectos/edificio-norte/cambios/c1',
   sentAt: new Date(0),
   response: null,
 };

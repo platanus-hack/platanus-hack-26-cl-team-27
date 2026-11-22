@@ -7,7 +7,10 @@ import type {
   SourceError,
   SourceLink,
   SourceLinkDraft,
+  SourceRelink,
 } from '../../domain/Connection.ts';
+import type { AutodeskChange } from '../../domain/autodesk/AutodeskChange.ts';
+import type { Editor, PushChannel } from '../../domain/Push.ts';
 import type { CellChange, SheetSnapshot } from '../../domain/Sheet.ts';
 
 export interface StoredConnection extends Connection {
@@ -15,18 +18,28 @@ export interface StoredConnection extends Connection {
 }
 
 export interface ConnectionRepository {
-  find(provider: Provider): Promise<StoredConnection | null>;
+  findForUser(
+    userId: string,
+    provider: Provider,
+  ): Promise<StoredConnection | null>;
+  find(id: string): Promise<StoredConnection | null>;
   save(grant: ConnectionGrant): Promise<Connection>;
-  remove(provider: Provider): Promise<boolean>;
+  remove(userId: string, provider: Provider): Promise<boolean>;
 }
 
 export interface SourceLinkRepository {
-  list(): Promise<SourceLink[]>;
+  list(projectId?: string): Promise<SourceLink[]>;
   find(id: string): Promise<SourceLink | null>;
-  findByExternalId(externalId: string): Promise<SourceLink | null>;
+  findInProject(
+    projectId: string,
+    externalId: string,
+  ): Promise<SourceLink | null>;
   create(draft: SourceLinkDraft): Promise<SourceLink>;
+  relink(id: string, relink: SourceRelink): Promise<SourceLink>;
   recordCheck(id: string, check: SourceCheck): Promise<SourceLink>;
   recordError(id: string, error: SourceError): Promise<SourceLink>;
+  findByChannel(channelId: string): Promise<SourceLink | null>;
+  saveChannel(id: string, channel: PushChannel | null): Promise<SourceLink>;
   remove(id: string): Promise<boolean>;
 }
 
@@ -56,8 +69,35 @@ export interface SheetChange {
   readonly source: SourceLink;
   readonly at: Date;
   readonly cells: readonly CellChange[] | null;
+  readonly by: Editor | null;
 }
 
 export interface ChangeListener {
   changed(change: SheetChange): Promise<void>;
+}
+
+export interface WatchRequest {
+  readonly address: string;
+  readonly ttlMs: number;
+}
+
+export interface FileWatcher {
+  watch(
+    accessToken: string,
+    fileId: string,
+    request: WatchRequest,
+  ): Promise<PushChannel>;
+  stop(accessToken: string, channel: PushChannel): Promise<void>;
+}
+
+export interface EditorLookup {
+  lastEditor(accessToken: string, fileId: string): Promise<Editor | null>;
+}
+
+export interface AutodeskEventRepository {
+  recordIfNew(change: AutodeskChange, receivedAt: Date): Promise<boolean>;
+}
+
+export interface AutodeskChangeListener {
+  changed(change: AutodeskChange): Promise<void>;
 }

@@ -4,9 +4,16 @@ import type { PrismaClient } from '@team27/data-main';
 import { fail } from '../coordination/http-errors.ts';
 import { PRISMA_CLIENT } from '../database/database.module.ts';
 import { type Identity, InvalidTokenError } from './identity.ts';
-import { freeProjectId, projectNameKey, projectSlug } from './project-id.ts';
+import {
+  freeId,
+  nameKey,
+  organizationSlug,
+  projectSlug,
+} from './project-id.ts';
 
 export const IDENTITY = 'IDENTITY';
+
+export const SUPERADMINS = 'SUPERADMINS';
 
 export const ROLES = ['admin', 'member'] as const;
 
@@ -22,6 +29,7 @@ export interface Account {
   readonly id: string;
   readonly email: string;
   readonly name: string | null;
+  readonly superadmin: boolean;
   readonly memberships: readonly AccountMembership[];
 }
 
@@ -49,13 +57,18 @@ const isRole = (value: string): value is Role =>
 export class AccountsService {
   private readonly prisma: PrismaClient;
   private readonly identity: Identity | null;
+  private readonly superadmins: ReadonlySet<string>;
 
   constructor(
     @Inject(PRISMA_CLIENT) prisma: PrismaClient,
     @Inject(IDENTITY) identity: Identity | null,
+    @Inject(SUPERADMINS) superadmins: readonly string[] = [],
   ) {
     this.prisma = prisma;
     this.identity = identity;
+    this.superadmins = new Set(
+      superadmins.map((email) => email.trim().toLowerCase()),
+    );
   }
 
   async authenticate(token: string): Promise<Account> {
@@ -71,7 +84,11 @@ export class AccountsService {
     });
     const user = known ?? (await this.register(identity, token, subject));
     await this.acceptInvitations(user.id, user.email);
-    return this.account(user.id);
+    const account = await this.account(user.id);
+    if (account.memberships.length === 0 && !account.superadmin) {
+      throw this.notInvited();
+    }
+    return account;
   }
 
   requireMember(account: Account, organizationId: string): AccountMembership {
@@ -94,6 +111,85 @@ export class AccountsService {
         HttpStatus.FORBIDDEN,
         'admin_required',
         'Solo un administrador de la organización puede hacerlo',
+      );
+    }
+  }
+
+  async createOrganization(
+    account: Account,
+    name: string,
+  ): Promise<AccountMembership> {
+    if (!account.memberships.some((item) => item.role === 'admin')) {
+      throw fail(
+        HttpStatus.FORBIDDEN,
+        'admin_required',
+        'Solo un administrador puede crear organizaciones',
+      );
+    }
+    const key = nameKey(name);
+    if (
+      account.memberships.some((item) => nameKey(item.organizationName) === key)
+    ) {
+      throw fail(
+        HttpStatus.CONFLICT,
+        'organization_name_taken',
+        `Ya eres parte de una organización llamada «${name}»`,
+      );
+    }
+    const slug = organizationSlug(name);
+    const taken = await this.prisma.organization.findMany({
+      where: { id: { startsWith: slug } },
+      select: { id: true },
+    });
+    const organization = await this.prisma.organization.create({
+      data: {
+        id: freeId(
+          slug,
+          taken.map((row) => row.id),
+        ),
+        name,
+        memberships: { create: { userId: account.id, role: 'admin' } },
+      },
+      select: { id: true, name: true },
+    });
+    return {
+      organizationId: organization.id,
+      organizationName: organization.name,
+      role: 'admin',
+    };
+  }
+
+  async deleteOrganization(
+    account: Account,
+    organizationId: string,
+  ): Promise<void> {
+    this.requireAdmin(account, organizationId);
+    if (account.memberships.length === 1) {
+      throw fail(
+        HttpStatus.CONFLICT,
+        'last_organization',
+        'Es tu única organización: si la eliminas, te quedas sin acceso',
+      );
+    }
+    const projects = await this.prisma.project.count({
+      where: { organizationId },
+    });
+    if (projects > 0) {
+      throw fail(
+        HttpStatus.CONFLICT,
+        'organization_has_projects',
+        'La organización tiene proyectos: no se puede eliminar',
+      );
+    }
+    await this.prisma.organization.delete({ where: { id: organizationId } });
+  }
+
+  requireSuperadmin(account: Account): void {
+    if (!account.superadmin) {
+      throw fail(
+        HttpStatus.FORBIDDEN,
+        'superadmin_required',
+        'Solo un superadmin de Vigente puede hacerlo',
       );
     }
   }
@@ -142,8 +238,8 @@ export class AccountsService {
       where: { organizationId: { in: [input.organizationId] } },
       select: { name: true },
     });
-    const key = projectNameKey(input.name);
-    if (siblings.some((sibling) => projectNameKey(sibling.name) === key)) {
+    const key = nameKey(input.name);
+    if (siblings.some((sibling) => nameKey(sibling.name) === key)) {
       throw fail(
         HttpStatus.CONFLICT,
         'project_name_taken',
@@ -155,7 +251,7 @@ export class AccountsService {
       where: { id: { startsWith: slug } },
       select: { id: true },
     });
-    const id = freeProjectId(
+    const id = freeId(
       slug,
       taken.map((row) => row.id),
     );
@@ -187,6 +283,10 @@ export class AccountsService {
       },
       select: PROJECT_SUMMARY,
     });
+  }
+
+  async requireProject(account: Account, projectId: string): Promise<void> {
+    await this.project(account, projectId);
   }
 
   async members(organizationId: string) {
@@ -263,6 +363,18 @@ export class AccountsService {
     );
   }
 
+  private isSuperadmin(email: string): boolean {
+    return this.superadmins.has(email.trim().toLowerCase());
+  }
+
+  private notInvited() {
+    return fail(
+      HttpStatus.FORBIDDEN,
+      'not_invited',
+      'Tu correo no tiene una invitación. Pídele a un administrador de tu organización que te invite',
+    );
+  }
+
   private async register(identity: Identity, token: string, subject: string) {
     let profile;
     try {
@@ -277,6 +389,10 @@ export class AccountsService {
         'Confirma tu correo antes de entrar',
       );
     }
+    const invited = await this.prisma.invitation.findFirst({
+      where: { email: profile.email, acceptedAt: null },
+    });
+    if (!invited && !this.isSuperadmin(profile.email)) throw this.notInvited();
     return this.prisma.user.upsert({
       where: { authSubject: subject },
       create: {
@@ -332,6 +448,7 @@ export class AccountsService {
       id: user.id,
       email: user.email,
       name: user.name,
+      superadmin: this.isSuperadmin(user.email),
       memberships: user.memberships.flatMap((item) =>
         isRole(item.role)
           ? [

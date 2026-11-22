@@ -8,6 +8,7 @@ export interface Me {
     readonly email: string;
     readonly name: string | null;
   };
+  readonly superadmin: boolean;
   readonly organizations: readonly {
     readonly id: string;
     readonly name: string;
@@ -64,6 +65,24 @@ export const inviteMember = (
     `/api/organizations/${encodeURIComponent(organizationId)}/invitations`,
     { method: 'POST', body: { email, role } },
   );
+
+export type Organization = Me['organizations'][number];
+
+export const NEW_ORGANIZATION_HREF = '/organizaciones/nueva';
+
+export const canCreateOrganization = (me: Me): boolean =>
+  me.organizations.some((organization) => organization.role === 'admin');
+
+export const createOrganization = (name: string) =>
+  request<Organization>('/api/organizations', {
+    method: 'POST',
+    body: { name: name.trim() },
+  });
+
+export const deleteOrganization = (organizationId: string) =>
+  request<void>(`/api/organizations/${encodeURIComponent(organizationId)}`, {
+    method: 'DELETE',
+  });
 
 export const projectsByOrganization = (
   me: Me,
