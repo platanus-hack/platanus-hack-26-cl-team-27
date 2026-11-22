@@ -53,11 +53,32 @@ model Notification {
   response      String?
   responseNote  String?   @map("response_note")
   respondedAt   DateTime? @map("responded_at")
+  deliveries    NotificationDelivery[]
 
   @@index([changeId])
   @@index([stakeholderId])
   @@index([projectId])
   @@map("notifications")
+}
+
+model NotificationDelivery {
+  projectId      String       @map("project_id")
+  id             String       @id @default(uuid()) @db.Uuid
+  notificationId String       @map("notification_id") @db.Uuid
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  channel        String
+  recipient      String?
+  status         String       @default("pending")
+  attempts       Int          @default(0)
+  nextAttemptAt  DateTime     @default(now()) @map("next_attempt_at")
+  lastError      String?      @map("last_error")
+  providerId     String?      @map("provider_id")
+  sentAt         DateTime?    @map("sent_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([status, nextAttemptAt])
+  @@index([notificationId])
+  @@map("notification_deliveries")
 }
 
 model Revision {

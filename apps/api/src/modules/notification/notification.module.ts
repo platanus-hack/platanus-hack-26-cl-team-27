@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
+  DeliverNotifications,
   GetNotification,
   ListNotifications,
   ListStakeholders,
@@ -8,12 +10,16 @@ import {
   RespondToNotification,
 } from '@team27/context-notification';
 import {
+  GmailEmailSender,
   InMemoryStakeholderDirectory,
+  PrismaDeliveryQueue,
   PrismaNotificationRepository,
 } from '@team27/context-notification/adapters';
 import type { PrismaClient } from '@team27/data-main';
 
 import { provideUseCase } from '../../common/provide-use-case.ts';
+import type { Env } from '../../config/index.ts';
+import { DELIVER_NOTIFICATIONS, DeliveryWorker } from './delivery.worker.ts';
 import { PRISMA_CLIENT } from '../database/database.module.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
 import { PROJECT_CATALOG } from '../project/project.module.ts';
@@ -59,6 +65,32 @@ export const buildNotification = (
     provideUseCase(RespondToNotification, [NOTIFICATION_REPOSITORY]),
     provideUseCase(ReopenResponse, [NOTIFICATION_REPOSITORY]),
     provideUseCase(ListStakeholders, [STAKEHOLDER_DIRECTORY]),
+    {
+      provide: DELIVER_NOTIFICATIONS,
+      inject: [ConfigService, PRISMA_CLIENT],
+      useFactory: (config: ConfigService<Env, true>, prisma: PrismaClient) => {
+        const clientId = config.get('GMAIL_CLIENT_ID', { infer: true });
+        const clientSecret = config.get('GMAIL_CLIENT_SECRET', {
+          infer: true,
+        });
+        const refreshToken = config.get('GMAIL_REFRESH_TOKEN', {
+          infer: true,
+        });
+        if (!clientId || !clientSecret || !refreshToken) return null;
+        return new DeliverNotifications(
+          new PrismaDeliveryQueue(prisma),
+          new GmailEmailSender(
+            { clientId, clientSecret, refreshToken },
+            config.get('EMAIL_FROM', { infer: true }),
+          ),
+          {
+            baseUrl: config.get('APP_BASE_URL', { infer: true }),
+            redirectTo: config.get('EMAIL_REDIRECT_TO', { infer: true }),
+          },
+        );
+      },
+    },
+    DeliveryWorker,
   ],
   exports: [
     NotifyStakeholders,

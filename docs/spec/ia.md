@@ -153,7 +153,7 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 
 ### Canales
 
-**17 · Correo con Resend** · `falta` · **18 · WhatsApp** · `falta` · **19 · Teams** · `falta` · **20 · ACC Issues** · `falta`
+**17 · Correo con Resend** · `hecho`, con la API de Gmail en vez de Resend (`context/notification`, `GmailEmailSender`) · **18 · WhatsApp** · `falta` · **19 · Teams** · `falta` · **20 · ACC Issues** · `falta`
 
 - Hay: canales simulados. Un aviso guardado es un aviso entregado, y la web lo muestra con el look de su canal.
 - Falta: ver la receta [un canal real](#un-canal-real). Teams y ACC Issues además suman un valor a `CHANNELS`. WhatsApp necesita un webhook de entrada que convierta la respuesta en voto.

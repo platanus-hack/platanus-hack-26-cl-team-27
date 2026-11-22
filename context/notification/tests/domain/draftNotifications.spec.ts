@@ -66,6 +66,10 @@ describe('draftNotifications', () => {
       ['costos', 'slack', 2],
     ]);
     expect(drafts[0]?.link).toBe('/cambios/c1?para=calculista');
+    expect(drafts.map((draft) => draft.email)).toEqual([
+      'paula@obra.example',
+      null,
+    ]);
   });
 
   it('ignora a quien no está en el directorio', () => {

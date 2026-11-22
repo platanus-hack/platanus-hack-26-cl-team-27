@@ -1,3 +1,4 @@
+import { emailAddress } from './Delivery.ts';
 import type { Channel, Stakeholder } from './Stakeholder.ts';
 
 export const RESPONSE_KINDS = ['reviewed', 'issue'] as const;
@@ -25,9 +26,10 @@ export interface NotificationDraft {
   readonly title: string;
   readonly findings: readonly NotificationFinding[];
   readonly link: string;
+  readonly email: string | null;
 }
 
-export interface Notification extends NotificationDraft {
+export interface Notification extends Omit<NotificationDraft, 'email'> {
   readonly id: string;
   readonly sentAt: Date;
   readonly response: NotificationResponse | null;
@@ -68,6 +70,7 @@ export const draftNotifications = (
         title: change.title,
         findings,
         link: detailLink(change.changeId, stakeholder.id),
+        email: emailAddress(stakeholder.handle),
       },
     ];
   });

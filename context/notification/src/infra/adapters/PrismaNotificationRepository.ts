@@ -15,7 +15,7 @@ import type { Channel } from '../../domain/Stakeholder.ts';
 
 type NotificationRow = Prisma.NotificationGetPayload<object>;
 
-const toNotification = (row: NotificationRow): Notification => ({
+export const toNotification = (row: NotificationRow): Notification => ({
   id: row.id,
   changeId: row.changeId,
   stakeholderId: row.stakeholderId,
@@ -46,6 +46,7 @@ export class PrismaNotificationRepository implements NotificationRepository {
   async saveMany(
     drafts: readonly NotificationDraft[],
   ): Promise<Notification[]> {
+    const now = new Date();
     const rows = await this.prisma.$transaction(
       drafts.map((draft) =>
         this.prisma.notification.create({
@@ -57,6 +58,15 @@ export class PrismaNotificationRepository implements NotificationRepository {
             title: draft.title,
             findings: draft.findings as unknown as Prisma.InputJsonValue,
             link: draft.link,
+            deliveries: {
+              create: {
+                projectId: this.projectId,
+                channel: 'email',
+                recipient: draft.email,
+                nextAttemptAt: now,
+                createdAt: now,
+              },
+            },
           },
         }),
       ),

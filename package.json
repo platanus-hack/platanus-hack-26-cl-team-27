@@ -18,6 +18,7 @@
     "check": "nx run-many -t lint test typecheck build",
     "affected": "nx affected -t lint test typecheck build",
     "etl": "node --env-file-if-exists=.env apps/etl/src/main.ts",
+    "gmail:auth": "node --env-file-if-exists=.env apps/api/src/cli/gmail-auth.ts",
     "aps:check": "node --env-file-if-exists=.env apps/aps/src/main.ts check",
     "aps:models": "node --env-file-if-exists=.env apps/aps/src/main.ts models",
     "db:up": "docker compose up -d --wait postgres",

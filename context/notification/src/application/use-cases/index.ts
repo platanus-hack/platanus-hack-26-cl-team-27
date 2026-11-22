@@ -1,3 +1,8 @@
+export {
+  DeliverNotifications,
+  type DeliveryOptions,
+  type DeliveryRound,
+} from './DeliverNotifications.ts';
 export { GetNotification } from './GetNotification.ts';
 export { ListNotifications } from './ListNotifications.ts';
 export { ListStakeholders } from './ListStakeholders.ts';

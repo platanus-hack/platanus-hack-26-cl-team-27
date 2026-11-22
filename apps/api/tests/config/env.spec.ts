@@ -11,7 +11,20 @@ describe('envSchema', () => {
       GOOGLE_REDIRECT_URI:
         'http://localhost:3000/api/integrations/google/callback',
       INTEGRATIONS_POLL_SECONDS: 60,
+      APP_BASE_URL: 'http://localhost:3000',
+      EMAIL_FROM: 'Vigente <appvigente@gmail.com>',
     });
+  });
+
+  it('el correo es opcional y el desvío tiene que ser un correo', () => {
+    expect(
+      envSchema.parse({ GMAIL_REFRESH_TOKEN: '' }).GMAIL_REFRESH_TOKEN,
+    ).toBe(undefined);
+    expect(
+      envSchema.parse({ EMAIL_REDIRECT_TO: 'demo@vigente.example' })
+        .EMAIL_REDIRECT_TO,
+    ).toBe('demo@vigente.example');
+    expect(() => envSchema.parse({ EMAIL_REDIRECT_TO: '#costos' })).toThrow();
   });
 
   it('los conectores son opcionales y la clave de cifrado pide 16 caracteres', () => {
