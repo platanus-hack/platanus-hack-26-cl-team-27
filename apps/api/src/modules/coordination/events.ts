@@ -14,6 +14,7 @@ export const EVENT_KINDS = [
   'proposal.withdrawn',
   'proposal.replaced',
   'review.approved',
+  'review.not_affected',
   'discrepancy.opened',
   'discrepancy.backed',
   'discrepancy.dismissed',

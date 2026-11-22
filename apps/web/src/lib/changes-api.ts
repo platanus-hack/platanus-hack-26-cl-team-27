@@ -82,7 +82,7 @@ export interface ChangeNotification {
   readonly link: string;
   readonly sentAt: string;
   readonly response: {
-    readonly kind: 'reviewed' | 'issue';
+    readonly kind: 'reviewed' | 'issue' | 'not_affected';
     readonly note: string | null;
     readonly at: string;
   } | null;

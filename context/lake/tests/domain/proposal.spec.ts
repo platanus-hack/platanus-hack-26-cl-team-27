@@ -1,6 +1,7 @@
 import {
   applyReview,
   decideProposal,
+  excuseReviewer,
   isActive,
   reopenFor,
 } from '../../src/domain/Proposal.ts';
@@ -69,5 +70,26 @@ describe('applyReview y reopenFor', () => {
         (status) => isActive({ status }),
       ),
     ).toEqual([true, true, false, false, false]);
+  });
+});
+
+describe('excuseReviewer', () => {
+  it('saca al revisor y lo deja como filtrado con su motivo, y el resto decide', () => {
+    const voted = applyReview(proposal('p'), 'javier', 'approve', null, at(2));
+    const next = excuseReviewer(voted, 'paula', 'No calculo ese shaft', at(3));
+
+    expect(next.reviews.map((item) => item.reviewerId)).toEqual(['javier']);
+    expect(next.filtered).toEqual([
+      {
+        id: 'paula',
+        reason: 'No calculo ese shaft',
+        notAffected: true,
+        at: at(3).toISOString(),
+      },
+    ]);
+    expect(decideProposal(next)).toBe('merged');
+    expect(decideProposal(excuseReviewer(proposal('p'), 'paula', 'x'))).toBe(
+      'open',
+    );
   });
 });

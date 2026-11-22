@@ -22,6 +22,7 @@ import {
 import { projectPage } from '@/lib/project-paths';
 
 import { ImpactFigures } from './ImpactFigures';
+import { OverlapVotes } from './OverlapVotes';
 
 const percent = (probability: number) => `${Math.round(probability * 100)} %`;
 
@@ -192,10 +193,14 @@ export function ChangeAnalysis({
   projectId,
   changeId,
   change,
+  userId,
+  onDone,
 }: {
   readonly projectId: string;
   readonly changeId: string;
   readonly change: ChangeDetail;
+  readonly userId: string | null;
+  readonly onDone: () => void;
 }) {
   const key = `${projectId}/${changeId}`;
   const loadSuggestions = useCallback(
@@ -218,6 +223,7 @@ export function ChangeAnalysis({
   const watched = suggestions.data?.watch ?? [];
   const found = conflicts.data?.conflicts ?? [];
   const overlaps = conflicts.data?.overlaps ?? [];
+  const validations = change.proposal?.overlaps ?? [];
   const { impact, ruleGaps } = change;
   const hasFigures =
     impact !== null &&
@@ -278,21 +284,22 @@ export function ChangeAnalysis({
         )}
       </Block>
       <Block title="Detector de conflictos" question="¿Choca con otro cambio?">
+        {validations.length > 0 && (
+          <div className="mb-3 text-sm">
+            <OverlapVotes
+              projectId={projectId}
+              overlaps={validations}
+              userId={userId}
+              onDone={onDone}
+            />
+          </div>
+        )}
         {conflicts.error ? (
           <Muted>{conflicts.error}</Muted>
         ) : !conflicts.data ? (
           <Muted>Revisando si choca con otros cambios…</Muted>
         ) : (
           <div className="flex flex-col gap-3 text-sm">
-            {overlaps.length > 0 && (
-              <ul className="flex flex-col gap-2">
-                {overlaps.map((overlap) => (
-                  <li key={overlap.id} className="font-medium text-ink">
-                    Solapamiento {overlap.status}: {overlap.title}
-                  </li>
-                ))}
-              </ul>
-            )}
             {found.length > 0 ? (
               <ul className="flex flex-col gap-3">
                 {found.map((item) => (
@@ -303,7 +310,7 @@ export function ChangeAnalysis({
                   />
                 ))}
               </ul>
-            ) : overlaps.length === 0 ? (
+            ) : validations.length === 0 ? (
               <Muted>
                 {conflicts.data.inference === 'unavailable'
                   ? 'No pudimos estimar choques con otros cambios: falta configurar Claude o Gemini.'

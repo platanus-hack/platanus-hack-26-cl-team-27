@@ -33,7 +33,11 @@ export interface ProposalContext {
 export interface FilteredReviewer {
   readonly id: string;
   readonly reason: string;
+  readonly notAffected?: boolean;
+  readonly at?: string;
 }
+
+export const NOT_AFFECTED_REASON = 'Dijo que no le afecta';
 
 export type SubjectValues = Readonly<Record<string, ClaimValue>>;
 
@@ -104,6 +108,22 @@ export const applyReview = (
       ? { reviewerId, decision, note, at }
       : review,
   ),
+});
+
+export const excuseReviewer = (
+  proposal: Proposal,
+  reviewerId: string,
+  reason: string,
+  at: Date = new Date(),
+): Proposal => ({
+  ...proposal,
+  reviews: proposal.reviews.filter(
+    (review) => review.reviewerId !== reviewerId,
+  ),
+  filtered: [
+    ...proposal.filtered.filter((person) => person.id !== reviewerId),
+    { id: reviewerId, reason, notAffected: true, at: at.toISOString() },
+  ],
 });
 
 export const reopenFor = (

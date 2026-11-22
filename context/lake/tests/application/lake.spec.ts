@@ -267,6 +267,70 @@ describe('propuestas y consenso', () => {
     ]);
   });
 
+  it('quien dice que no le afecta sale como filtrado y la propuesta se decide con el resto', async () => {
+    const ctx = await setup();
+    const { proposal } = await ctx.open.execute({
+      draft: await slabDraft(ctx),
+      changeId: 'c1',
+      reviewerIds: ['paula', 'javier'],
+      filtered: [],
+    });
+    const excused = await ctx.excuse.execute({
+      proposalId: proposal.id,
+      reviewerId: 'paula',
+      reason: '  No calculo esa losa  ',
+    });
+
+    expect(excused).toMatchObject({ changed: true, merged: false });
+    expect(excused.proposal.status).toBe('open');
+    expect(excused.proposal.reviews.map((item) => item.reviewerId)).toEqual([
+      'javier',
+    ]);
+    expect(excused.proposal.filtered).toEqual([
+      expect.objectContaining({
+        id: 'paula',
+        reason: 'No calculo esa losa',
+        notAffected: true,
+      }),
+    ]);
+    expect(
+      await ctx.excuse.execute({
+        proposalId: proposal.id,
+        reviewerId: 'paula',
+      }),
+    ).toMatchObject({ changed: false });
+
+    const approved = await ctx.review.execute({
+      proposalId: proposal.id,
+      reviewerId: 'javier',
+      decision: 'approve',
+    });
+    expect(approved.merged).toBe(true);
+    expect((await ctx.lake.baseline.find('losa-n3', 'espesor_cm'))?.value).toBe(
+      20,
+    );
+    await expect(
+      ctx.excuse.execute({ proposalId: proposal.id, reviewerId: 'javier' }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it('si el único que falta dice que no le afecta, la propuesta se fusiona', async () => {
+    const ctx = await setup();
+    const { proposal } = await ctx.open.execute({
+      draft: await slabDraft(ctx),
+      changeId: 'c1',
+      reviewerIds: ['paula'],
+      filtered: [],
+    });
+    const excused = await ctx.excuse.execute({
+      proposalId: proposal.id,
+      reviewerId: 'paula',
+    });
+
+    expect(excused.merged).toBe(true);
+    expect(excused.proposal.filtered[0]?.reason).toBe('Dijo que no le afecta');
+  });
+
   it('una disputa no cambia lo vigente; reabrir limpia al que disputó y aprobar fusiona', async () => {
     const ctx = await setup();
     const { proposal } = await ctx.open.execute({

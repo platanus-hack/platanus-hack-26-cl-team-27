@@ -77,6 +77,10 @@ export function ChangeDetailBody({
   readonly response?: ReactNode;
 }) {
   const { proposal, impact } = change;
+  const notAffected =
+    proposal?.filtered.filter((person) => person.notAffected) ?? [];
+  const notNotified =
+    proposal?.filtered.filter((person) => !person.notAffected) ?? [];
   const diffs = diffsOf(change);
   const myFindings = forStakeholder
     ? (impact?.findings.filter((f) => f.stakeholderId === forStakeholder) ?? [])
@@ -192,14 +196,44 @@ export function ChangeDetailBody({
                 </div>
               </li>
             ))}
+            {notAffected.map((person) => (
+              <li
+                key={person.stakeholderId}
+                className={cx(
+                  'flex gap-3 border-b border-hairline py-2.5 last:border-0',
+                  forStakeholder === person.stakeholderId &&
+                    '-mx-2 rounded-lg border-transparent bg-accent-soft/30 px-2',
+                )}
+              >
+                <Avatar name={person.name} size="sm" />
+                <div className="min-w-0 flex-1 text-sm">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                    <p className="font-medium text-ink">
+                      {person.name}{' '}
+                      <span className="font-normal text-ink-2">
+                        · {person.role}
+                      </span>
+                    </p>
+                    <RelativeTime
+                      at={person.at}
+                      className="text-xs text-ink-2"
+                    />
+                  </div>
+                  <p className="text-ink-2">Dice que no le afecta</p>
+                  {person.reason !== 'Dijo que no le afecta' && (
+                    <p className="mt-1 text-ink">«{person.reason}»</p>
+                  )}
+                </div>
+              </li>
+            ))}
           </ul>
         </Block>
       )}
 
-      {proposal && proposal.filtered.length > 0 && (
+      {notNotified.length > 0 && (
         <Block title="A quién no avisamos">
           <ul className="flex flex-col gap-2">
-            {proposal.filtered.map((person) => (
+            {notNotified.map((person) => (
               <li
                 key={person.stakeholderId}
                 className={cx(

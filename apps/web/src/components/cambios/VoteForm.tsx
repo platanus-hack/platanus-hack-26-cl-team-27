@@ -80,6 +80,14 @@ export function VoteForm({
           {busy === 'issue' ? 'Enviando…' : 'Tengo un problema'}
         </Button>
       </div>
+      <Button
+        variant="secondary"
+        onClick={() => void send('not_affected')}
+        disabled={disabled}
+        className="h-11 text-base"
+      >
+        {busy === 'not_affected' ? 'Enviando…' : 'No me afecta'}
+      </Button>
       {error && <Notice tone="error">{error}</Notice>}
     </div>
   );

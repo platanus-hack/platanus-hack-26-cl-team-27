@@ -80,6 +80,15 @@ export class PrismaProposalRepository implements ProposalRepository {
           status: proposal.status,
           resolvedAt: proposal.resolvedAt,
           supersededById: proposal.supersededById,
+          filtered: toJson(proposal.filtered),
+        },
+      }),
+      this.prisma.review.deleteMany({
+        where: {
+          proposalId: proposal.id,
+          reviewerId: {
+            notIn: proposal.reviews.map((review) => review.reviewerId),
+          },
         },
       }),
       ...proposal.reviews.map((review) =>

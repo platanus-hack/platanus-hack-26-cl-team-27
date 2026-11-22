@@ -4,7 +4,9 @@ import type { ProposalStatus } from './proposals-api';
 
 export const MAX_NOTE_LENGTH = 280;
 
-export type VoteKind = 'reviewed' | 'issue';
+export type VoteKind = 'reviewed' | 'issue' | 'not_affected';
+
+export type OverlapVoteKind = 'se_tocan' | 'no_se_tocan';
 
 export interface VoteResponse {
   readonly notification: {
@@ -46,3 +48,15 @@ export const castVote = (
     projectApi(projectId, `/notifications/${notificationId}/response`),
     { method: 'POST', body: { kind, note: trimNote(note) }, write: true },
   );
+
+export const castOverlapVote = (
+  projectId: string,
+  overlapId: string,
+  kind: OverlapVoteKind,
+  note = '',
+): Promise<unknown> =>
+  request<unknown>(projectApi(projectId, `/overlaps/${overlapId}/vote`), {
+    method: 'POST',
+    body: { kind, note: trimNote(note) },
+    write: true,
+  });
