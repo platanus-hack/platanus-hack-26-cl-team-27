@@ -1,3 +1,4 @@
+import { type CargaOptions, parseCargaArgs } from '../carga/options.ts';
 import { SPEEDS, type Speed } from '../players/plan.ts';
 
 export type Command =
@@ -6,6 +7,7 @@ export type Command =
   | { readonly name: 'reiniciar' }
   | { readonly name: 'paso'; readonly id: string; readonly speed: Speed }
   | { readonly name: 'estado' }
+  | { readonly name: 'carga'; readonly options: CargaOptions }
   | { readonly name: 'ayuda' };
 
 export class UsageError extends Error {
@@ -22,6 +24,9 @@ export const USAGE = `Uso: pnpm etl [comando]
   reiniciar                  reinicia la sala y hace la carga inicial
   paso <id>                  carga un paso del guion (s1 s2 s3 s4 x1 x2 s5 s6)
   estado                     muestra cómo va la sala
+  carga [opciones]           simula celulares sondeando la sala y mide cuánto tarda en verse cada cambio
+                             --clientes 30 --minutos 5 --escenario caso|sala --pulsos 1|2 --historial
+                             --ciclo 60 --base <url> --produccion --forzar --json <ruta>
 
 En el modo interactivo: Enter = paso siguiente, a = automático desde aquí,
 r = reiniciar, o = reabrir una disputa, q = salir.
@@ -38,6 +43,11 @@ const speedOf = (raw: string | undefined): Speed => {
 };
 
 export const parseArgs = (argv: readonly string[]): Command => {
+  if (argv[0] === 'carga') {
+    if (argv.slice(1).some((arg) => arg === '--help' || arg === '-h'))
+      return { name: 'ayuda' };
+    return { name: 'carga', options: parseCargaArgs(argv.slice(1)) };
+  }
   const positional: string[] = [];
   let speed: Speed = 1;
   for (let index = 0; index < argv.length; index += 1) {

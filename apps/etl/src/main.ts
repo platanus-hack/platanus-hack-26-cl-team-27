@@ -1,6 +1,7 @@
 import { parseArgs, USAGE, UsageError, type Command } from './cli/args.ts';
 import { Prompt } from './cli/prompt.ts';
 import { Session, type Interrupt } from './cli/session.ts';
+import { CargaAbort, CargaUsageError, runCarga } from './carga/index.ts';
 import { readConfig } from './config.ts';
 import { findPaso, PASOS } from './guion.ts';
 import { Api, ApiError, ApiUnreachable, isBadKey } from './load/api.ts';
@@ -49,6 +50,11 @@ const interactive = async (session: Session, prompt: Prompt): Promise<void> => {
 const run = async (command: Command): Promise<void> => {
   if (command.name === 'ayuda') {
     out(USAGE);
+    return;
+  }
+  if (command.name === 'carga') {
+    const report = await runCarga(command.options, out);
+    if (!report.cumple) process.exitCode = 1;
     return;
   }
   const config = readConfig();
@@ -117,6 +123,8 @@ const run = async (command: Command): Promise<void> => {
 };
 
 const explain = (error: unknown): string => {
+  if (error instanceof CargaUsageError || error instanceof CargaAbort)
+    return error.message;
   if (error instanceof UsageError) return `${error.message}\n\n${USAGE}`;
   if (error instanceof ApiUnreachable) return error.message;
   if (isBadKey(error)) {
