@@ -191,19 +191,23 @@ Nx carga el `.env` de la raíz en cada tarea (plantilla: `.env.example`). La API
 
 ## Tareas de Nx
 
-| Tarea       | Proyecto                  | Qué hace                                                                                            |
-| ----------- | ------------------------- | --------------------------------------------------------------------------------------------------- |
-| `dev`       | web, api                  | `next dev` en `:3000`; `nest start --watch` en `:3001` (primero genera el cliente de Prisma)        |
-| `build`     | web, api                  | `next build`; `nest build` a `apps/api/dist`                                                        |
-| `start`     | web, api                  | Sirve el build: `next start`; `node dist/main.js`                                                   |
-| `generate`  | data-main                 | `prisma generate`, con caché; lo corren antes `dev`, `build`, `test` y `typecheck` de quien depende |
-| `lint`      | todos                     | `eslint .`                                                                                          |
-| `test`      | api, etl, web y contextos | Vitest                                                                                              |
-| `typecheck` | paquetes, api y etl       | `tsc --build`                                                                                       |
+| Tarea       | Proyecto                  | Qué hace                                                                                             |
+| ----------- | ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `dev`       | web, api                  | `next dev` en `:3000`; `nest start --watch` en `:3001` (primero genera el cliente de Prisma)         |
+| `build`     | web, api                  | `next build`; `nest build` a `apps/api/dist`                                                         |
+| `start`     | web, api                  | Sirve el build: `next start`; `node dist/main.js`                                                    |
+| `generate`  | data-main                 | `prisma generate`, con caché; lo corren antes `dev`, `build`, `test` y `typecheck` de quien depende  |
+| `lint`      | todos                     | `eslint .`                                                                                           |
+| `test`      | api, etl, web y contextos | Vitest                                                                                               |
+| `typecheck` | paquetes, api y etl       | `tsc --build`                                                                                        |
+| `test:db`   | api                       | Vitest de `tests-db/` contra Postgres (`TEST_DATABASE_URL`); no entra en `pnpm check` y no usa caché |
 
 - `pnpm check` corre `lint`, `test`, `typecheck` y `build` en todo; es lo mismo que corre la [CI](#ci). `pnpm affected` corre lo mismo, solo en lo que cambió respecto de `main`.
+- `test:db` recrea la base `TEST_DATABASE_URL` (su nombre tiene que terminar en `_test`), migra y siembra Los Aromos, y le pega por HTTP a la API real. Sin la variable se salta con un aviso. `lint` y `typecheck` sí revisan esos archivos. Cómo correrla y qué cubre: [tests contra Postgres](../apps/api/README.md#tests-contra-postgres).
 - `pnpm nx graph` dibuja el grafo de proyectos.
 
 ## CI
 
 [`.github/workflows/check.yml`](../.github/workflows/check.yml) corre `pnpm install --frozen-lockfile` y `pnpm check` en cada push a `main` y en cada pull request, con el Node de `.nvmrc` y el pnpm de `packageManager`. No necesita base de datos: el cliente de Prisma se genera sin conectarse.
+
+El job `api-db` del mismo workflow levanta un servicio `postgres:18-alpine` (con `pg_isready` como healthcheck) y corre `pnpm nx run @team27/api:test:db` con `TEST_DATABASE_URL` apuntando a él. Así, los tests de concurrencia contra Postgres corren en la CI sin entrar en `pnpm check`.

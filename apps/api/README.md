@@ -9,6 +9,7 @@ pnpm dev:api                          # nest start --watch (o pnpm dev, con la w
 pnpm nx run @team27/api:build         # nest build → dist/
 pnpm nx run @team27/api:start         # node dist/main.js
 pnpm nx run @team27/api:test          # Vitest
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5427/team27_test pnpm nx run @team27/api:test:db   # tests contra Postgres
 ```
 
 ## Rutas
@@ -160,6 +161,7 @@ src/
     └── integrations/             los conectores de context-integrations: la vista y el OAuth de Google, las planillas vinculadas, el sondeo y LoggingChangeListener, que deja cada cambio en el log
         └── aps/                  la conexión de una organización con su cuenta de Autodesk (OAuth de tres patas): TokenCipher, el estado sellado, los puertos TokenVault y ApsOAuthClient con sus adapters, ApsConnectionService, el controller y el módulo
 tests/                            replica src/: Vitest, sin base de datos
+tests-db/                         Vitest contra Postgres real, por HTTP (ver más abajo); vitest.db.config.mts los incluye
 ```
 
 - **`CoordinationService`** es el único que conoce los contextos. Antes de la transacción, `ChunkReader` lee con `ExtractClaims` los fragmentos de texto libre (los estructurados pasan tal cual). Una ingesta hace, en una transacción: `IngestRevision`, y con el borrador de la revisión arma la base y el siguiente de todos los elementos que cambian con `elementsFromBaseline`, llama a `DetectChanges` (un cambio por elemento), a `AnalyzeChange` por cada uno y a `NotifyStakeholders` una vez (un aviso por afectado, con sus hallazgos de todos los hunks), y abre la propuesta con `OpenProposal` (revisores: la unión de los afectados; filtrados: los de `impact` que no son revisores). Después corre `ResolveOverlaps`, `OpenOverlaps` y `SettleOverlaps`, que fusiona lo que quedó listo. Un voto pasa por `RecordReview` (que no fusiona con solapamientos vivos), `RespondToNotification` y `SettleOverlaps`; al reabrir, `ReopenProposal` y `ReopenResponse` para quienes disputaron. El voto de un solapamiento pasa por `VoteOverlap` y `SettleOverlaps`.
@@ -205,3 +207,13 @@ Para leer los proyectos de Autodesk Construction Cloud, un administrador de la o
 - **Errores** de `ApsConnectionError`: `not_connected`, `reconnect_required`, `aps_unavailable`, y en el callback `invalid_state`, `access_denied` y `code_rejected`.
 
 Variables, cómo se compone un contexto y por qué Node ejecuta los paquetes del workspace como TypeScript: [arquitectura](../../docs/arquitectura.md).
+
+## Tests contra Postgres
+
+`tests-db/` prueba la API real (`AppModule`, `app.listen(0)` y `fetch`, como los celulares) contra un Postgres de verdad, para lo que los tests normales no ven: carreras entre peticiones. Corre aparte de `pnpm check`, con `pnpm nx run @team27/api:test:db` (depende de `^generate` y `^build`, y no usa caché).
+
+- **`TEST_DATABASE_URL`** es obligatoria. Sin ella, los tests se saltan con un aviso. Su base tiene que terminar en `_test`: si no, el `globalSetup` se niega a correr, porque la borra. En local: `docker exec team27-postgres-1 psql -U postgres -c "CREATE DATABASE team27_test"`.
+- **`globalSetup`** (`tests-db/global-setup.ts`) borra y crea la base (`DROP DATABASE ... WITH (FORCE)`, conectado a la base `postgres` del mismo servidor), aplica las migraciones con `prisma migrate deploy` (con `DATABASE_URL` puesta solo en el proceso hijo) y siembra Los Aromos con `saveOrganization` y `saveProjectDefinition`. `fileParallelism` está apagado: los archivos comparten la base.
+- **Limpieza.** Antes de cada test, `TRUNCATE` de las tablas de runtime (nunca las del proyecto) y un `room_state` vacío en la época 1.
+- **Qué cubre:** `seats.spec.ts` (30 tomas simultáneas del mismo asiento: gana 1 y 29 reciben 409 `seat_taken`; 6 asientos distintos ganan todos; un asiento sin latido por más de `PRESENCE_MS` se toma con un token nuevo y el viejo pasa a 401; `DELETE /seats/:castId`), `votes.spec.ts` (votos de solapamiento simultáneos del mismo asiento y de asientos distintos, idempotencia por `x-action-id`, respuestas a un aviso; el solapamiento sale de cargar el lago de la muestra, `fixtures/lago.json`), `flow.spec.ts` (minutas, aceptaciones y rechazos simultáneos, 30 lecturas de `/flow` durante la aceptación, reinicio del caso) y `room.spec.ts` (el reinicio sube la época, suelta los asientos y no produce 500 con lecturas y sondeos en curso).
+- **`it.fails`.** Un test marcado así documenta un bug real de concurrencia que está sin arreglar y lleva el motivo en su nombre. Cuando se arregla, el test pasa a fallar: quita el `.fails`.
