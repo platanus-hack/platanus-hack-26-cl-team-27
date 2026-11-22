@@ -364,6 +364,16 @@ describe('roles y proyectos', () => {
     expect(projects.map((project) => project.id)).toEqual(['los-aromos']);
   });
 
+  it('entra a un proyecto de su organización y no a uno ajeno', async () => {
+    const { service } = setup();
+    await expect(
+      service.requireProject(memberOf('member'), 'los-aromos'),
+    ).resolves.toBeUndefined();
+    await expect(
+      service.requireProject(memberOf('admin'), 'torre'),
+    ).rejects.toMatchObject({ response: { code: 'not_found' } });
+  });
+
   it('un miembro ve su organización pero no invita; un administrador sí', () => {
     const { service } = setup();
     expect(() =>

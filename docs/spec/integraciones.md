@@ -18,7 +18,7 @@ Que Vigente quede **enlazado** a las planillas donde ya vive la información de 
 
 - **Interpretar la planilla** (por ejemplo, leerla como presupuesto) y entregar sus hechos a la obra como revisiones. Un primer lector del presupuesto quedó fuera del alcance: está en el commit `7f33caa`, por si sirve de punto de partida.
 - **Guardar lo que se escucha.** Hoy el cambio queda en el log de la API y en memoria. Para guardarlo o actuar sobre él basta otro `ChangeListener`.
-- **Organizaciones, proyectos y documentos.** Hay una sola conexión de Google para toda la app (`integration_connections`, con la clave del presentador), y las planillas no pertenecen a una organización, un proyecto ni un documento. Las cuentas y las organizaciones existen ([PH-19](https://linear.app/ph-team-27/issue/PH-19/cuentas-organizaciones-y-roles), `/cuenta`), y la conexión con Autodesk sí es una por organización (`aps_connections`).
+- **Documentos.** Las planillas son de un proyecto y cada cuenta de Google es de quien la conectó ([PH-48](https://linear.app/ph-team-27/issue/PH-48/asociar-las-planillas-conectadas-a-un-usuario-o-a-un-proyecto), ver [de quién es cada cosa](../../context/integrations/README.md#de-quién-es-cada-cosa)), pero una planilla todavía no es un documento del proyecto. La conexión con Autodesk, en cambio, es una por organización (`aps_connections`): Google lee con el permiso de cada persona sobre sus archivos y Autodesk con el de la organización sobre sus proyectos de ACC.
 - **El selector de Google** (Picker) para elegir varios archivos del Drive con el permiso `drive.file`.
 - ACC, Presto, Excel `.xlsx` en Drive, OneDrive y SharePoint.
 
@@ -40,7 +40,7 @@ Para la muestra alcanza con preguntar. Para producción con muchos usuarios, lo 
 ## Lo que sigue
 
 1. **Un `ChangeListener` que guarde o actúe:** por ejemplo, entregar la planilla a la cadena como revisión de un documento, con un lector por formato.
-2. **Planillas por organización y por proyecto**, con la forma de la conexión con Autodesk (una por organización) y un solo cifrado de tokens: hoy Google usa `INTEGRATIONS_ENCRYPTION_KEY` (`TokenCipher` de `context/integrations`) y Autodesk usa `APS_TOKEN_KEY` (AES-256-GCM en `apps/api/src/modules/integrations/aps`). Hay que acordar con el equipo cómo se crea un documento desde un archivo del Drive y quién es su dueño en el elenco.
+2. **La planilla como documento del proyecto.** Ya es del proyecto; falta acordar con el equipo cómo se crea un documento desde un archivo del Drive y quién es su dueño en el elenco. Y un solo cifrado de tokens: hoy Google usa `INTEGRATIONS_ENCRYPTION_KEY` (`TokenCipher` de `context/integrations`) y Autodesk usa `APS_TOKEN_KEY` (AES-256-GCM en `apps/api/src/modules/integrations/aps`).
 3. **El selector de Google con varios archivos y los avisos de Drive**, para producción.
 4. **ACC** ([PH-39](https://linear.app/ph-team-27/issue/PH-39/conector-de-presupuestos-de-acc-cost-management)): el mismo canal, con los tokens de la cuenta de Autodesk que cada organización conecta en `/cuenta` ([PH-25](https://linear.app/ph-team-27/issue/PH-25/conexion-oauth-con-autodesk-aps); `getValidAccessToken` los renueva) y una cuenta de ACC con Cost Management para probar. Un administrador de esa cuenta tiene que agregar el Client ID de la app en Account Admin → Custom Integrations.
 

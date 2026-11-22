@@ -189,6 +189,10 @@ export class AccountsService {
     });
   }
 
+  async requireProject(account: Account, projectId: string): Promise<void> {
+    await this.project(account, projectId);
+  }
+
   async members(organizationId: string) {
     const [memberships, invitations] = await Promise.all([
       this.prisma.membership.findMany({

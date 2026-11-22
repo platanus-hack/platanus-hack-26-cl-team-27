@@ -1,4 +1,4 @@
-import { type Auth, request } from './http';
+import { request } from './http';
 
 export interface SourceView {
   readonly id: string;
@@ -41,44 +41,60 @@ export interface Feedback {
   readonly text: string;
 }
 
+export const CONNECTORS_PATH = '/conectores';
+export const PROJECT_PARAM = 'proyecto';
+
 const BASE = '/api/integrations';
 
+const projectBase = (projectId: string): string =>
+  `${BASE}/projects/${encodeURIComponent(projectId)}`;
+
 export const getConnectors = (
-  auth: Auth,
+  projectId: string,
   signal?: AbortSignal,
 ): Promise<ConnectorsOverview> =>
-  request<ConnectorsOverview>(BASE, { ...auth, signal });
+  request<ConnectorsOverview>(projectBase(projectId), { signal });
 
-export const authorizeGoogle = (auth: Auth): Promise<{ url: string }> =>
+export const authorizeGoogle = (projectId: string): Promise<{ url: string }> =>
   request<{ url: string }>(`${BASE}/google/authorize`, {
-    ...auth,
     method: 'POST',
+    body: { projectId },
   });
 
-export const disconnectGoogle = (auth: Auth): Promise<void> =>
-  request<void>(`${BASE}/google`, { ...auth, method: 'DELETE' });
+export const disconnectGoogle = (): Promise<void> =>
+  request<void>(`${BASE}/google`, { method: 'DELETE' });
 
 export const linkSheet = (
+  projectId: string,
   url: string,
-  auth: Auth,
 ): Promise<{ source: SourceView }> =>
-  request<{ source: SourceView }>(`${BASE}/sources`, {
-    ...auth,
+  request<{ source: SourceView }>(`${projectBase(projectId)}/sources`, {
     method: 'POST',
     body: { url },
   });
 
-export const checkSource = (id: string, auth: Auth): Promise<CheckResponse> =>
-  request<CheckResponse>(`${BASE}/sources/${encodeURIComponent(id)}/check`, {
-    ...auth,
-    method: 'POST',
-  });
+export const checkSource = (
+  projectId: string,
+  id: string,
+): Promise<CheckResponse> =>
+  request<CheckResponse>(
+    `${projectBase(projectId)}/sources/${encodeURIComponent(id)}/check`,
+    { method: 'POST' },
+  );
 
-export const unlinkSource = (id: string, auth: Auth): Promise<void> =>
-  request<void>(`${BASE}/sources/${encodeURIComponent(id)}`, {
-    ...auth,
+export const unlinkSource = (projectId: string, id: string): Promise<void> =>
+  request<void>(`${projectBase(projectId)}/sources/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+
+export const connectorsHref = (projectId: string): string =>
+  `${CONNECTORS_PATH}?${new URLSearchParams({ [PROJECT_PARAM]: projectId }).toString()}`;
+
+export const pickProject = <T extends { readonly id: string }>(
+  projects: readonly T[],
+  requested: string | null,
+): T | null =>
+  projects.find((project) => project.id === requested) ?? projects[0] ?? null;
 
 const CHECK_TONES: Readonly<Record<CheckStatus, FeedbackTone>> = {
   changed: 'success',
