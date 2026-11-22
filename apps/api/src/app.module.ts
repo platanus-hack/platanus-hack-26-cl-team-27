@@ -8,6 +8,7 @@ import { ProjectModule } from './modules/project/project.module.ts';
 import { HealthModule } from './modules/health/health.module.ts';
 import { ApsConnectionModule } from './modules/integrations/aps/aps-connection.module.ts';
 import { IntegrationsModule } from './modules/integrations/integrations.module.ts';
+import { NotificationDeliveryModule } from './modules/notification/notification.module.ts';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { IntegrationsModule } from './modules/integrations/integrations.module.t
     AccountsModule,
     IntegrationsModule,
     ApsConnectionModule,
+    NotificationDeliveryModule,
   ],
 })
 export class AppModule {}

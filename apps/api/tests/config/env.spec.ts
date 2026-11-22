@@ -10,6 +10,8 @@ describe('envSchema', () => {
       GOOGLE_REDIRECT_URI:
         'http://localhost:3000/api/integrations/google/callback',
       INTEGRATIONS_POLL_SECONDS: 60,
+      APP_BASE_URL: 'http://localhost:3000',
+      EMAIL_FROM: 'Vigente <appvigente@gmail.com>',
       INTEGRATIONS_WATCH_HOURS: 24,
       INTEGRATIONS_FALLBACK_SECONDS: 900,
       SUPERADMIN_EMAILS: [],
@@ -32,6 +34,23 @@ describe('envSchema', () => {
     expect(
       envSchema.safeParse({ INTEGRATIONS_WATCH_HOURS: '48' }).success,
     ).toBe(false);
+  });
+
+  it('el correo es opcional y el desvío tiene que ser un correo', () => {
+    expect(
+      envSchema.parse({ GMAIL_REFRESH_TOKEN: '' }).GMAIL_REFRESH_TOKEN,
+    ).toBe(undefined);
+    expect(
+      envSchema.parse({ EMAIL_REDIRECT_TO: 'demo@vigente.example' })
+        .EMAIL_REDIRECT_TO,
+    ).toBe('demo@vigente.example');
+    expect(() => envSchema.parse({ EMAIL_REDIRECT_TO: '#costos' })).toThrow();
+    expect(
+      envSchema.parse({ EMAIL_FROM: '', APP_BASE_URL: ' ' }),
+    ).toMatchObject({
+      EMAIL_FROM: 'Vigente <appvigente@gmail.com>',
+      APP_BASE_URL: 'http://localhost:3000',
+    });
   });
 
   it('los conectores son opcionales y la clave de cifrado pide 16 caracteres', () => {

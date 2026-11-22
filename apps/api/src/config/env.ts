@@ -68,6 +68,14 @@ export const envSchema = z
       (value) => value === undefined || value.length >= 16,
       'la clave de cifrado necesita al menos 16 caracteres',
     ),
+    APP_BASE_URL: blankAsDefault(z.url().default('http://localhost:3000')),
+    GMAIL_CLIENT_ID: optionalText,
+    GMAIL_CLIENT_SECRET: optionalText,
+    GMAIL_REFRESH_TOKEN: optionalText,
+    EMAIL_FROM: blankAsDefault(
+      z.string().trim().min(3).default('Vigente <appvigente@gmail.com>'),
+    ),
+    EMAIL_REDIRECT_TO: optionalText.pipe(z.email().optional()),
     INTEGRATIONS_POLL_SECONDS: blankAsDefault(
       z.coerce.number().int().min(0).max(3600).default(60),
     ),

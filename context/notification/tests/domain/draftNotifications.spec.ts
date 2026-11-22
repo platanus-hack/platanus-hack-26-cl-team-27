@@ -67,6 +67,10 @@ describe('draftNotifications', () => {
       ['costos', 'slack', 2],
     ]);
     expect(drafts[0]?.link).toBe('/proyectos/edificio-norte/cambios/c1');
+    expect(drafts.map((draft) => draft.email)).toEqual([
+      'paula@obra.example',
+      null,
+    ]);
   });
 
   it('ignora a quien no está en el directorio', () => {
