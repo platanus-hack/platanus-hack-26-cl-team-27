@@ -133,6 +133,10 @@ El **índice de consenso** son los documentos al día sobre los documentos total
 - El detalle de un cambio trae `followUp`: cada persona con su respuesta, cuántas veces se le recordó y si se escaló (las objeciones primero), y los avisos que recibió el autor.
 - Eventos: `notice.reminded` y `notice.escalated`.
 
+### Cambio coordinado
+
+Un cambio queda **coordinado** cuando su propuesta se fusiona: todos confirmaron (o dijeron que no les afecta) y sus solapamientos quedaron descartados o resueltos. En la misma transacción, `CoordinationService.track` guarda un aviso de cierre (`closing`) para el autor y para cada persona que recibió un aviso de cambio o de conflicto: el cambio ya está vigente, en qué versión del proyecto, quién confirmó, cómo terminó cada choque y su costo y plazo finales. Una propuesta que se fusiona sin haberle avisado a nadie no manda cierre. El detalle del cambio lo muestra arriba como «Cambio coordinado».
+
 ## Contextos y capas
 
 | Contexto       | Papel                                                                                                                                                                                                                    |
