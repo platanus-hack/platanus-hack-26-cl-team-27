@@ -1,5 +1,4 @@
 import type { EventsResponse, RoomEvent } from './events-api';
-import { REQUEST_TIMEOUT_MS } from './http';
 
 export interface PulseState {
   readonly epoch: number | null;
@@ -66,42 +65,3 @@ export const nextDelay = (
     failures > 0 ? Math.min(BACKOFF_CAP_MS, baseMs * 2 ** failures) : baseMs;
   return Math.max(100, Math.round(backoff + jitter));
 };
-
-export const START_JITTER_MS = 600;
-export const RELOAD_JITTER_MS = 150;
-export const RETRY_BASE_MS = 1000;
-export const RETRY_CAP_MS = 8000;
-
-export const startDelay = (random: () => number = Math.random): number =>
-  Math.floor(random() * START_JITTER_MS);
-
-export const reloadDelay = (random: () => number = Math.random): number =>
-  Math.floor(random() * RELOAD_JITTER_MS);
-
-export const retryDelay = (attempt: number): number =>
-  Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** Math.max(0, attempt));
-
-export const LONG_POLL_WAIT_SECONDS = 10;
-export const LONG_POLL_GAP_MS = 100;
-
-export const supportsLongPoll = (response: EventsResponse): boolean =>
-  response.longPoll === true;
-
-export const waitSecondsFor = (longPoll: boolean, synced: boolean): number =>
-  longPoll && synced ? LONG_POLL_WAIT_SECONDS : 0;
-
-export const longPollTimeoutMs = (waitSeconds: number): number =>
-  waitSeconds * 1000 + REQUEST_TIMEOUT_MS;
-
-export const longPollGap = (random: () => number = Math.random): number =>
-  Math.floor(random() * (LONG_POLL_GAP_MS + 1));
-
-export const nextPulseDelay = (
-  intervalMs: number,
-  failures: number,
-  longPoll: boolean,
-  random: () => number = Math.random,
-): number =>
-  longPoll && failures === 0
-    ? longPollGap(random)
-    : nextDelay(intervalMs, failures, random);

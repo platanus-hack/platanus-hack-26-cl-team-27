@@ -1,16 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import {
-  ApiError,
-  buildHeaders,
-  describeError,
-  isAbort,
-  newActionId,
-  parseError,
-  request,
-  RequestTimeoutError,
-  withDeadline,
-} from './http';
+import { ApiError, buildHeaders, describeError, parseError } from './http';
 
 describe('buildHeaders', () => {
   it('manda el token del asiento, la clave y el id de acción', () => {
@@ -65,107 +55,5 @@ describe('describeError', () => {
       'no le toca a tu asiento',
     );
     expect(describeError(new TypeError('fetch failed'))).toContain('conexión');
-  });
-});
-
-describe('newActionId', () => {
-  it('usa randomUUID si existe', () => {
-    expect(
-      newActionId({ randomUUID: () => 'fijo', getRandomValues: (a) => a }),
-    ).toBe('fijo');
-  });
-
-  it('arma un UUID v4 con getRandomValues si falta randomUUID', () => {
-    const id = newActionId({
-      getRandomValues: (array) => {
-        (array as unknown as Uint8Array).fill(255);
-        return array;
-      },
-    });
-    expect(id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
-  });
-});
-
-describe('withDeadline', () => {
-  afterEach(() => vi.useRealTimers());
-
-  it('aborta y avisa al vencer el plazo', () => {
-    vi.useFakeTimers();
-    const deadline = withDeadline(undefined, 10_000);
-    vi.advanceTimersByTime(9_999);
-    expect(deadline.signal.aborted).toBe(false);
-    vi.advanceTimersByTime(1);
-    expect(deadline.signal.aborted).toBe(true);
-    expect(deadline.timedOut()).toBe(true);
-  });
-
-  it('propaga la señal del llamador sin contar como timeout', () => {
-    vi.useFakeTimers();
-    const caller = new AbortController();
-    const deadline = withDeadline(caller.signal);
-    caller.abort();
-    expect(deadline.signal.aborted).toBe(true);
-    expect(deadline.timedOut()).toBe(false);
-    deadline.dispose();
-  });
-
-  it('no aborta tras dispose', () => {
-    vi.useFakeTimers();
-    const deadline = withDeadline(undefined, 100);
-    deadline.dispose();
-    vi.advanceTimersByTime(500);
-    expect(deadline.signal.aborted).toBe(false);
-  });
-});
-
-describe('request', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.unstubAllGlobals();
-  });
-
-  it('lanza RequestTimeoutError si la respuesta no llega', async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal(
-      'fetch',
-      (_path: string, init: RequestInit) =>
-        new Promise((_, reject) => {
-          init.signal?.addEventListener('abort', () =>
-            reject(new DOMException('abort', 'AbortError')),
-          );
-        }),
-    );
-    const result = request('/api/x').catch((error: unknown) => error);
-    await vi.advanceTimersByTimeAsync(10_000);
-    const error = await result;
-    expect(error).toBeInstanceOf(RequestTimeoutError);
-    expect(isAbort(error)).toBe(false);
-  });
-
-  it('una escritura espera 30 s antes de vencer y su vencimiento tiene su propio mensaje', async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal(
-      'fetch',
-      (_path: string, init: RequestInit) =>
-        new Promise((_, reject) => {
-          init.signal?.addEventListener('abort', () =>
-            reject(new DOMException('abort', 'AbortError')),
-          );
-        }),
-    );
-    let settled = false;
-    const result = request('/api/x', { method: 'POST', body: {} })
-      .catch((error: unknown) => error)
-      .finally(() => {
-        settled = true;
-      });
-    await vi.advanceTimersByTimeAsync(10_000);
-    expect(settled).toBe(false);
-    await vi.advanceTimersByTimeAsync(20_000);
-    const error = await result;
-    expect(error).toBeInstanceOf(RequestTimeoutError);
-    expect(describeError(error)).toMatch(/tardó más de lo normal/);
   });
 });

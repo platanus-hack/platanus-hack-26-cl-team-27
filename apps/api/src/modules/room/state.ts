@@ -10,9 +10,10 @@ export const readState = async (
   db: Prisma.TransactionClient,
   projectId: string,
 ): Promise<RoomStateView> => {
-  const found = await db.roomState.findUnique({ where: { projectId } });
-  if (found) return { epoch: found.epoch };
-  await db.roomState.createMany({ data: [{ projectId }], skipDuplicates: true });
-  const row = await db.roomState.findUniqueOrThrow({ where: { projectId } });
+  const row = await db.roomState.upsert({
+    where: { projectId },
+    create: { projectId },
+    update: {},
+  });
   return { epoch: row.epoch };
 };

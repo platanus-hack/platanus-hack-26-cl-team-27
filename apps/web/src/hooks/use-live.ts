@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { describeError, isAbort } from '@/lib/http';
 import type { RoomEvent } from '@/lib/events-api';
-import { reloadDelay, retryDelay } from '@/lib/pulse';
 
 import { useRoomPulse, type PulseStatus } from './use-room-pulse';
 
@@ -15,7 +14,6 @@ export interface LiveOptions<T> {
   readonly castId?: string | null;
   readonly seatToken?: string | null;
   readonly enabled?: boolean;
-  readonly poll?: boolean;
   readonly onReset?: () => void;
 }
 
@@ -41,7 +39,6 @@ export const useLive = <T>({
   castId = null,
   seatToken = null,
   enabled = true,
-  poll = true,
   onReset,
 }: LiveOptions<T>): Live<T> => {
   const [slot, setSlot] = useState<Slot<T>>({
@@ -51,36 +48,20 @@ export const useLive = <T>({
   });
   const loader = useRef(load);
   const current = useRef<AbortController | null>(null);
-  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const attempts = useRef(0);
-  const retryWaiting = useRef(false);
 
   useEffect(() => {
     loader.current = load;
   });
 
-  const clearTimers = useCallback(() => {
-    if (reloadTimer.current) clearTimeout(reloadTimer.current);
-    if (retryTimer.current) clearTimeout(retryTimer.current);
-    reloadTimer.current = null;
-    retryTimer.current = null;
-    retryWaiting.current = false;
-  }, []);
-
   const reload = useCallback(() => {
     current.current?.abort();
-    if (retryTimer.current) clearTimeout(retryTimer.current);
-    retryTimer.current = null;
-    retryWaiting.current = false;
     const controller = new AbortController();
     current.current = controller;
     loader
       .current(controller.signal)
       .then((data) => {
-        if (controller.signal.aborted) return;
-        attempts.current = 0;
-        setSlot({ data, error: null, loading: false });
+        if (!controller.signal.aborted)
+          setSlot({ data, error: null, loading: false });
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted || isAbort(error)) return;
@@ -89,47 +70,23 @@ export const useLive = <T>({
           error: describeError(error),
           loading: false,
         }));
-        const delay = retryDelay(attempts.current);
-        attempts.current += 1;
-        retryTimer.current = setTimeout(() => {
-          retryTimer.current = null;
-          if (document.hidden) retryWaiting.current = true;
-          else reload();
-        }, delay);
       });
   }, []);
 
-  const reloadSoon = useCallback(() => {
-    if (reloadTimer.current) clearTimeout(reloadTimer.current);
-    reloadTimer.current = setTimeout(() => {
-      reloadTimer.current = null;
-      reload();
-    }, reloadDelay());
-  }, [reload]);
-
   useEffect(() => {
-    attempts.current = 0;
     reload();
-    const onVisibility = () => {
-      if (!document.hidden && retryWaiting.current) reload();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      clearTimers();
-      current.current?.abort();
-    };
-  }, [reload, clearTimers, dependencyKey]);
+    return () => current.current?.abort();
+  }, [reload, dependencyKey]);
 
   const { events, status } = useRoomPulse({
     intervalMs,
     castId,
     seatToken,
-    enabled: enabled && poll,
-    onEvents: reloadSoon,
+    enabled,
+    onEvents: reload,
     onReset: () => {
       if (onReset) onReset();
-      else reloadSoon();
+      else reload();
     },
   });
 

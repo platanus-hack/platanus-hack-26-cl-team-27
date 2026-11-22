@@ -9,10 +9,8 @@
       "!{projectRoot}/eslint.config.mjs",
       "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
       "!{projectRoot}/tests/**/*",
-      "!{projectRoot}/tests-db/**/*",
       "!{projectRoot}/tsconfig.spec.json",
-      "!{projectRoot}/vitest.config.mts",
-      "!{projectRoot}/vitest.db.config.mts"
+      "!{projectRoot}/vitest.config.mts"
     ],
     "sharedGlobals": [
       "{workspaceRoot}/tsconfig.base.json",

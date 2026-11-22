@@ -20,18 +20,6 @@
           "{workspaceRoot}/tool-use-case/revit/contract/minuta.example.json"
         ]
       },
-      "test:db": {
-        "executor": "nx:run-commands",
-        "cache": false,
-        "options": {
-          "command": "vitest run --config vitest.db.config.mts",
-          "cwd": "{projectRoot}"
-        },
-        "dependsOn": [
-          "^generate",
-          "^build"
-        ]
-      },
       "build": {
         "cache": true,
         "inputs": [

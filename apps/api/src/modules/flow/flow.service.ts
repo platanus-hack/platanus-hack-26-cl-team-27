@@ -2,8 +2,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { PrismaClient } from '@team27/data-main';
 
 import { CASE_ATTRIBUTE, caseSubject } from '../../scenario/caso-p12.ts';
-import { KeyedMemo, type Resolved } from '../database/keyed-memo.ts';
-import { PRISMA_CLIENT } from '../database/prisma-token.ts';
 import { UnitOfWork } from '../database/unit-of-work.ts';
 import { buildLake } from '../lake/lake.module.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
@@ -33,8 +31,6 @@ import {
   seedCase,
 } from './flow-lake.ts';
 
-type History = ReturnType<typeof buildHistory>;
-
 interface Scope {
   readonly db: PrismaClient;
   readonly lake: Lake;
@@ -58,129 +54,40 @@ const relink = (
     return { ...event, refs };
   });
 
-class StaleSeed extends Error {}
-
-const MAX_ATTEMPTS = 3;
-
 @Injectable()
 export class FlowService {
-  private readonly prisma: PrismaClient;
   private readonly uow: UnitOfWork;
   private readonly seats: SeatsService;
   private readonly project: ProjectCatalog;
-  private readonly stores = new KeyedMemo<FlowStore>();
-  private readonly histories = new KeyedMemo<History>();
   private seen: FlowStore['presence'] = new Map();
   private seenEpoch = -1;
-  private seeded = -1;
-  private seeding: Promise<void> | null = null;
 
   constructor(
-    @Inject(PRISMA_CLIENT) prisma: PrismaClient,
     @Inject(UnitOfWork) uow: UnitOfWork,
     @Inject(SeatsService) seats: SeatsService,
     @Inject(PROJECT_CATALOG) project: ProjectCatalog,
   ) {
-    this.prisma = prisma;
     this.uow = uow;
     this.seats = seats;
     this.project = project;
   }
 
-  private syncSeen(epoch: number): void {
-    if (epoch !== this.seenEpoch) {
-      this.seen = new Map();
-      this.seenEpoch = epoch;
-    }
-  }
-
   private scoped<T>(work: (scope: Scope) => Promise<T>): Promise<T> {
-    let seededAt = this.seeded;
-    return this.uow
-      .run(async (db) => {
-        const lake = buildLake(db, this.project);
-        const { epoch } = await readState(db, this.project.id);
-        if (epoch !== this.seeded) await seedCase(lake);
-        seededAt = epoch;
-        this.syncSeen(epoch);
-        return work({
-          db,
-          lake,
-          epoch,
-          store: () => loadStore(lake, epoch, this.project, this.seen),
-        });
-      })
-      .then((result) => {
-        this.seeded = seededAt;
-        return result;
-      });
-  }
-
-  private async peek(): Promise<{ epoch: number | null; cursor: number }> {
-    const [state, aggregate] = await Promise.all([
-      this.prisma.roomState.findUnique({
-        where: { projectId: this.project.id },
-      }),
-      this.prisma.roomEvent.aggregate({
-        where: { projectId: this.project.id },
-        _max: { seq: true },
-      }),
-    ]);
-    return { epoch: state?.epoch ?? null, cursor: aggregate._max.seq ?? 0 };
-  }
-
-  private ensureSeeded(epoch: number | null): Promise<void> {
-    if (epoch !== null && epoch === this.seeded) return Promise.resolve();
-    this.seeding ??= this.uow
-      .run(async (db) => {
-        const lake = buildLake(db, this.project);
-        const state = await readState(db, this.project.id);
-        if (state.epoch !== this.seeded) await seedCase(lake);
-        return state.epoch;
-      })
-      .then((seeded) => {
-        this.seeded = seeded;
-      })
-      .finally(() => {
-        this.seeding = null;
-      });
-    return this.seeding;
-  }
-
-  private keyOf(epoch: number | null, cursor: number): string {
-    return `${this.project.id}:${epoch ?? 'none'}:${cursor}`;
-  }
-
-  private async derived<V>(
-    memo: KeyedMemo<V>,
-    build: (db: PrismaClient, epoch: number) => Promise<V>,
-  ): Promise<V> {
-    for (let attempt = 1; ; attempt++) {
-      const { epoch, cursor } = await this.peek();
-      await this.ensureSeeded(epoch);
-      try {
-        return await memo.get(this.keyOf(epoch, cursor), () =>
-          this.uow.read(async (db): Promise<Resolved<V>> => {
-            const state = await db.roomState.findUnique({
-              where: { projectId: this.project.id },
-            });
-            const aggregate = await db.roomEvent.aggregate({
-              where: { projectId: this.project.id },
-              _max: { seq: true },
-            });
-            if (!state || state.epoch !== this.seeded) throw new StaleSeed();
-            return {
-              key: this.keyOf(state.epoch, aggregate._max.seq ?? 0),
-              value: await build(db, state.epoch),
-            };
-          }),
-        );
-      } catch (error) {
-        if (!(error instanceof StaleSeed) || attempt >= MAX_ATTEMPTS) {
-          throw error;
-        }
+    return this.uow.run(async (db) => {
+      const lake = buildLake(db, this.project);
+      await seedCase(lake);
+      const { epoch } = await readState(db, this.project.id);
+      if (epoch !== this.seenEpoch) {
+        this.seen = new Map();
+        this.seenEpoch = epoch;
       }
-    }
+      return work({
+        db,
+        lake,
+        epoch,
+        store: () => loadStore(lake, epoch, this.project, this.seen),
+      });
+    });
   }
 
   private async view(store: FlowStore): Promise<FlowState> {
@@ -188,16 +95,12 @@ export class FlowService {
   }
 
   async state(): Promise<FlowState> {
-    const store = await this.derived(this.stores, (db, epoch) =>
-      loadStore(buildLake(db, this.project), epoch, this.project, new Map()),
-    );
-    this.syncSeen(store.epoch);
-    return this.view({ ...store, presence: this.seen });
+    const store = await this.scoped((scope) => scope.store());
+    return this.view(store);
   }
 
   async history() {
-    return this.derived(this.histories, async (db, epoch) => {
-      const lake = buildLake(db, this.project);
+    return this.scoped(async ({ lake, epoch }) => {
       const subjects = ['P-12', 'E-B-03'].map(caseSubject);
       const provenances = new Map(
         await Promise.all(

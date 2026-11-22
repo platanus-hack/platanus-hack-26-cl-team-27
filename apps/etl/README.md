@@ -198,58 +198,6 @@ El orden de la tabla es el del modo automático: s1, s2, s3, s4, x1, x2, x3, s5,
 - **Personas primero:** si la API responde `seat_held`, el ETL no insiste: ese voto es de la persona.
 - **Velocidad:** `--velocidad 1|2|4` divide todos los retardos y la pausa de 3 s entre pasos.
 
-## La carga: 30 celulares
-
-`pnpm etl carga` simula un público de celulares contra la API y mide cuánto tarda cada cambio en verse. Cada espectador y cada actor piden `GET /api/events` con cursor y época como el cliente de hoy: la primera sin `wait`, y si la API anuncia `longPoll`, las siguientes con `wait=10` (timeout de `wait` + 10 s) y la siguiente a los 0 a 100 ms; si no lo anuncia, o con `--espera 0`, sondeo corto (1000 ms ±150 ms en `/caso`, 700 ms en `/sala`, backoff de 2 s y 3 s ante un error, timeout de 10 s por petición) y, ante eventos nuevos o un reinicio, recarga lo que recarga su pantalla. No usa dependencias nuevas: `fetch`, `AbortSignal.timeout` y `crypto.randomUUID`.
-
-```bash
-pnpm etl carga                                          # 30 clientes, 5 min, escenario caso
-pnpm etl carga --clientes 10 --minutos 1 --ciclo 25     # una pasada corta
-pnpm etl carga --escenario sala --json informe.json
-pnpm etl carga --base https://<api>/api --produccion    # contra otra API
-```
-
-| Opción         | Por defecto                 | Qué hace                                                                                       |
-| -------------- | --------------------------- | ---------------------------------------------------------------------------------------------- |
-| `--clientes`   | 30                          | Espectadores sin asiento                                                                       |
-| `--minutos`    | 5                           | Duración total                                                                                 |
-| `--escenario`  | `caso`                      | `caso` o `sala`: qué se simula                                                                 |
-| `--pulsos`     | 1                           | `1` o `2`. Con 2, cada espectador corre además un segundo bucle que recarga `/flow/history`    |
-| `--historial`  | apagado                     | Recarga también `/flow/history` en el bucle único                                              |
-| `--ciclo`      | 60                          | Segundos entre el inicio de un ciclo y el siguiente (un ciclo dura unos 30 s)                  |
-| `--espera`     | 10                          | Segundos de `wait` en `/events` si la API anuncia espera larga (0 a 10). `0` fuerza el sondeo corto |
-| `--base`       | `http://localhost:3001/api` | URL de la API, con `/api`                                                                      |
-| `--produccion` | apagado                     | Obligatorio si la base no es `localhost` ni `127.0.0.1`; sin él, el comando se niega           |
-| `--forzar`     | apagado                     | Corre aunque haya alguien conectado o un caso abierto                                          |
-| `--json`       | sin informe                 | Ruta donde escribe el informe en JSON                                                          |
-
-`PRESENTER_KEY` sale del entorno; solo si la base es local usa `sala-los-aromos` por defecto. `API_URL` no se usa: la base va en `--base`.
-
-### Escenario `caso`
-
-Antes de empezar lee `GET /flow` y `GET /room`: si hay alguien conectado, un asiento tomado o el caso abierto, aborta (salvo `--forzar`). Toma los asientos `paula-rojas` y `camila-vera`, que también sondean con su token para mantener el latido, y Camila manda `POST /flow/presence` con `viewing: propuesta` cada 8 s. Después lanza los espectadores, cada uno con un retraso inicial al azar de 0 a 1000 ms, y repite ciclos:
-
-1. Paula manda `POST /flow/minutes` con la minuta de P-12 (+0,40 m en y). Se mide hasta que el `/flow` recargado de cada espectador muestra la propuesta en estado `propuesta`.
-2. A los 10 s Camila acepta (`POST /flow/proposals/:id/accept`). Se mide hasta ver la propuesta `resuelta`.
-3. A los 10 s el presentador reinicia (`POST /flow/reset`). Se mide hasta ver el caso limpio.
-
-Al terminar, también con Ctrl+C o ante un error, reinicia el caso y suelta los asientos (`DELETE /api/seats/:castId`).
-
-### Escenario `sala`
-
-Los espectadores sondean a 700 ms y, ante eventos, recargan `GET /room`, `/baseline`, `/spaces` y `/proposals?status=active`. Un actor toma y suelta un asiento libre del elenco (no `paula-rojas`, `camila-vera` ni el de Fernanda). Se mide hasta que el `/room` recargado de cada espectador muestra el asiento ocupado y, después, libre. Aborta si hay asientos con gente (salvo `--forzar`).
-
-No produce votos. Un voto real (`POST /api/overlaps/:id/vote` o `POST /api/notifications/:id/response`) necesita un solapamiento o un aviso abierto, que solo existen después de cargar documentos del lago con la clave del presentador; hacerlo desde el script dejaría datos de prueba en la sala y exigiría tomar asientos de revisores. Tomar o soltar un asiento usa el mismo canal de eventos y la misma recarga, así que mide el mismo camino de lectura.
-
-### Cómo leer el informe
-
-- **Por endpoint:** cantidad de llamadas, errores por código (`500×2`; `timeout` y `red` son llamadas sin respuesta) y p50, p95, p99 y máximo de la latencia de la petición.
-- **Peticiones por segundo:** la línea `GET /events: N peticiones por segundo` divide las peticiones de `/events` por la duración de la corrida. Con espera larga, la latencia de `/events` en la tabla por endpoint incluye lo que la petición esperó (hasta 10 s): no es un costo, mide cuánto aguantó abierta.
-- **Por acción:** `propuesta`, `resuelto` y `reinicio` en `caso`; `asiento tomado` y `asiento soltado` en `sala`. `vistas` es cuántas veces lo vio un espectador, de las esperadas (espectadores por ciclos). La latencia corre desde justo antes de mandar la acción hasta que la recarga de ese espectador la refleja, y lo que no se vio cuenta como fallo en `bajo 2 s`.
-- **Línea final:** `30 clientes · 5 min · todo se ve en < 2 s: ✓/✗`. Es ✓ solo si todo lo esperado se vio en menos de 2 s; con ✗ el comando sale con código 1.
-
-Contra producción (`--produccion`) hazlo sin nadie conectado: el script toma los asientos de Paula y Camila, reinicia el caso en cada ciclo y le suma a la API la carga de todos los clientes.
-
 ## Estructura
 
 ```text
@@ -264,7 +212,6 @@ apps/etl/
     extract/            lectura del lago y sha256
     transform/          un parser por tipo, que devuelve fragmentos
     load/               cliente HTTP de la API y x-action-id
-    carga/              el comando carga: opciones, cliente con timeout, sondeo, escenarios, medición e informe
     players/            plan.ts (puro) y players.ts (E/S)
     cli/                argumentos, sesión, formato y entrada de teclado
   tests/                Vitest, incluida la prueba de oro

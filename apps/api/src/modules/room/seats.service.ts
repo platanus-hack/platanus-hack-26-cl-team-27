@@ -8,12 +8,9 @@ import type { Env } from '../../config/index.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
 import { PROJECT_CATALOG } from '../project/project.module.ts';
 import { fail } from '../coordination/http-errors.ts';
-import { ChangeSignal } from '../database/change-signal.ts';
 import { PRISMA_CLIENT } from '../database/prisma-token.ts';
 import { emitEvents } from './events.ts';
 import { PRESENCE_MS } from './state.ts';
-
-export const HEARTBEAT_MIN_MS = 5_000;
 
 export const SEAT_TOKEN_HEADER = 'x-seat-token';
 export const PRESENTER_KEY_HEADER = 'x-presenter-key';
@@ -45,15 +42,12 @@ export class SeatsService {
   private readonly prisma: PrismaClient;
   private readonly presenterKey: string;
   private readonly project: ProjectCatalog;
-  private readonly signal: ChangeSignal;
 
   constructor(
     @Inject(PRISMA_CLIENT) prisma: PrismaClient,
     @Inject(ConfigService) config: ConfigService<Env, true>,
     @Inject(PROJECT_CATALOG) project: ProjectCatalog,
-    @Inject(ChangeSignal) signal: ChangeSignal,
   ) {
-    this.signal = signal;
     this.prisma = prisma;
     this.presenterKey = config.get('PRESENTER_KEY', { infer: true });
     this.project = project;
@@ -160,17 +154,12 @@ export class SeatsService {
       },
     });
     if (!seat) return null;
-    if (Date.now() - seat.lastBeatAt.getTime() >= HEARTBEAT_MIN_MS) {
-      const { count } = await this.prisma.seat.updateMany({
-        where: {
-          projectId: this.project.id,
-          castId: seat.castId,
-          tokenHash: seat.tokenHash,
-        },
-        data: { lastBeatAt: new Date() },
-      });
-      if (count === 0) return null;
-    }
+    await this.prisma.seat.update({
+      where: {
+        projectId_castId: { projectId: this.project.id, castId: seat.castId },
+      },
+      data: { lastBeatAt: new Date() },
+    });
     return seat.castId;
   }
 
@@ -239,7 +228,6 @@ export class SeatsService {
         refs: { castId },
       },
     ]);
-    this.signal.notify();
     return { castId, token };
   }
 
@@ -265,7 +253,6 @@ export class SeatsService {
           refs: { castId },
         },
       ]);
-      this.signal.notify();
     }
   }
 }

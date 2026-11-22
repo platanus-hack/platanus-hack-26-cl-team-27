@@ -21,7 +21,6 @@ export interface RequestOptions extends Auth {
   readonly body?: unknown;
   readonly signal?: AbortSignal;
   readonly write?: boolean;
-  readonly timeoutMs?: number;
 }
 
 export const SEAT_HEADER = 'x-seat-token';
@@ -29,71 +28,7 @@ export const PRESENTER_HEADER = 'x-presenter-key';
 export const ACT_AS_HEADER = 'x-act-as';
 export const ACTION_HEADER = 'x-action-id';
 
-export const REQUEST_TIMEOUT_MS = 10_000;
-
-export const WRITE_TIMEOUT_MS = 30_000;
-
-export class RequestTimeoutError extends Error {
-  constructor() {
-    super('request_timeout');
-    this.name = 'RequestTimeoutError';
-  }
-}
-
-export interface RandomSource {
-  readonly randomUUID?: () => string;
-  readonly getRandomValues: <T extends ArrayBufferView>(array: T) => T;
-}
-
-const HEX = Array.from({ length: 256 }, (_, index) =>
-  index.toString(16).padStart(2, '0'),
-);
-
-export const newActionId = (
-  source: RandomSource = globalThis.crypto,
-): string => {
-  if (typeof source.randomUUID === 'function') return source.randomUUID();
-  const bytes = source.getRandomValues(new Uint8Array(16));
-  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
-  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
-  const hex = Array.from(bytes, (byte) => HEX[byte] ?? '00');
-  return [
-    hex.slice(0, 4).join(''),
-    hex.slice(4, 6).join(''),
-    hex.slice(6, 8).join(''),
-    hex.slice(8, 10).join(''),
-    hex.slice(10, 16).join(''),
-  ].join('-');
-};
-
-export interface Deadline {
-  readonly signal: AbortSignal;
-  readonly timedOut: () => boolean;
-  readonly dispose: () => void;
-}
-
-export const withDeadline = (
-  caller: AbortSignal | undefined,
-  timeoutMs: number = REQUEST_TIMEOUT_MS,
-): Deadline => {
-  const controller = new AbortController();
-  let expired = false;
-  const onCallerAbort = () => controller.abort();
-  if (caller?.aborted) controller.abort();
-  else caller?.addEventListener('abort', onCallerAbort, { once: true });
-  const timer = setTimeout(() => {
-    expired = true;
-    controller.abort();
-  }, timeoutMs);
-  return {
-    signal: controller.signal,
-    timedOut: () => expired,
-    dispose: () => {
-      clearTimeout(timer);
-      caller?.removeEventListener('abort', onCallerAbort);
-    },
-  };
-};
+export const newActionId = (): string => crypto.randomUUID();
 
 export const buildHeaders = ({
   seatToken,
@@ -145,31 +80,18 @@ export const request = async <T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> => {
-  const { method = 'GET', body, signal, timeoutMs } = options;
-  const deadline = withDeadline(
+  const { method = 'GET', body, signal } = options;
+  const response = await fetch(path, {
+    method,
+    headers: buildHeaders({
+      ...options,
+      write: options.write ?? method !== 'GET',
+    }),
+    body: body === undefined ? undefined : JSON.stringify(body),
+    cache: 'no-store',
     signal,
-    timeoutMs ?? (method === 'GET' ? REQUEST_TIMEOUT_MS : WRITE_TIMEOUT_MS),
-  );
-  let text: string;
-  let response: Response;
-  try {
-    response = await fetch(path, {
-      method,
-      headers: buildHeaders({
-        ...options,
-        write: options.write ?? method !== 'GET',
-      }),
-      body: body === undefined ? undefined : JSON.stringify(body),
-      cache: 'no-store',
-      signal: deadline.signal,
-    });
-    text = await response.text();
-  } catch (error) {
-    if (deadline.timedOut()) throw new RequestTimeoutError();
-    throw error;
-  } finally {
-    deadline.dispose();
-  }
+  });
+  const text = await response.text();
   if (!response.ok) throw parseError(response.status, text);
   return (text ? JSON.parse(text) : undefined) as T;
 };
@@ -222,7 +144,5 @@ export const describeError = (error: unknown): string => {
     return error.message;
   }
   if (isAbort(error)) return '';
-  if (error instanceof RequestTimeoutError)
-    return 'La sala tardó más de lo normal en responder. Si era un cambio, revisa si ya quedó antes de repetirlo.';
   return 'No pudimos hablar con la sala. Revisa tu conexión.';
 };

@@ -44,7 +44,6 @@ pnpm dev                            # API en http://localhost:3001/api y web en 
 pnpm dev:api | pnpm dev:web
 pnpm etl                            # carga y juega la muestra: Enter = paso siguiente (ver apps/etl/README.md)
 pnpm etl auto [--velocidad 1|2|4] | reiniciar | paso <id> | estado
-pnpm etl carga [--clientes 30] [--minutos 5] [--escenario caso|sala]  # simula celulares y mide cuánto tarda en verse cada cambio (ver apps/etl/README.md)
 pnpm aps:check                      # prueba las credenciales y el bucket de APS (solo éxito o fallo y HTTP)
 pnpm aps:models [--force] [--carpeta <ruta>]  # sube a APS y traduce a SVF2 los .rvt de apps/aps/models
 pnpm db:studio                      # Prisma Studio

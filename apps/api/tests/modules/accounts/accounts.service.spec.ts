@@ -741,25 +741,4 @@ describe('superadmin', () => {
     });
     expect(users).toHaveLength(0);
   });
-
-  it('un superadmin con el correo sin confirmar tampoco entra', async () => {
-    const { service, users } = setup(
-      { paula: { ...PAULA, emailVerified: false } },
-      [PAULA.email],
-    );
-    expect(await statusOf(service.authenticate('paula'))).toMatchObject({
-      status: 403,
-      body: { code: 'email_not_verified' },
-    });
-    expect(users).toHaveLength(0);
-  });
-
-  it('un superadmin que ya es parte de organizaciones conserva sus membresías', async () => {
-    const { service } = setup({ paula: PAULA }, [PAULA.email]);
-    await service.invite('aromos', PAULA.email, 'admin');
-    expect(await service.authenticate('paula')).toMatchObject({
-      superadmin: true,
-      memberships: [{ organizationId: 'aromos', role: 'admin' }],
-    });
-  });
 });

@@ -9,12 +9,7 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["vitest/globals", "node", "vitest"]
   },
-  "include": [
-    "vitest.config.mts",
-    "vitest.db.config.mts",
-    "tests/**/*.ts",
-    "tests-db/**/*.ts"
-  ],
+  "include": ["vitest.config.mts", "tests/**/*.ts"],
   "references": [
     {
       "path": "./tsconfig.app.json"

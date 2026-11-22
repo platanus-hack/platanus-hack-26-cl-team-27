@@ -133,7 +133,7 @@ sequenceDiagram
 - **La API no siembra ni sabe que existe una demo.** Recibe revisiones por `POST /api/revisions` y la carga inicial por `POST /api/lake/seed` (solo con el lago vacío). `POST /api/room/reset` (con `x-presenter-key`) borra todas las tablas en una transacción, suma uno a la época y libera los asientos; el lago queda vacío. Quien carga y juega la muestra es el ETL (`apps/etl`, ver su [README](../apps/etl/README.md)): lee archivos del lago ficticio, extrae hechos con parsers deterministas y los entrega a la API como un cliente más, con la clave del presentador y `x-act-as` para actuar por los asientos que nadie tomó (la API responde 409 `seat_held` si una persona lo tiene).
 - **La sala es un módulo de la API, no un contexto.** `modules/room` lleva asientos y eventos, y llama al orquestador `coordination`, nunca a los contextos. Es infraestructura de la muestra.
   - **Asientos.** Un celular toma un asiento con `POST /api/seats/:castId/claim` y recibe un token que se guarda hasheado (SHA-256) y viaja en `x-seat-token`. La presentadora actúa como Fernanda con `x-presenter-key`.
-  - **Tiempo real.** Espera larga con cursor en `GET /api/events?wait=<0 a 10>` (sin `wait`, sondeo corto): un `EventsHub` vigila una vez por proyecto y reparte los eventos nuevos entre las esperas, con un aviso inmediato tras cada mutación confirmada. Cada transición del orquestador inserta filas de `room_events` en su misma transacción. La petición con `x-seat-token` es el latido; un asiento sin latido por 20 s queda libre.
+  - **Tiempo real.** Sondeo corto con cursor en `GET /api/events`: cada transición del orquestador inserta filas de `room_events` en su misma transacción. La petición con `x-seat-token` es el latido; un asiento sin latido por 20 s queda libre.
 - **Los conectores reales viven en `integrations`.** `modules/integrations` compone [`context/integrations`](../context/integrations/README.md): conecta la cuenta de Google de cada persona, vincula planillas a un proyecto por su link y las revisa cuando Google avisa que alguien las editó (avisos de Drive, con `GOOGLE_WEBHOOK_URL`) o, sin avisos, cada `INTEGRATIONS_POLL_SECONDS`. Las rutas van con la cuenta (`AccountGuard`) y cada proyecto ve solo sus planillas. Es un canal de conexión y escucha: cuando una planilla cambia, deja en el log de la API qué celdas cambiaron, sin interpretarlas ni entregarlas a la cadena. También recibe los webhooks de Autodesk en `POST /api/integrations/autodesk/webhooks`, sin cuenta: verifica la firma sobre el cuerpo crudo (la app se crea con `rawBody`), descarta los repetidos con la tabla `autodesk_events` y deja cada aviso nuevo en el log ([cambios en Autodesk](spec/cambios-autodesk.md#el-receptor)). El add-in de Revit es el otro conector real y llega por `POST /api/integrations/revit/minutes`.
 - **APS es un módulo de la API, no un contexto.** `modules/aps` entrega el token del visor y la lista de modelos traducidos, que le pide en vivo al bucket de APS (`APS_BUCKET_KEY`): la API no guarda un catálogo. Quien sube y traduce los modelos es la CLI `apps/aps`, que no importa nada de la API.
 - **La conexión con Autodesk también es un módulo de la API.** `modules/integrations/aps` guarda, por organización, la cuenta de Autodesk que conectó un administrador (OAuth de tres patas) para leer sus proyectos de Autodesk Construction Cloud. Sus puertos (`TokenVault` y `ApsOAuthClient`) viven en el módulo con sus adapters (`PrismaTokenVault` y `SdkApsOAuthClient`): no es un contexto porque no tiene reglas del dominio de la obra, solo credenciales. Los tokens van cifrados con AES-256-GCM (`APS_TOKEN_KEY`) y se renuevan solos ([la API](../apps/api/README.md#conexión-con-autodesk)).
@@ -182,7 +182,7 @@ Nx carga el `.env` de la raíz en cada tarea (plantilla: `.env.example`). La API
 - [`data/main`](../data/main/README.md) tiene el schema (`prisma/schema.prisma`), las migraciones (`prisma/migrations`) y `createPrismaClient(url)`, que usa el driver adapter de `pg`. El cliente se genera en `data/main/generated/`, que no se versiona.
 - `prisma.config.ts` lee el `.env` de la raíz, así que los comandos de Prisma funcionan desde cualquier carpeta.
 - La API crea un solo `PrismaClient` (`DatabaseModule`, token `PRISMA_CLIENT`), lo inyecta donde se pide y lo cierra al apagarse.
-- Una acción de escritura corre en `UnitOfWork.run`: una transacción interactiva con un advisory lock, cuyo cliente reciben los adapters de todos los contextos para que queden en la misma transacción. Las lecturas calientes (`GET /api/flow`, `/api/flow/history`) usan `UnitOfWork.read`: transacción de solo lectura con aislamiento `RepeatableRead` y sin el lock, con el resultado memoizado por proyecto, época y cursor de eventos.
+- Una acción de escritura corre en `UnitOfWork.run`: una transacción interactiva con un advisory lock, cuyo cliente reciben los adapters de todos los contextos para que queden en la misma transacción.
 
 ## TypeScript
 
@@ -196,23 +196,19 @@ Nx carga el `.env` de la raíz en cada tarea (plantilla: `.env.example`). La API
 
 ## Tareas de Nx
 
-| Tarea       | Proyecto                  | Qué hace                                                                                             |
-| ----------- | ------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `dev`       | web, api                  | `next dev` en `:3000`; `nest start --watch` en `:3001` (primero genera el cliente de Prisma)         |
-| `build`     | web, api                  | `next build`; `nest build` a `apps/api/dist`                                                         |
-| `start`     | web, api                  | Sirve el build: `next start`; `node dist/main.js`                                                    |
-| `generate`  | data-main                 | `prisma generate`, con caché; lo corren antes `dev`, `build`, `test` y `typecheck` de quien depende  |
-| `lint`      | todos                     | `eslint .`                                                                                           |
-| `test`      | api, etl, web y contextos | Vitest                                                                                               |
-| `typecheck` | paquetes, api y etl       | `tsc --build`                                                                                        |
-| `test:db`   | api                       | Vitest de `tests-db/` contra Postgres (`TEST_DATABASE_URL`); no entra en `pnpm check` y no usa caché |
+| Tarea       | Proyecto                  | Qué hace                                                                                            |
+| ----------- | ------------------------- | --------------------------------------------------------------------------------------------------- |
+| `dev`       | web, api                  | `next dev` en `:3000`; `nest start --watch` en `:3001` (primero genera el cliente de Prisma)        |
+| `build`     | web, api                  | `next build`; `nest build` a `apps/api/dist`                                                        |
+| `start`     | web, api                  | Sirve el build: `next start`; `node dist/main.js`                                                   |
+| `generate`  | data-main                 | `prisma generate`, con caché; lo corren antes `dev`, `build`, `test` y `typecheck` de quien depende |
+| `lint`      | todos                     | `eslint .`                                                                                          |
+| `test`      | api, etl, web y contextos | Vitest                                                                                              |
+| `typecheck` | paquetes, api y etl       | `tsc --build`                                                                                       |
 
 - `pnpm check` corre `lint`, `test`, `typecheck` y `build` en todo; es lo mismo que corre la [CI](#ci). `pnpm affected` corre lo mismo, solo en lo que cambió respecto de `main`.
-- `test:db` recrea la base `TEST_DATABASE_URL` (su nombre tiene que terminar en `_test`), migra y siembra Los Aromos, y le pega por HTTP a la API real. Sin la variable se salta con un aviso. `lint` y `typecheck` sí revisan esos archivos. Cómo correrla y qué cubre: [tests contra Postgres](../apps/api/README.md#tests-contra-postgres).
 - `pnpm nx graph` dibuja el grafo de proyectos.
 
 ## CI
 
 [`.github/workflows/check.yml`](../.github/workflows/check.yml) corre `pnpm install --frozen-lockfile` y `pnpm check` en cada push a `main` y en cada pull request, con el Node de `.nvmrc` y el pnpm de `packageManager`. No necesita base de datos: el cliente de Prisma se genera sin conectarse.
-
-El job `api-db` del mismo workflow levanta un servicio `postgres:18-alpine` (con `pg_isready` como healthcheck) y corre `pnpm nx run @team27/api:test:db` con `TEST_DATABASE_URL` apuntando a él. Así, los tests de concurrencia contra Postgres corren en la CI sin entrar en `pnpm check`.

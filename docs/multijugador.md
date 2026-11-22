@@ -174,7 +174,7 @@ Todas las rutas cuelgan de `/api`. Las acciones de asiento llevan `x-seat-token`
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `GET /room`                                          | Snapshot: proyecto, `lake: { empty }`, elenco con ocupante, espacios, contadores y meta                              |
 | `POST /seats/:castId/claim`, `DELETE /seats/:castId` | Tomar y soltar un asiento (409 si está tomado)                                                                       |
-| `GET /events?after&epoch&seat&wait`                  | Sondeo con cursor, corto o de espera larga (`wait` de 0 a 10 s); es el latido                                        |
+| `GET /events?after&epoch&seat`                       | Sondeo con cursor; es el latido                                                                                      |
 | `GET /baseline?section`                              | Lo vigente con estado, fuentes y totales                                                                             |
 | `GET /baseline/:subjectId/:attribute/provenance`     | Cadena de procedencia                                                                                                |
 | `GET /spaces`                                        | Espacios, documentos, revisiones y estado                                                                            |
@@ -315,15 +315,14 @@ Errores: `401` sin actor o clave inválida, `403 not_your_document`, `404 unknow
 
 ## Tiempo real
 
-Sondeo con cursor y espera larga de hasta 10 s, sin SSE ni WebSockets: cada petición es corta para el `rewrite` de Next y para un Wi-Fi ruidoso, y si se corta, el cliente repite con el mismo cursor sin perder nada. A 0,1 CPU, cada `GET /events` cuesta unos 4 ms, y 100 celulares sondeando cada segundo piden más CPU del que hay aunque no pase nada; la espera larga lo evita.
+Sondeo corto con cursor, sin SSE ni WebSockets: el `rewrite` de Next puede bufferizar las conexiones largas, y en un Wi-Fi ruidoso se cortan en silencio.
 
-- La primera petición de cada cliente va sin `wait`: trae el cursor y la época, y la respuesta anuncia `longPoll: true` si la API lo soporta. Desde ahí, cada petición va con `wait=10`: la API la deja esperando hasta que haya un evento, cambie la época o pasen 10 s, y el cliente repite casi de inmediato (0 a 100 ms de jitter). Si la API no lo anuncia, el cliente sigue con el sondeo corto de siempre (1000 ms, el telón 700 ms, jitter de ±150 ms).
-- En la API, un `EventsHub` vigila una vez por proyecto, no una vez por cliente: cada 250 ms (o al instante, por el aviso que da cada mutación al confirmar) lee la época y `MAX(seq)`, y si cambió trae los eventos nuevos una sola vez y los reparte entre las esperas. Con 100 esperas es una consulta de eventos, no 100.
+- Cada cliente llama a `GET /api/events?after=<seq>&epoch=<n>` cada 1000 ms (el telón, cada 700 ms) con jitter de ±150 ms.
 - Cada mutación inserta sus eventos en la misma transacción. Los eventos son invalidaciones con un mensaje en español para el ticker; al recibirlos, la pantalla vuelve a pedir su snapshot.
 - Si cambió la época (reinicio) o el cursor está por delante del servidor, la respuesta trae `reset: true` y el cliente recarga todo.
-- El token en la petición es el latido de presencia: se renueva al empezar y, tras una espera de 5 s o más, al responder.
-- Las mutaciones y el reinicio se serializan con un advisory lock de Postgres. Las lecturas del flujo (`/flow`, `/flow/history`) no lo toman: leen una instantánea `RepeatableRead` y memoizan por época y cursor. `GET /events` no escribe salvo para crear `room_state` y para renovar el latido de un asiento cuando el último tiene 5 s o más.
-- `useRoomPulse` usa `AbortController`, backoff hasta 3 s, pausa con la pestaña oculta (aborta la espera) y reanuda al volver.
+- El token en la petición es el latido de presencia.
+- Las mutaciones y el reinicio se serializan con un advisory lock de Postgres.
+- `useRoomPulse` usa `AbortController`, backoff hasta 3 s, pausa con la pestaña oculta y reanuda al volver.
 
 ## La web
 
@@ -433,7 +432,7 @@ Fernanda abre `/sala` en el proyector, `/presentador` en el notebook y `pnpm etl
 | Alcance excesivo para el tiempo               | Un solo contexto nuevo, desfase derivado, segmentos con valor demostrable, recorte de lo deseable y opcional        |
 | Romper `DetectChanges`, impact o notification | `impact` intacto, `diffSnapshots` sin tocar, test de regresión de las tres cifras                                   |
 | Una disputa atasca la demo                    | «Reabrir con la observación» es un botón determinista y el ETL lo ejecuta en modo automático                        |
-| Muchos celulares en un Wi-Fi saturado         | Espera larga con cursor (o sondeo corto si la API no la anuncia), jitter, backoff, época, acciones idempotentes     |
+| Muchos celulares en un Wi-Fi saturado         | Sondeo corto con cursor, jitter, backoff, época, acciones idempotentes                                              |
 | Concurrencia de votos y tareas                | Transacción con bloqueo por propuesta, advisory lock de la sala, evento con `seq` único                             |
 | Un humano toma un asiento y no responde       | Sin latido por 20 s el asiento queda libre y el ETL retoma; el presentador puede soltarlo                           |
 | Se percibe como un gestor documental          | El telón muestra hechos y procedencia, no archivos; los momentos fuertes son la disputa, el choque y la procedencia |

@@ -47,7 +47,7 @@ Si cambia el dueño del espejo, cambia `MIRROR_REPO` en `mirror.yml` y el token,
 
 - **Una sola instancia.** El registro de `x-action-id`, los estados de OAuth, el sondeo de las planillas y la última versión de cada una viven en la memoria del proceso.
 - **Se despliega en cada push**, salvo cuando el cambio solo toca la web, el ETL, la CLI de APS, `packages/`, `docs/`, el add-in, archivos Markdown o los archivos de la entrega (`platanus-hack-project.jsonc` y `project-logo.png`) (`buildFilter`). Así, editar la entrega a última hora no reinicia la API ni el estado en memoria del flujo.
-- **El plan gratis** se duerme tras 15 minutos sin peticiones y tarda cerca de un minuto en despertar, con 0,1 CPU. Con la sala abierta, el sondeo la mantiene despierta. Con muchos celulares no alcanza: medido con `pnpm etl carga`, con 30 celulares la mediana de «se ve» queda en ~1,3 s pero la cola pasa los 2 s, y con 100 hay peticiones que vencen. En Starter (0,5 CPU), 100 celulares durante 5 minutos ven cada cambio en menos de 2 s (p95 1,5 s). Para un pitch con el público conectado, sube el servicio a Starter en el panel (Settings → Instance Type) y bájalo después. El Postgres gratis vence a los 30 días.
+- **El plan gratis** se duerme tras 15 minutos sin peticiones y tarda cerca de un minuto en despertar, con 0,1 CPU. Con la sala abierta, el sondeo la mantiene despierta. Si la sala se pone lenta con muchos celulares, sube el servicio a Starter en el panel. El Postgres gratis vence a los 30 días.
 
 | Variable                                   | Valor                                                                                             | Por qué                                                                                                                                                                                                                                                                                                                            |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -121,7 +121,6 @@ La conexión con Autodesk también es opcional y necesita las cuentas. Para acti
 
 ## El día del pitch
 
-- Si va a haber público conectado, sube la API a Starter antes de empezar (ver [el plan gratis](#la-api-y-la-base-en-render)).
 - Abre `/sala` unos minutos antes para despertar la API.
 - `/presentador` pide la clave una vez por pestaña: es la `PRESENTER_KEY` de Render.
 - La URL es pública y cualquiera puede tomar un asiento. Desde `/presentador` se sueltan.

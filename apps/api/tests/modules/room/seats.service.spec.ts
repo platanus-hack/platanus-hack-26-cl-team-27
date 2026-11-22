@@ -4,7 +4,6 @@ import type { ConfigService } from '@nestjs/config';
 import type { PrismaClient } from '@team27/data-main';
 
 import { project } from '../../project.ts';
-import { ChangeSignal } from '../../../src/modules/database/change-signal.ts';
 import type { Env } from '../../../src/config/index.ts';
 import { SeatsService } from '../../../src/modules/room/seats.service.ts';
 
@@ -42,13 +41,12 @@ const build = (rows: SeatRow[]): SeatsService => {
           ) ?? null,
         ),
       update: () => Promise.resolve(null),
-      updateMany: () => Promise.resolve({ count: 1 }),
     },
   } as unknown as PrismaClient;
   const config = {
     get: () => KEY,
   } as unknown as ConfigService<Env, true>;
-  return new SeatsService(prisma, config, project, new ChangeSignal());
+  return new SeatsService(prisma, config, project);
 };
 
 const present = (castId: string): SeatRow => ({

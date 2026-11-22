@@ -124,22 +124,17 @@ Todo el acceso a `/api/flow` vive en `lib/flow-api.ts` (tipos y llamadas: `getFl
 - `CamilaView` avisa su presencia (`viewing: 'propuesta'` mientras la tarjeta está a la vista, `'plano'` si no) cada 8 s y al volver a la pestaña. Solo con asiento propio; la vista del presentador no la envía y muestra la presencia de Camila a partir de `flow.presence`. El paso 3 de la línea de tiempo de Paula requiere el asiento real de Camila abierto en su dispositivo.
 - Si el token de un asiento deja de valer (401 al actuar o al avisar presencia), `CaseScreen` lo borra y vuelve a tomar el asiento solo. «Reiniciar caso» deja el hilo del presentador en el último `flow.reset`.
 - El caso no muestra bots.
-- **Historia**: `components/caso/HistoryPanel.tsx` muestra, para P-12 y E-B-03, cada valor vigente con hora, autor, documento o minuta y quién lo aprobó, la propuesta pendiente o rechazada en una entrada punteada y el enlace «Ver procedencia» a `/valor/[subjectId]/ubicacion_m`. Va bajo la línea de tiempo en la pantalla de Paula, bajo el plano o la propuesta en la de Camila y a todo el ancho en `/caso`. Lee `GET /api/flow/history` con `hooks/use-flow-history.ts`, que no abre su propio sondeo (`poll: false`): reutiliza el de `useFlow` y vuelve a pedirla cuando cambian la época, el estado de la propuesta o la minuta (`historyKey` en `lib/flow-history.ts`). Si la historia no carga, el panel no se muestra y el flujo sigue.
+- **Historia**: `components/caso/HistoryPanel.tsx` muestra, para P-12 y E-B-03, cada valor vigente con hora, autor, documento o minuta y quién lo aprobó, la propuesta pendiente o rechazada en una entrada punteada y el enlace «Ver procedencia» a `/valor/[subjectId]/ubicacion_m`. Va bajo la línea de tiempo en la pantalla de Paula, bajo el plano o la propuesta en la de Camila y a todo el ancho en `/caso`. Lee `GET /api/flow/history` con `hooks/use-flow-history.ts`, que vuelve a pedirla cuando cambian la época, el estado de la propuesta o la minuta (`historyKey` en `lib/flow-history.ts`). Si la historia no carga, el panel no se muestra y el flujo sigue.
 
 ## Tiempo real
 
-`useRoomPulse` consulta `GET /api/events?after=<seq>&epoch=<n>&seat=<castId>`. La primera petición va sin `wait`: trae cursor y época, y su respuesta dice con `longPoll: true` si la API soporta la espera larga. Si lo dice, las siguientes van con `wait=10` (`LONG_POLL_WAIT_SECONDS`) y, al volver, la siguiente sale de 0 a 100 ms después. Si no lo dice (la web puede salir antes que la API, o la API está en su tope de 1000 esperas y responde con `longPoll: false`), sigue con el sondeo corto: cada 700 ms en `/sala` y cada 1000 ms en el resto, con ±150 ms de jitter. Manda `x-seat-token` si el visitante tiene asiento: es su latido. La lógica pura vive en `lib/pulse.ts`:
+`useRoomPulse` consulta `GET /api/events?after=<seq>&epoch=<n>&seat=<castId>` cada 700 ms en `/sala` y cada 1000 ms en el resto, con ±150 ms de jitter. Manda `x-seat-token` si el visitante tiene asiento: es su latido. La lógica pura vive en `lib/pulse.ts`:
 
 - `applyPulse` fija época y cursor en la primera respuesta, descarta los eventos ya vistos, mantiene el ticker (40 eventos) y marca el reinicio con `reset: true` o con un cambio de época.
-- `nextDelay` suma el jitter y, tras errores, retrocede hasta 3 s. `nextPulseDelay` elige entre ese retraso y el de la espera larga (`longPollGap`, de 0 a 100 ms); con errores siempre retrocede. `supportsLongPoll`, `waitSecondsFor` y `longPollTimeoutMs` deciden si pedir `wait` y fijan el timeout de esa petición en `wait` + 10 s.
-- Cada sondeo lleva un `AbortController`; con la pestaña oculta se aborta, también una espera larga, y al volver se consulta de inmediato.
-- El primer tick espera de 0 a 600 ms al azar (`startDelay`), para que muchos celulares no lleguen a la vez.
-- Toda petición de `lib/http.ts` vence: las lecturas a los 10 s y las escrituras a los 30 s (`withDeadline`, con un `AbortController` propio que también obedece la señal del llamador). Un vencimiento es un `RequestTimeoutError`: cuenta como error de red, el pulso pasa a `offline` y retrocede, y `describeError` avisa que la sala tardó más de lo normal y que, si era un cambio, revises si ya quedó antes de repetirlo.
+- `nextDelay` suma el jitter y, tras errores, retrocede hasta 3 s.
+- Cada sondeo lleva un `AbortController`; con la pestaña oculta se pausa y al volver se consulta de inmediato.
 
-`useLive` carga los datos de una pantalla y los vuelve a pedir cuando llegan eventos. La recarga espera de 0 a 150 ms al azar (`reloadDelay`). Si la carga falla, reintenta a 1, 2, 4 y hasta 8 s (`retryDelay`) mientras la pantalla esté montada y visible, y conserva los datos anteriores; un éxito, un evento nuevo o desmontar cancelan el reintento. Cada pantalla corre un solo bucle de pulso: `poll: false` apaga el de un `useLive` que depende del de otro.
-
-`app/global-error.tsx`, `app/error.tsx` y un `error.tsx` por route group usan `components/common/RouteError.tsx`: mensaje en español, «Reintentar» (`retry` de Next 16), «Volver al inicio» y, si Next lo entrega, el digest en chico para buscarlo en los logs; nunca el stack ni el mensaje técnico. Cada route group tiene un `loading.tsx` con `Loading`.
- Con `reset: true` recarga todo; los celulares borran sus tokens y vuelven a `/`.
+`useLive` carga los datos de una pantalla y los vuelve a pedir cuando llegan eventos. Con `reset: true` recarga todo; los celulares borran sus tokens y vuelven a `/`.
 
 ## Visor BIM
 
