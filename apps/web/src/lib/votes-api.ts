@@ -1,4 +1,5 @@
-import { request, type Auth } from './http';
+import { request } from './http';
+import { projectApi } from './project-paths';
 import type { ProposalStatus } from './proposals-api';
 
 export const MAX_NOTE_LENGTH = 280;
@@ -36,34 +37,12 @@ export const trimNote = (note: string): string | undefined => {
 };
 
 export const castVote = (
+  projectId: string,
   notificationId: string,
   kind: VoteKind,
   note: string,
-  auth: Auth,
 ): Promise<VoteResponse> =>
-  request<VoteResponse>(`/api/notifications/${notificationId}/response`, {
-    method: 'POST',
-    body: { kind, note: trimNote(note) },
-    ...auth,
-  });
-
-export const dismissDiscrepancy = (
-  discrepancyId: string,
-  auth: Auth,
-): Promise<void> =>
-  request<void>(`/api/discrepancies/${discrepancyId}/dismiss`, {
-    method: 'POST',
-    body: {},
-    ...auth,
-  });
-
-export const acknowledgeStale = (
-  revisionId: string,
-  note: string,
-  auth: Auth,
-): Promise<void> =>
-  request<void>('/api/stale/acknowledge', {
-    method: 'POST',
-    body: { revisionId, note: note.trim() },
-    ...auth,
-  });
+  request<VoteResponse>(
+    projectApi(projectId, `/notifications/${notificationId}/response`),
+    { method: 'POST', body: { kind, note: trimNote(note) }, write: true },
+  );

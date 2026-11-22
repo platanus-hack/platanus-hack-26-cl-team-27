@@ -35,12 +35,12 @@ Hoy la API **le pregunta a Google** cada 60 s. Google también puede avisar solo
 | A escala          | Dos llamadas por planilla por revisión: choca con los límites de la API con muchas planillas | Solo se llama cuando algo cambió                                                    |
 | Permiso           | `spreadsheets.readonly`                                                                      | Uno de Drive, como `drive.file`                                                     |
 
-Para la muestra alcanza con preguntar. Para producción con muchos usuarios, lo mejor son los dos: los avisos de Google como gatillo y una revisión lenta (cada 10 o 15 minutos) de respaldo. Calza con pasar al selector de Google con `drive.file`, que además evita la verificación de permisos sensibles de Google.
+Con pocas planillas alcanza con preguntar. Con muchos usuarios, lo mejor son los dos: los avisos de Google como gatillo y una revisión lenta (cada 10 o 15 minutos) de respaldo. Calza con pasar al selector de Google con `drive.file`, que además evita la verificación de permisos sensibles de Google.
 
 ## Lo que sigue
 
 1. **Un `ChangeListener` que guarde o actúe:** por ejemplo, entregar la planilla a la cadena como revisión de un documento, con un lector por formato.
-2. **La planilla como documento del proyecto.** Ya es del proyecto; falta acordar con el equipo cómo se crea un documento desde un archivo del Drive y quién es su dueño en el elenco. Y un solo cifrado de tokens: hoy Google usa `INTEGRATIONS_ENCRYPTION_KEY` (`TokenCipher` de `context/integrations`) y Autodesk usa `APS_TOKEN_KEY` (AES-256-GCM en `apps/api/src/modules/integrations/aps`).
+2. **La planilla como documento del proyecto.** Ya es del proyecto; falta acordar con el equipo cómo se crea un documento desde un archivo del Drive y quién es su dueño en el equipo del proyecto. Y un solo cifrado de tokens: hoy Google usa `INTEGRATIONS_ENCRYPTION_KEY` (`TokenCipher` de `context/integrations`) y Autodesk usa `APS_TOKEN_KEY` (AES-256-GCM en `apps/api/src/modules/integrations/aps`).
 3. **El selector de Google con varios archivos y los avisos de Drive**, para producción.
 4. **ACC** ([PH-39](https://linear.app/ph-team-27/issue/PH-39/conector-de-presupuestos-de-acc-cost-management)): el mismo canal, con los tokens de la cuenta de Autodesk que cada organización conecta en `/cuenta` ([PH-25](https://linear.app/ph-team-27/issue/PH-25/conexion-oauth-con-autodesk-aps); `getValidAccessToken` los renueva) y una cuenta de ACC con Cost Management para probar. Un administrador de esa cuenta tiene que agregar el Client ID de la app en Account Admin → Custom Integrations.
 

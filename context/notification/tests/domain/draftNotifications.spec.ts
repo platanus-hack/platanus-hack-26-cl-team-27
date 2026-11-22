@@ -29,6 +29,7 @@ describe('draftNotifications', () => {
   it('arma un aviso por afectado, en su canal, juntando lo que le toca', () => {
     const drafts = draftNotifications(
       {
+        projectId: 'edificio-norte',
         changeId: 'c1',
         title: 'Losa nivel 3 · Espesor: 15 cm → 20 cm',
         findings: [
@@ -65,13 +66,14 @@ describe('draftNotifications', () => {
       ['calculista', 'email', 1],
       ['costos', 'slack', 2],
     ]);
-    expect(drafts[0]?.link).toBe('/cambios/c1?para=calculista');
+    expect(drafts[0]?.link).toBe('/proyectos/edificio-norte/cambios/c1');
   });
 
   it('ignora a quien no está en el directorio', () => {
     expect(
       draftNotifications(
         {
+          projectId: 'edificio-norte',
           changeId: 'c1',
           title: 'x',
           findings: [

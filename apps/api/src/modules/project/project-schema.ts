@@ -130,7 +130,7 @@ export const projectSchema = z.object({
   levels: z.array(
     z.object({ id, label: z.string().min(1), short: z.string().min(1) }),
   ),
-  longitudinalAxes: z.array(z.object({ id, meters: z.number() })).min(2),
+  longitudinalAxes: z.array(z.object({ id, meters: z.number() })),
   transversalAxes: z.array(z.number().int()),
   systems: z.array(
     z.object({ id, label: z.string().min(1), occupiesSpace: z.boolean() }),

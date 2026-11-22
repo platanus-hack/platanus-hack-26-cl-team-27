@@ -1,4 +1,4 @@
-import type { SpaceKind } from '@/lib/room-api';
+import type { SpaceKind } from '@/lib/spaces-api';
 
 import type { IconName } from './Icon';
 

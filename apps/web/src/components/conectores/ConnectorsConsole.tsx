@@ -188,8 +188,7 @@ function AutodeskCard() {
         <Link href="/cuenta" className={textLink}>
           Tu cuenta
         </Link>
-        . Leer sus presupuestos y versiones viene después; mientras tanto, el
-        modelo llega por el add-in de Revit.
+        . Leer sus presupuestos y las versiones del modelo viene después.
       </p>
     </Card>
   );

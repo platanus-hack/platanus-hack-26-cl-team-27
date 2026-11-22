@@ -1,5 +1,5 @@
-import { SeatPicker } from '@/components/inicio/SeatPicker';
+import { redirect } from 'next/navigation';
 
 export default function HomePage() {
-  return <SeatPicker />;
+  redirect('/cuenta');
 }

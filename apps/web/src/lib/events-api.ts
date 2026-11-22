@@ -1,6 +1,7 @@
 import { request } from './http';
+import { projectApi } from './project-paths';
 
-export interface RoomEvent {
+export interface ProjectEvent {
   readonly seq: number;
   readonly kind: string;
   readonly message: string;
@@ -8,37 +9,17 @@ export interface RoomEvent {
 }
 
 export interface EventsResponse {
-  readonly epoch: number;
   readonly cursor: number;
   readonly reset: boolean;
-  readonly events: readonly RoomEvent[];
+  readonly events: readonly ProjectEvent[];
 }
 
-export interface EventsQuery {
-  readonly after: number | null;
-  readonly epoch: number | null;
-  readonly castId?: string | null;
-  readonly seatToken?: string | null;
-}
-
-export const eventsPath = ({
-  after,
-  epoch,
-  castId,
-}: Pick<EventsQuery, 'after' | 'epoch' | 'castId'>): string => {
-  const params = new URLSearchParams();
-  if (after !== null) params.set('after', String(after));
-  if (epoch !== null) params.set('epoch', String(epoch));
-  if (castId) params.set('seat', castId);
-  const query = params.toString();
-  return `/api/events${query ? `?${query}` : ''}`;
-};
+export const eventsPath = (projectId: string, after: number | null): string =>
+  projectApi(projectId, after === null ? '/events' : `/events?after=${after}`);
 
 export const getEvents = (
-  query: EventsQuery,
+  projectId: string,
+  after: number | null,
   signal?: AbortSignal,
 ): Promise<EventsResponse> =>
-  request<EventsResponse>(eventsPath(query), {
-    seatToken: query.seatToken,
-    signal,
-  });
+  request<EventsResponse>(eventsPath(projectId, after), { signal });

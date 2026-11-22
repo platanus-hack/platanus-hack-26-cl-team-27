@@ -30,19 +30,19 @@ export function Empty({
   );
 }
 
-export function WaitingForLake({
-  children = 'Los documentos llegan por el ETL: pnpm etl.',
+export function EmptyPanel({
+  title,
+  children,
 }: {
-  readonly children?: ReactNode;
+  readonly title: string;
+  readonly children: ReactNode;
 }) {
   return (
     <div
       role="status"
       className="rounded-xl border border-dashed border-axis px-6 py-8 text-center"
     >
-      <p className="text-base font-semibold text-ink">
-        Esperando la carga inicial
-      </p>
+      <p className="text-base font-semibold text-ink">{title}</p>
       <p className="mt-1 text-sm text-ink-2">{children}</p>
     </div>
   );

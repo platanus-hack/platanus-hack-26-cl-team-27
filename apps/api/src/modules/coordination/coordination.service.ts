@@ -1,18 +1,10 @@
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { AddressedFinding } from '@team27/context-notification';
 import { InlineFactExtractor } from '@team27/context-lake/adapters';
 import type { PrismaClient } from '@team27/data-main';
 
 import type { ProjectCatalog } from '../project/project-catalog.ts';
-import { PROJECT_CATALOG } from '../project/project.module.ts';
 import { UnitOfWork } from '../database/unit-of-work.ts';
-import {
-  diffEvents,
-  type EventDraft,
-  emitEvents,
-  observe,
-} from '../room/events.ts';
-import { readState } from '../room/state.ts';
 import { buildImpact } from '../impact/impact.module.ts';
 import { buildLake } from '../lake/lake.module.ts';
 import { buildNotification } from '../notification/notification.module.ts';
@@ -25,27 +17,19 @@ import {
   type ProposalDraft,
   type RevisionDraft,
 } from '@team27/context-lake';
-import { BASE_LABEL, CASE_DOCUMENT_IDS } from '../../scenario/caso-p12.ts';
 import { ActionLog } from './action-log.ts';
 import { ChunkReader } from './chunk-reader.ts';
 import { elementsFromBaseline } from './elements-from-baseline.ts';
+import { diffEvents, type EventDraft, emitEvents, observe } from './events.ts';
 import { fail } from './http-errors.ts';
 import {
-  checkAuthor,
   checkRevision,
   knownDocument,
   type RawChunk,
   type RevisionInput,
-  type SeedInput,
 } from './revision-body.ts';
 import { revisionTitle } from './lookup.ts';
 import { QueryService } from './query.service.ts';
-import {
-  mapMinute,
-  modelDocumentOf,
-  type MappedMinute,
-  type RevitMinute,
-} from './revit-minute.ts';
 import {
   blockedByOverlap,
   overlapTitle,
@@ -112,41 +96,6 @@ const costSuffix = (proposal: {
   return parts.length > 0 ? ` (${parts.join(' · ')})` : '';
 };
 
-const plural = (count: number, one: string, many: string): string =>
-  `${count} ${count === 1 ? one : many}`;
-
-const minuteSummary = (
-  ingested: IngestedRevision,
-  proposals: readonly OpenedProposal[],
-  mapped: MappedMinute,
-  stakeholders: number,
-): string => {
-  const label = ingested.revision.label;
-  const head = `${label.startsWith('guardado') ? `La minuta del ${label}` : 'La minuta'} trae ${plural(mapped.claims.length, 'cambio', 'cambios')}`;
-  const unchanged = ingested.outcomes.every(
-    (outcome) => outcome.kind === 'same' || outcome.kind === 'corroborates',
-  );
-  let body: string;
-  if (proposals.length > 0) {
-    const notified = new Set(
-      proposals.flatMap((proposal) => proposal.reviewers),
-    );
-    body = `abrimos ${plural(proposals.length, 'propuesta', 'propuestas')} y avisamos a ${notified.size} de ${stakeholders}.`;
-  } else if (unchanged) {
-    body = 'la obra ya tenía esos valores, no abrimos propuestas.';
-  } else {
-    body = 'no abrimos propuestas.';
-  }
-  const skipped = mapped.ignored.length;
-  const tail =
-    skipped === 0
-      ? ''
-      : skipped === 1
-        ? ' 1 cambio no entró.'
-        : ` ${skipped} cambios no entraron.`;
-  return `${head}: ${body}${tail}`;
-};
-
 const lockProposal = async (db: Db, id: string): Promise<void> => {
   await db.$queryRaw`SELECT id FROM proposals WHERE id = ${id}::uuid FOR UPDATE`;
 };
@@ -156,171 +105,89 @@ export class CoordinationService {
   private readonly uow: UnitOfWork;
   private readonly queries: QueryService;
   private readonly reader: ChunkReader;
-  private readonly project: ProjectCatalog;
   private readonly actions = new ActionLog();
 
   constructor(
     @Inject(UnitOfWork) uow: UnitOfWork,
     @Inject(QueryService) queries: QueryService,
     @Inject(ChunkReader) reader: ChunkReader,
-    @Inject(PROJECT_CATALOG) project: ProjectCatalog,
   ) {
     this.uow = uow;
     this.queries = queries;
     this.reader = reader;
-    this.project = project;
-  }
-
-  async reset(): Promise<void> {
-    await this.uow.run(async (db) => {
-      const state = await readState(db, this.project.id);
-      await db.roomEvent.deleteMany({ where: { projectId: this.project.id } });
-      await db.seat.deleteMany({ where: { projectId: this.project.id } });
-      await db.notification.deleteMany({
-        where: { projectId: this.project.id },
-      });
-      await db.impact.deleteMany({ where: { projectId: this.project.id } });
-      await db.change.deleteMany({ where: { projectId: this.project.id } });
-      await buildLake(db, this.project).seedLake.execute({ revisions: [] });
-      await db.roomState.update({
-        where: { projectId: this.project.id },
-        data: { epoch: state.epoch + 1 },
-      });
-      await emitEvents(db, this.project.id, [
-        { kind: 'room.reset', message: 'La sala volvió al comienzo.' },
-      ]);
-    });
-    this.actions.clear();
-  }
-
-  async seed(input: SeedInput) {
-    const keys = new Set<string>();
-    const revisions: { revision: RevisionDraft; chunks: ChunkDraft[] }[] = [];
-    for (const item of input.revisions) {
-      const document = knownDocument(this.project, item.documentId);
-      checkAuthor(this.project, item.authorId);
-      const raw = checkRevision(this.project, item, document);
-      const key = `${item.documentId}\u0000${item.label}`;
-      if (keys.has(key)) {
-        throw fail(
-          HttpStatus.UNPROCESSABLE_ENTITY,
-          'duplicate_revision',
-          `La carga repite ${document.name} ${item.label}`,
-        );
-      }
-      keys.add(key);
-      revisions.push({
-        revision: this.project.toRevisionDraft(
-          item.documentId,
-          item.label,
-          item.authorId,
-          item.spaceId,
-          item.pointer,
-          item.contentHash,
-        ),
-        chunks: await this.reader.read(document, item.label, raw),
-      });
-    }
-    const seeded = await this.uow.run(async (db) => {
-      const lake = buildLake(db, this.project);
-      const everything = await lake.ports.revisions.list();
-      const loaded = everything.filter(
-        (revision) => !CASE_DOCUMENT_IDS.includes(revision.documentId),
-      );
-      const caseActive = everything.some(
-        (revision) =>
-          CASE_DOCUMENT_IDS.includes(revision.documentId) &&
-          revision.label !== BASE_LABEL,
-      );
-      if (loaded.length > 0 || caseActive) {
-        throw fail(
-          HttpStatus.CONFLICT,
-          'lake_not_empty',
-          'La carga inicial solo vale con el lago vacío: reinicia la sala antes',
-        );
-      }
-      const result = await lake.seedLake.execute({ revisions });
-      await emitEvents(db, this.project.id, [
-        {
-          kind: 'lake.seeded',
-          message: `Se cargó lo vigente de la obra: ${plural(result.revisions, 'documento', 'documentos')}.`,
-          refs: { revisions: result.revisions },
-        },
-      ]);
-      return result;
-    });
-    return {
-      revisions: seeded.revisions,
-      baseline: seeded.baseline.length,
-    };
   }
 
   private async track<T>(
     db: Db,
+    project: ProjectCatalog,
     work: () => Promise<{ value: T; events: EventDraft[] }>,
   ): Promise<T> {
-    const before = await observe(db, this.project);
+    const before = await observe(db, project);
     const { value, events } = await work();
-    const after = await observe(db, this.project);
-    await emitEvents(db, this.project.id, [
+    const after = await observe(db, project);
+    await emitEvents(db, project.id, [
       ...events,
-      ...diffEvents(this.project, before, after),
+      ...diffEvents(project, before, after),
     ]);
     return value;
   }
 
   ingest(input: {
-    seat: string;
+    project: ProjectCatalog;
+    actor: string;
     revision: RevisionInput;
     actionId: string | undefined;
   }) {
-    const { seat, revision } = input;
-    const document = knownDocument(this.project, revision.documentId);
-    if (document.ownerId !== seat) {
+    const { project, actor, revision } = input;
+    const document = knownDocument(project, revision.documentId);
+    if (document.ownerId !== actor) {
       throw fail(
         HttpStatus.FORBIDDEN,
         'not_your_document',
-        `${document.name} es de ${this.project.castName(document.ownerId)}`,
+        `${document.name} es de ${project.castName(document.ownerId)}`,
       );
     }
-    const raw = checkRevision(this.project, revision, document);
+    const raw = checkRevision(project, revision, document);
     return this.actions.once(
       input.actionId,
-      `revision:${seat}:${revision.documentId}`,
-      () => this.performIngest(seat, revision, raw),
+      `${project.id}:revision:${actor}:${revision.documentId}`,
+      () => this.performIngest(project, actor, revision, raw),
     );
   }
 
   private async performIngest(
-    seat: string,
+    project: ProjectCatalog,
+    actor: string,
     revision: RevisionInput,
     raw: RawChunk[],
   ) {
     const chunks = await this.reader.read(
-      knownDocument(this.project, revision.documentId),
+      project,
+      knownDocument(project, revision.documentId),
       revision.label,
       raw,
     );
-    const draft = this.project.toRevisionDraft(
+    const draft = project.toRevisionDraft(
       revision.documentId,
       revision.label,
-      seat,
+      actor,
       revision.spaceId,
       revision.pointer,
       revision.contentHash,
     );
     const { ingested, proposals, resolved } = await this.uow.run((db) =>
-      this.track(db, () =>
+      this.track(db, project, () =>
         this.ingestRevision(
           db,
+          project,
           draft,
           chunks,
           'Ese documento ya está en el repositorio',
           (result) => ({
             kind: 'revision.received',
-            message: `${this.project.castName(seat)} subió ${revisionTitle(result.revision)} en ${this.project.spaceName(revision.spaceId)}.`,
+            message: `${project.castName(actor)} subió ${revisionTitle(result.revision)} en ${project.spaceName(revision.spaceId)}.`,
             refs: {
-              castId: seat,
+              castId: actor,
               revisionId: result.revision.id,
               spaceId: revision.spaceId,
               documentId: revision.documentId,
@@ -329,17 +196,18 @@ export class CoordinationService {
         ),
       ),
     );
-    return this.ingestResponse(ingested, proposals, resolved);
+    return this.ingestResponse(project, ingested, proposals, resolved);
   }
 
   private async ingestRevision(
     db: Db,
+    project: ProjectCatalog,
     draft: RevisionDraft,
     chunks: ChunkDraft[],
     conflict: string,
     lead: (result: IngestedRevision) => EventDraft,
   ) {
-    const lake = buildLake(db, this.project, new InlineFactExtractor(chunks));
+    const lake = buildLake(db, project, new InlineFactExtractor(chunks));
     const existing = await lake.ports.revisions.findByKey(
       draft.documentId,
       draft.label,
@@ -348,13 +216,20 @@ export class CoordinationService {
       throw fail(HttpStatus.CONFLICT, 'already_ingested', conflict);
     }
     const result = await lake.ingestRevision.execute(draft);
-    return this.announce(db, result, [lead(result)]);
+    return this.announce(db, project, result, [lead(result)]);
   }
 
-  private async announce(db: Db, result: IngestedRevision, lead: EventDraft[]) {
-    const lake = buildLake(db, this.project);
+  private async announce(
+    db: Db,
+    project: ProjectCatalog,
+    result: IngestedRevision,
+    lead: EventDraft[],
+  ) {
+    const lake = buildLake(db, project);
     const opened: OpenedProposal[] = [];
-    if (result.draft) opened.push(await this.openProposal(db, result.draft));
+    if (result.draft) {
+      opened.push(await this.openProposal(db, project, result.draft));
+    }
     const resolved = (await lake.resolveOverlaps.execute()).map(
       (overlap) => overlap.id,
     );
@@ -369,7 +244,7 @@ export class CoordinationService {
       ...lead,
       ...result.openedDiscrepancies.map((discrepancy): EventDraft => ({
         kind: 'discrepancy.opened',
-        message: `${title} dice ${formatValue(printable(discrepancy.value), discrepancy.unit)} en ${this.project.factLabel(discrepancy.subject, discrepancy.attribute)} y lo vigente es ${formatValue(printable(discrepancy.baselineValue), discrepancy.unit)}. Le avisamos a ${this.project.castName(discrepancy.ownerId)}.`,
+        message: `${title} dice ${formatValue(printable(discrepancy.value), discrepancy.unit)} en ${project.factLabel(discrepancy.subject, discrepancy.attribute)} y lo vigente es ${formatValue(printable(discrepancy.baselineValue), discrepancy.unit)}. Le avisamos a ${project.castName(discrepancy.ownerId)}.`,
         refs: {
           discrepancyId: discrepancy.id,
           castId: discrepancy.ownerId,
@@ -377,12 +252,12 @@ export class CoordinationService {
       })),
       ...result.backedDiscrepancies.map((discrepancy): EventDraft => ({
         kind: 'discrepancy.backed',
-        message: `${title} respaldó lo que decía ${this.project.documentDef(discrepancy.documentId)?.name ?? 'otro documento'} sobre ${this.project.factLabel(discrepancy.subject, discrepancy.attribute)}.`,
+        message: `${title} respaldó lo que decía ${project.documentDef(discrepancy.documentId)?.name ?? 'otro documento'} sobre ${project.factLabel(discrepancy.subject, discrepancy.attribute)}.`,
         refs: { discrepancyId: discrepancy.id },
       })),
       ...opened.map((proposal): EventDraft => ({
         kind: 'proposal.opened',
-        message: `Nueva propuesta (el PR de la obra): ${proposal.title}${costSuffix(proposal)}. Avisamos a ${proposal.reviewers.length} de ${this.project.stakeholders.length}.`,
+        message: `Nueva propuesta (el PR de la obra): ${proposal.title}${costSuffix(proposal)}. Avisamos a ${proposal.reviewers.length} de ${project.stakeholders.length}.`,
         refs: {
           proposalId: proposal.id,
           castIds: [...proposal.reviewers],
@@ -397,19 +272,20 @@ export class CoordinationService {
 
   private async openProposal(
     db: Db,
+    project: ProjectCatalog,
     draft: ProposalDraft,
   ): Promise<OpenedProposal> {
-    const lake = buildLake(db, this.project);
-    const impact = buildImpact(db, this.project);
-    const notification = buildNotification(db, this.project);
+    const lake = buildLake(db, project);
+    const impact = buildImpact(db, project);
+    const notification = buildNotification(db, project);
 
     const baseline = await lake.ports.baseline.list();
     const subjects = new Set(draft.changes.map((change) => change.subject));
-    const base = elementsFromBaseline(this.project.model, baseline).filter(
+    const base = elementsFromBaseline(project.model, baseline).filter(
       (element) => subjects.has(element.id),
     );
     const next = elementsFromBaseline(
-      this.project.model,
+      project.model,
       baseline,
       draft.after,
     ).filter((element) => subjects.has(element.id));
@@ -447,6 +323,7 @@ export class CoordinationService {
     let reviewerIds: string[] = [];
     if (primary) {
       const notified = await notification.notifyStakeholders.execute({
+        projectId: project.id,
         changeId: primary.id,
         title: changes
           .map((change) => `${change.element.name} · ${change.summary}`)
@@ -473,7 +350,7 @@ export class CoordinationService {
     return {
       id: proposal.id,
       changeId: primary?.id ?? null,
-      title: proposalTitle(this.project, proposal),
+      title: proposalTitle(project, proposal),
       costDelta,
       delayDays,
       reviewers: reviewerIds,
@@ -485,11 +362,12 @@ export class CoordinationService {
   }
 
   private async ingestResponse(
+    project: ProjectCatalog,
     ingested: IngestedRevision,
     proposals: readonly OpenedProposal[],
     resolved: readonly string[],
   ) {
-    const snapshot = await this.queries.snapshot();
+    const snapshot = await this.queries.snapshot(project);
     const views = new Map(
       snapshot.proposals.map((proposal) => [
         proposal.id,
@@ -553,138 +431,33 @@ export class CoordinationService {
     };
   }
 
-  receiveMinute(input: { seat: string; minute: RevitMinute }) {
-    const { seat, minute } = input;
-    const owner = modelDocumentOf(this.project).ownerId;
-    if (seat !== owner) {
-      throw fail(
-        HttpStatus.FORBIDDEN,
-        'not_your_document',
-        `El modelo de Revit es de ${this.project.castName(owner)}`,
-      );
-    }
-    const mapped = mapMinute(this.project, minute, seat);
-    if (mapped.claims.length === 0) {
-      throw new HttpException(
-        {
-          code: 'minute_empty',
-          message:
-            'Ningún cambio de la minuta corresponde a valores que siga el proyecto',
-          ignored: mapped.ignored,
-        },
-        HttpStatus.UNPROCESSABLE_ENTITY,
-      );
-    }
-    return this.actions.once(minute.minuteId, `minute:${seat}`, () =>
-      this.performMinute(seat, minute.minuteId, mapped),
-    );
-  }
-
-  private async performMinute(
-    seat: string,
-    minuteId: string,
-    mapped: MappedMinute,
-  ) {
-    const { ingested, proposals, resolved } = await this.uow.run((db) =>
-      this.track(db, () => this.ingestMinute(db, seat, minuteId, mapped)),
-    );
-    const response = await this.ingestResponse(ingested, proposals, resolved);
-    return {
-      minuteId,
-      revisionId: response.revisionId,
-      documentId: ingested.revision.documentId,
-      label: ingested.revision.label,
-      title: revisionTitle(ingested.revision),
-      claims: response.claims,
-      proposals: response.proposals.map((proposal) => ({
-        id: proposal.id,
-        changeId: proposal.changeId,
-        title: proposal.title,
-        costDelta: proposal.costDelta,
-        delayDays: proposal.delayDays,
-        reviewers: proposal.reviewers.map((id) => ({
-          id,
-          name: this.project.castName(id),
-        })),
-        filtered: proposal.filtered.map((item) => ({
-          stakeholderId: item.stakeholderId,
-          name: this.project.castName(item.stakeholderId),
-          reason: item.reason,
-        })),
-        link: proposal.changeId ? `/cambios/${proposal.changeId}` : null,
-        documentId: proposal.documentId,
-        label: proposal.label,
-        authorId: proposal.authorId,
-        status: proposal.status,
-        hunks: proposal.hunks,
-        unchangedHunks: proposal.unchangedHunks,
-        blockedByOverlap: proposal.blockedByOverlap,
-        waitingFor: proposal.waitingFor,
-      })),
-      overlaps: response.overlaps,
-      resolvedOverlaps: response.resolvedOverlaps,
-      chunks: response.chunks,
-      discrepancies: response.discrepancies,
-      backed: response.backed,
-      stale: response.stale,
-      ignored: mapped.ignored,
-      summary: minuteSummary(
-        ingested,
-        proposals,
-        mapped,
-        this.project.stakeholders.length,
-      ),
-    };
-  }
-
-  private ingestMinute(
-    db: Db,
-    seat: string,
-    minuteId: string,
-    mapped: MappedMinute,
-  ) {
-    const { label, spaceId } = mapped.revision;
-    return this.ingestRevision(
-      db,
-      mapped.revision,
-      mapped.chunks,
-      `Ya hay una revisión «${label}» del modelo en el repositorio`,
-      (result) => ({
-        kind: 'minute.received',
-        message: `${this.project.castName(seat)} guardó el modelo en Revit (${label}): la minuta trae ${plural(mapped.claims.length, 'cambio', 'cambios')}.`,
-        refs: {
-          castId: seat,
-          revisionId: result.revision.id,
-          spaceId,
-          minuteId,
-        },
-      }),
-    );
-  }
-
   vote(input: {
-    seat: string;
+    project: ProjectCatalog;
+    actor: string;
     notificationId: string;
     vote: VoteInput;
     actionId: string | undefined;
   }) {
-    const seat = input.seat;
+    const { project, actor } = input;
     return this.actions.once(
       input.actionId,
-      `vote:${seat}:${input.notificationId}`,
-      () => this.performVote(seat, input.notificationId, input.vote),
+      `${project.id}:vote:${actor}:${input.notificationId}`,
+      () => this.performVote(project, actor, input.notificationId, input.vote),
     );
   }
 
   private async performVote(
-    seat: string,
+    project: ProjectCatalog,
+    actor: string,
     notificationId: string,
     vote: VoteInput,
   ) {
     const { proposalId, notification } = await this.uow.run((db) =>
-      this.track(db, () => this.castVote(db, seat, notificationId, vote)),
+      this.track(db, project, () =>
+        this.castVote(db, project, actor, notificationId, vote),
+      ),
     );
-    const snapshot = await this.queries.snapshot();
+    const snapshot = await this.queries.snapshot(project);
     const proposal = snapshot.proposals.find((item) => item.id === proposalId);
     if (!proposal) {
       throw fail(
@@ -695,7 +468,7 @@ export class CoordinationService {
     }
     return {
       notification,
-      proposal: voteProposal(this.project, proposal),
+      proposal: voteProposal(project, proposal),
       merged: proposal.status === 'merged',
       stale: staleRefs(snapshot.consensus.stale),
       projectVersion: projectVersion(snapshot),
@@ -704,12 +477,13 @@ export class CoordinationService {
 
   private async castVote(
     db: Db,
-    seat: string,
+    project: ProjectCatalog,
+    actor: string,
     notificationId: string,
     vote: VoteInput,
   ) {
-    const lake = buildLake(db, this.project);
-    const notifications = buildNotification(db, this.project);
+    const lake = buildLake(db, project);
+    const notifications = buildNotification(db, project);
     const found = await notifications.getNotification.execute(notificationId);
     if (!found) {
       throw fail(
@@ -718,11 +492,11 @@ export class CoordinationService {
         `No existe el aviso ${notificationId}`,
       );
     }
-    if (found.stakeholderId !== seat) {
+    if (found.stakeholderId !== actor) {
       throw fail(
         HttpStatus.FORBIDDEN,
         'not_your_notification',
-        'Ese aviso no es de tu asiento',
+        'Ese aviso no es para ti',
       );
     }
     const candidates = (await lake.ports.proposals.list()).filter(
@@ -740,7 +514,7 @@ export class CoordinationService {
     const decision: Decision = vote.kind === 'reviewed' ? 'approve' : 'dispute';
     const recorded = await lake.recordReview.execute({
       proposalId: target.id,
-      reviewerId: seat,
+      reviewerId: actor,
       decision,
       note: vote.note ?? null,
     });
@@ -753,20 +527,20 @@ export class CoordinationService {
     await lake.settleOverlaps.execute();
     const events: EventDraft[] = [];
     if (recorded.changed) {
-      const progress = progressOf(this.project, recorded.proposal);
-      const title = proposalTitle(this.project, recorded.proposal);
+      const progress = progressOf(project, recorded.proposal);
+      const title = proposalTitle(project, recorded.proposal);
       if (decision === 'approve') {
         events.push({
           kind: 'review.approved',
-          message: `${this.project.castName(seat)} aprobó ${title} (${progress.approved} de ${progress.required}).`,
-          refs: { proposalId: target.id, castId: seat },
+          message: `${project.castName(actor)} aprobó ${title} (${progress.approved} de ${progress.required}).`,
+          refs: { proposalId: target.id, castId: actor },
         });
       } else {
         const note = vote.note?.trim();
         events.push({
           kind: 'proposal.disputed',
-          message: `${this.project.castName(seat)} tiene un problema con ${title}${note ? `: «${note}»` : ''}. Lo vigente no cambia.`,
-          refs: { proposalId: target.id, castId: seat },
+          message: `${project.castName(actor)} tiene un problema con ${title}${note ? `: «${note}»` : ''}. Lo vigente no cambia.`,
+          refs: { proposalId: target.id, castId: actor },
         });
       }
     }
@@ -777,27 +551,29 @@ export class CoordinationService {
   }
 
   voteOverlap(input: {
-    seat: string;
+    project: ProjectCatalog;
+    actor: string;
     overlapId: string;
     vote: VoteOverlapInput;
     actionId: string | undefined;
   }) {
-    const { seat, overlapId } = input;
+    const { project, actor, overlapId } = input;
     return this.actions.once(
       input.actionId,
-      `overlap:${seat}:${overlapId}`,
-      () => this.performOverlapVote(seat, overlapId, input.vote),
+      `${project.id}:overlap:${actor}:${overlapId}`,
+      () => this.performOverlapVote(project, actor, overlapId, input.vote),
     );
   }
 
   private async performOverlapVote(
-    seat: string,
+    project: ProjectCatalog,
+    actor: string,
     overlapId: string,
     vote: VoteOverlapInput,
   ) {
     const proposalId = await this.uow.run((db) =>
-      this.track(db, async () => {
-        const lake = buildLake(db, this.project);
+      this.track(db, project, async () => {
+        const lake = buildLake(db, project);
         const found = await lake.ports.overlaps.findById(overlapId);
         if (!found) {
           throw fail(
@@ -806,7 +582,7 @@ export class CoordinationService {
             `No existe el solapamiento ${overlapId}`,
           );
         }
-        if (!found.validators.includes(seat)) {
+        if (!found.validators.includes(actor)) {
           throw fail(
             HttpStatus.FORBIDDEN,
             'not_validator',
@@ -816,7 +592,7 @@ export class CoordinationService {
         if (found.proposalId) await lockProposal(db, found.proposalId);
         const voted = await lake.voteOverlap.execute({
           overlapId,
-          validatorId: seat,
+          validatorId: actor,
           kind: vote.kind,
           note: vote.note ?? null,
         });
@@ -824,21 +600,21 @@ export class CoordinationService {
         const events: EventDraft[] = [];
         if (voted.changed) {
           const title = overlapTitle(
-            this.project,
+            project,
             voted.overlap,
             await lake.ports.revisions.list(),
           );
           const note = vote.note?.trim();
           events.push({
             kind: 'overlap.voted',
-            message: `${this.project.castName(seat)} dice que ${vote.kind === 'se_tocan' ? 'se tocan' : 'no se tocan'} ${title}${note ? `: «${note}»` : ''}.`,
-            refs: { overlapId, castId: seat },
+            message: `${project.castName(actor)} dice que ${vote.kind === 'se_tocan' ? 'se tocan' : 'no se tocan'} ${title}${note ? `: «${note}»` : ''}.`,
+            refs: { overlapId, castId: actor },
           });
         }
         return { value: found.proposalId, events };
       }),
     );
-    const snapshot = await this.queries.snapshot();
+    const snapshot = await this.queries.snapshot(project);
     const overlap = snapshot.overlaps.find((item) => item.id === overlapId);
     const proposal = snapshot.proposals.find((item) => item.id === proposalId);
     if (!overlap) {
@@ -857,18 +633,22 @@ export class CoordinationService {
     };
   }
 
-  async reopen(input: { seat: string; proposalId: string }) {
-    const seat = input.seat;
+  async reopen(input: {
+    project: ProjectCatalog;
+    actor: string;
+    proposalId: string;
+  }) {
+    const { project, actor } = input;
     await this.uow.run((db) =>
-      this.track(db, async () => {
-        const lake = buildLake(db, this.project);
-        const notifications = buildNotification(db, this.project);
-        await this.authorOf(db, input.proposalId, seat);
+      this.track(db, project, async () => {
+        const lake = buildLake(db, project);
+        const notifications = buildNotification(db, project);
+        await this.authorOf(db, project, input.proposalId, actor);
         await lockProposal(db, input.proposalId);
         const { proposal, reopenedReviewerIds } =
           await lake.reopenProposal.execute({
             proposalId: input.proposalId,
-            actorId: seat,
+            actorId: actor,
           });
         if (proposal.changeId !== null) {
           for (const reviewerId of reopenedReviewerIds) {
@@ -883,14 +663,14 @@ export class CoordinationService {
           }
         }
         const pending = reopenedReviewerIds
-          .map((id) => this.project.castName(id))
+          .map((id) => project.castName(id))
           .join(', ');
         return {
           value: undefined,
           events: [
             {
               kind: 'proposal.reopened',
-              message: `${this.project.castName(seat)} reabrió ${proposalTitle(this.project, proposal)} con la observación. Vuelve a responder ${pending || 'nadie'}.`,
+              message: `${project.castName(actor)} reabrió ${proposalTitle(project, proposal)} con la observación. Vuelve a responder ${pending || 'nadie'}.`,
               refs: {
                 proposalId: proposal.id,
                 castIds: [...reopenedReviewerIds],
@@ -900,33 +680,38 @@ export class CoordinationService {
         };
       }),
     );
-    return this.queries.proposal(input.proposalId);
+    return this.queries.proposal(project, input.proposalId);
   }
 
-  async withdraw(input: { seat: string; proposalId: string }) {
-    const seat = input.seat;
+  async withdraw(input: {
+    project: ProjectCatalog;
+    actor: string;
+    proposalId: string;
+  }) {
+    const { project, actor } = input;
     await this.uow.run((db) =>
-      this.track(db, async () => {
-        await this.authorOf(db, input.proposalId, seat);
+      this.track(db, project, async () => {
+        await this.authorOf(db, project, input.proposalId, actor);
         await lockProposal(db, input.proposalId);
-        const lake = buildLake(db, this.project);
+        const lake = buildLake(db, project);
         await lake.withdrawProposal.execute({
           proposalId: input.proposalId,
-          actorId: seat,
+          actorId: actor,
         });
         await lake.settleOverlaps.execute();
         return { value: undefined, events: [] };
       }),
     );
-    return this.queries.proposal(input.proposalId);
+    return this.queries.proposal(project, input.proposalId);
   }
 
   private async authorOf(
     db: Db,
+    project: ProjectCatalog,
     proposalId: string,
-    seat: string,
+    actor: string,
   ): Promise<void> {
-    const proposal = await buildLake(db, this.project).ports.proposals.findById(
+    const proposal = await buildLake(db, project).ports.proposals.findById(
       proposalId,
     );
     if (!proposal) {
@@ -936,24 +721,25 @@ export class CoordinationService {
         `No existe la propuesta ${proposalId}`,
       );
     }
-    if (proposal.authorId !== seat) {
+    if (proposal.authorId !== actor) {
       throw fail(
         HttpStatus.FORBIDDEN,
         'not_author',
-        `Solo ${this.project.castName(proposal.authorId)} puede hacerlo`,
+        `Solo ${project.castName(proposal.authorId)} puede hacerlo`,
       );
     }
   }
 
   async dismiss(input: {
-    seat: string;
+    project: ProjectCatalog;
+    actor: string;
     discrepancyId: string;
     note?: string | null | undefined;
   }): Promise<void> {
-    const seat = input.seat;
+    const { project, actor } = input;
     await this.uow.run((db) =>
-      this.track(db, async () => {
-        const lake = buildLake(db, this.project);
+      this.track(db, project, async () => {
+        const lake = buildLake(db, project);
         const discrepancy = await lake.ports.discrepancies.findById(
           input.discrepancyId,
         );
@@ -964,7 +750,7 @@ export class CoordinationService {
             `No existe la discrepancia ${input.discrepancyId}`,
           );
         }
-        if (discrepancy.ownerId !== seat) {
+        if (discrepancy.ownerId !== actor) {
           throw fail(
             HttpStatus.FORBIDDEN,
             'not_owner',
@@ -974,7 +760,7 @@ export class CoordinationService {
         const already = discrepancy.status === 'dismissed';
         await lake.dismissDiscrepancy.execute({
           discrepancyId: input.discrepancyId,
-          actorId: seat,
+          actorId: actor,
           note: input.note ?? null,
         });
         return {
@@ -984,8 +770,8 @@ export class CoordinationService {
             : [
                 {
                   kind: 'discrepancy.dismissed',
-                  message: `${this.project.castName(seat)} descartó la discrepancia sobre ${this.project.factLabel(discrepancy.subject, discrepancy.attribute)}.`,
-                  refs: { discrepancyId: discrepancy.id, castId: seat },
+                  message: `${project.castName(actor)} descartó la discrepancia sobre ${project.factLabel(discrepancy.subject, discrepancy.attribute)}.`,
+                  refs: { discrepancyId: discrepancy.id, castId: actor },
                 },
               ],
         };
@@ -994,14 +780,15 @@ export class CoordinationService {
   }
 
   async acknowledge(input: {
-    seat: string;
+    project: ProjectCatalog;
+    actor: string;
     revisionId: string;
     note: string;
   }): Promise<void> {
-    const seat = input.seat;
+    const { project, actor } = input;
     await this.uow.run((db) =>
-      this.track(db, async () => {
-        const lake = buildLake(db, this.project);
+      this.track(db, project, async () => {
+        const lake = buildLake(db, project);
         const revision = await lake.ports.revisions.findById(input.revisionId);
         if (!revision) {
           throw fail(
@@ -1010,7 +797,7 @@ export class CoordinationService {
             `No existe la revisión ${input.revisionId}`,
           );
         }
-        if (revision.authorId !== seat) {
+        if (revision.authorId !== actor) {
           throw fail(
             HttpStatus.FORBIDDEN,
             'not_owner',
@@ -1025,7 +812,7 @@ export class CoordinationService {
         );
         await lake.acknowledgeStale.execute({
           documentId: revision.documentId,
-          ownerId: seat,
+          ownerId: actor,
           note: input.note,
         });
         return {
@@ -1035,8 +822,8 @@ export class CoordinationService {
             : [
                 {
                   kind: 'stale.acknowledged',
-                  message: `${this.project.castName(seat)} confirmó sin cambio ${revisionTitle(revision)}.`,
-                  refs: { revisionId: revision.id, castId: seat },
+                  message: `${project.castName(actor)} confirmó sin cambio ${revisionTitle(revision)}.`,
+                  refs: { revisionId: revision.id, castId: actor },
                 },
               ],
         };

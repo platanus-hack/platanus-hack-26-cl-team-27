@@ -3,7 +3,7 @@ import type { Prisma, PrismaClient } from '@team27/data-main';
 
 import { PRISMA_CLIENT } from './prisma-token.ts';
 
-const ROOM_LOCK = 2_700_001;
+const LAKE_LOCK = 2_700_001;
 
 const TRANSACTION_OPTIONS = { timeout: 30_000, maxWait: 10_000 };
 
@@ -43,7 +43,7 @@ export class UnitOfWork {
 
   run<T>(work: (db: PrismaClient) => Promise<T>): Promise<T> {
     return this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(${ROOM_LOCK}::bigint)::text AS locked`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(${LAKE_LOCK}::bigint)::text AS locked`;
       return work(asClient(tx));
     }, TRANSACTION_OPTIONS);
   }

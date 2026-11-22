@@ -1,13 +1,11 @@
 # Despliegue
 
-La muestra pública corre en tres piezas: la web en Vercel ([`hack-team-27.vercel.app`](https://hack-team-27.vercel.app)), y la API ([`vigente-api.onrender.com`](https://vigente-api.onrender.com/api/health)) y su Postgres en Render. El ETL y el add-in de Revit corren en los equipos de quien presenta y apuntan a la API pública. Los celulares entran a la sala por el QR del telón, así que la web necesita una URL pública con HTTPS.
+Vigente corre en tres piezas: la web en Vercel ([`hack-team-27.vercel.app`](https://hack-team-27.vercel.app)), y la API ([`vigente-api.onrender.com`](https://vigente-api.onrender.com/api/health)) y su Postgres en Render.
 
 ```mermaid
 flowchart LR
-  P[Celulares y telón] -->|HTTPS| W[Web · Vercel]
+  P[Navegador] -->|HTTPS| W[Web · Vercel]
   W -->|rewrite /api/*| A[API · Render]
-  E[ETL · laptop] -->|API_URL + PRESENTER_KEY| A
-  R[Add-in de Revit] -->|apiUrl + presenterKey| A
   A --> D[(Postgres · Render)]
 ```
 
@@ -37,28 +35,27 @@ Si cambia el dueño del espejo, cambia `MIRROR_REPO` en `mirror.yml` y el token,
 [`render.yaml`](../render.yaml) es un Blueprint: declara el servicio `vigente-api` y el Postgres `vigente-db`, los dos en Virginia y en el plan gratis.
 
 - **La imagen** ([`apps/api/Dockerfile`](../apps/api/Dockerfile), con la raíz como contexto) instala el workspace completo y compila con `pnpm nx run @team27/api:build`. Node ejecuta los contextos y `data/main` como TypeScript y no quita tipos dentro de `node_modules`, así que la imagen no puede usar `pnpm deploy` ni podar el workspace.
-- **Al arrancar** corre `prisma migrate deploy`, siembra Los Aromos solo si la base no tiene proyectos (`seed/main.ts --si-no-hay`) y después `node dist/main.js`. Las migraciones y la semilla no tienen un paso aparte. Una definición ya guardada no se pisa al redesplegar.
-- **Migraciones con la API anterior viva.** Prisma no envuelve una migración en una transacción: cada instrucción queda confirmada apenas corre, y durante el deploy la instancia anterior sigue atendiendo. Si una migración vacía una tabla que la API escribe al atender y después le agrega una columna `NOT NULL`, la API anterior puede volver a insertar una fila entre las dos instrucciones. Un ejemplo es `room_state`, que `readState` crea en cada consulta de la sala. Entonces la migración queda fallida, la API nueva no arranca y todo deploy siguiente falla con `P3009`. Mientras tanto sigue sirviendo la versión anterior, que responde 200 al leer y 500 al escribir. Una migración así se aplica sin tráfico:
+- **Al arrancar** corre `prisma migrate deploy`, después `node seed/main.ts --si-no-hay` y después `node dist/main.js`. Con `--si-no-hay`, la semilla crea la organización Constructora Cordillera, sin proyectos ni personas, solo si la base no tiene ninguna organización; si alguien la borra, no vuelve en el siguiente deploy. Las personas reales entran como superadmins (`SUPERADMIN_EMAILS`) o por invitación desde `/admin` o `/cuenta`. Las migraciones y la semilla no tienen un paso aparte.
+- **Migraciones con la API anterior viva.** Prisma no envuelve una migración en una transacción: cada instrucción queda confirmada apenas corre, y durante el deploy la instancia anterior sigue atendiendo. Si una migración vacía una tabla que la API escribe al atender y después le agrega una columna `NOT NULL`, la API anterior puede volver a insertar una fila entre las dos instrucciones. Entonces la migración queda fallida, la API nueva no arranca y todo deploy siguiente falla con `P3009`. Mientras tanto sigue sirviendo la versión anterior, que responde 200 al leer y 500 al escribir. Una migración así se aplica sin tráfico:
   1. Suspende `vigente-api`.
   2. Desde un checkout del commit que se va a desplegar, sin `.env`, corre `pnpm --filter @team27/data-main exec prisma migrate deploy` y, en `data/main`, `node seed/main.ts --si-no-hay`. Usa la URL externa de `vigente-db` (Connect → External, con `?sslmode=require`). La `DATABASE_URL` del servicio es la interna y solo funciona dentro de Render.
   3. Resume y Deploy latest commit. Al arrancar, la migración y la semilla no tienen nada que hacer.
 
-  Si una migración ya quedó fallida y los datos se pueden recargar con el ETL, primero deja la base vacía (`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`) y después sigue los mismos pasos.
+  Si una migración ya quedó fallida y los datos se pueden perder, primero deja la base vacía (`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`) y después sigue los mismos pasos.
 
 - **Una sola instancia.** El registro de `x-action-id`, los estados de OAuth, el sondeo de las planillas y la última versión de cada una viven en la memoria del proceso.
-- **Se despliega en cada push**, salvo cuando el cambio solo toca la web, el ETL, la CLI de APS, `packages/`, `docs/`, el add-in, archivos Markdown o los archivos de la entrega (`platanus-hack-project.jsonc` y `project-logo.png`) (`buildFilter`). Así, editar la entrega a última hora no reinicia la API ni el estado en memoria del flujo.
-- **El plan gratis** se duerme tras 15 minutos sin peticiones y tarda cerca de un minuto en despertar, con 0,1 CPU. Con la sala abierta, el sondeo la mantiene despierta. Si la sala se pone lenta con muchos celulares, sube el servicio a Starter en el panel. El Postgres gratis vence a los 30 días.
+- **Se despliega en cada push**, salvo cuando el cambio solo toca la web, la CLI de APS, `packages/`, `docs/`, archivos Markdown o los archivos de la entrega (`platanus-hack-project.jsonc` y `project-logo.png`) (`buildFilter`). Así, editar la entrega a última hora no reinicia la API ni su estado en memoria.
+- **El plan gratis** se duerme tras 15 minutos sin peticiones y tarda cerca de un minuto en despertar, con 0,1 CPU. Con una pantalla de un proyecto abierta, el sondeo de eventos la mantiene despierta. Si se pone lenta, sube el servicio a Starter en el panel. El Postgres gratis vence a los 30 días.
 
 | Variable                                                                  | Valor                                                                                  | Por qué                                                                                                                                                                                                                                                                                                                            |
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NODE_ENV`                                                                | `production`                                                                           | Activa las reglas de producción del schema de la API                                                                                                                                                                                                                                                                               |
 | `API_PORT`                                                                | `10000`                                                                                | El puerto que Render espera                                                                                                                                                                                                                                                                                                        |
 | `DATABASE_URL`                                                            | La del Postgres `vigente-db`                                                           | La conexión interna de Render                                                                                                                                                                                                                                                                                                      |
-| `PRESENTER_KEY`                                                           | La genera Render                                                                       | El repo es público y la clave de desarrollo está en él. Cópiala del panel: la piden el ETL, `/presentador` y el add-in                                                                                                                                                                                                             |
 | `CORS_ALLOW_ORIGINS`                                                      | `https://hack-team-27.vercel.app`, la de la web                                        | El navegador habla con la API a través del `rewrite` de la web; en producción solo importa que no sea `*`                                                                                                                                                                                                                          |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `INTEGRATIONS_ENCRYPTION_KEY` | Opcionales; se agregan en el panel de Render                                           | Activan el conector de Google Sheets ([integrations](../context/integrations/README.md#configurar-google)). Sin ellas, `/conectores` dice que falta configurar Google                                                                                                                                                              |
 | `GOOGLE_REDIRECT_URI`                                                     | La URL de la web más `/api/integrations/google/callback`                               | Tiene que ser la misma que la registrada en Google Cloud                                                                                                                                                                                                                                                                           |
-| `ANTHROPIC_API_KEY`                                                       | Opcional; se agrega en el panel de Render                                              | Sin ella, la API lee el texto libre (WhatsApp, folios, actas) en modo determinista, con las respuestas grabadas en `apps/api/inference-cache`, que van dentro de la imagen. Con ella, lee Claude                                                                                                                                   |
+| `ANTHROPIC_API_KEY`                                                       | Opcional; se agrega en el panel de Render                                              | Con ella, Claude lee el texto libre (WhatsApp, folios, actas). Sin ella, una revisión con un fragmento de texto libre responde `503 inference_unavailable`                                                                                                                                                                         |
 | `APS_CLIENT_ID`, `APS_CLIENT_SECRET`                                      | Las del `.env` de quien corrió `pnpm aps:models`                                       | Sin ellas la API arranca, pero las rutas de `/api/aps` responden 503 y `/modelos` no carga. La API lista los modelos traducidos del bucket, y un bucket es de la app que lo creó: con las credenciales de otra app, APS no se lo muestra                                                                                           |
 | `APS_BUCKET_KEY`                                                          | `vigente-8b87f1a2b6424d31`, fijo en `render.yaml`                                      | El bucket del equipo, el mismo de `.env.example`. No es secreto, así que el Blueprint lo declara con su valor; Render lo pone al crear el servicio, pero en uno que ya existe no lo agrega con un push: se pone a mano en Environment o con Manual Sync del Blueprint. Sin él, `/api/aps/models` responde 503 `aps_not_configured` |
 | `APS_CALLBACK_URL`                                                        | `https://hack-team-27.vercel.app/api/integrations/aps/callback`, fijo en `render.yaml` | El callback de la conexión con Autodesk. Pasa por la web (el `rewrite` lo lleva a la API) para que el navegador mande la cookie del estado, y tiene que estar registrado tal cual en la app de APS                                                                                                                                 |
@@ -70,8 +67,7 @@ Para probar la imagen en local contra el Postgres de compose, en una base nueva:
 docker build -f apps/api/Dockerfile -t vigente-api .
 docker exec team27-postgres-1 createdb -U postgres vigente_prueba
 docker run --rm -p 3101:10000 --network team27_default \
-  -e DATABASE_URL=postgresql://postgres:postgres@postgres:5432/vigente_prueba \
-  -e PRESENTER_KEY=una-clave-de-prueba vigente-api
+  -e DATABASE_URL=postgresql://postgres:postgres@postgres:5432/vigente_prueba vigente-api
 curl localhost:3101/api/health/ready
 docker exec team27-postgres-1 dropdb -U postgres vigente_prueba
 ```
@@ -87,7 +83,7 @@ El proyecto de Vercel usa `apps/web` como Root Directory. [`apps/web/vercel.json
 
 La opción «Include files outside the Root Directory in the Build Step» tiene que quedar activada (viene así por defecto).
 
-Las cuentas son opcionales: sin las variables de Auth0, la web y la API funcionan igual y `/cuenta` avisa que no están activas. Para activarlas, agrega en Vercel `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_SECRET` y `APP_BASE_URL` (la URL de la web), y en Render `AUTH0_DOMAIN`, `AUTH0_AUDIENCE` y `SUPERADMIN_EMAILS` (los correos de los superadmins de Vigente, separados por coma). En Auth0, suma la URL de la web a Allowed Callback URLs (`<web>/auth/callback`), Allowed Logout URLs y Web Origins.
+Sin las variables de Auth0, la web y la API arrancan igual, pero nadie puede entrar: `/cuenta` avisa que las cuentas no están activas, las rutas con cuenta de la API responden 503 y solo queda `/modelos`. Para activarlas, agrega en Vercel `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_SECRET` y `APP_BASE_URL` (la URL de la web), y en Render `AUTH0_DOMAIN`, `AUTH0_AUDIENCE` y `SUPERADMIN_EMAILS` (los correos de los superadmins de Vigente, separados por coma). En Auth0, suma la URL de la web a Allowed Callback URLs (`<web>/auth/callback`), Allowed Logout URLs y Web Origins.
 
 La conexión con Autodesk también es opcional y necesita las cuentas. Para activarla, en la app de APS (la misma de `APS_CLIENT_ID`, de tipo Traditional Web App) agrega a Callback URL `<web>/api/integrations/aps/callback` (y `http://localhost:3000/api/integrations/aps/callback` para local), y en Render pon `APS_TOKEN_KEY`. En un servicio que ya existe, pon también `APS_CALLBACK_URL` a mano: igual que el bucket, un push no la agrega. El bucket es de la app que lo creó, así que `APS_CLIENT_ID`, `APS_CLIENT_SECRET` y `APS_BUCKET_KEY` cambian juntos. Un Manual Sync del Blueprint pone el bucket de `render.yaml`: con las credenciales de otra app, APS no lo muestra y el visor queda sin modelos. Para leer los proyectos de Autodesk Construction Cloud, un administrador de la cuenta de ACC tiene que agregar el Client ID de la app en Account Admin → Custom Integrations.
 
@@ -97,18 +93,11 @@ La conexión con Autodesk también es opcional y necesita las cuentas. Para acti
 2. **Render**: New → Blueprint → el repo espejo. Pide `CORS_ALLOW_ORIGINS`, `APS_CLIENT_ID`, `APS_CLIENT_SECRET` y `APS_TOKEN_KEY`: pon la URL de la web (`https://hack-team-27.vercel.app`), las credenciales de APS del `.env` de quien corrió `pnpm aps:models` y una clave nueva de `openssl rand -hex 32` (o déjala vacía si no vas a conectar Autodesk). Apply. Cuando termine, `https://vigente-api.onrender.com/api/health/ready` responde `{"status":"ok","database":"ok"}`. Si el servicio ya existía antes de que el Blueprint declarara las credenciales de APS, agrégalas a mano en Environment.
 3. **Vercel**: Add New → Project → el repo espejo. Root Directory `apps/web`, las dos variables de arriba y Deploy.
 4. Si la URL que dio Vercel no es la que pusiste en el paso 2, corrige `CORS_ALLOW_ORIGINS` en Render.
-5. Copia `PRESENTER_KEY` del panel de Render y carga la muestra desde tu laptop. Las variables del comando le ganan al `.env`:
-
-   ```bash
-   API_URL=https://vigente-api.onrender.com PRESENTER_KEY=<clave> pnpm etl
-   ```
-
+5. Activa las cuentas (ver arriba) y pon en Render `SUPERADMIN_EMAILS` con los correos reales de quienes administran Vigente. Entra con uno de ellos y, desde `/admin`, invita a la gente a Constructora Cordillera o crea las organizaciones reales.
 6. Pon la URL de la web (`https://hack-team-27.vercel.app`) en `deploy-url` de [`platanus-hack-project.jsonc`](../platanus-hack-project.jsonc): es el botón «ver aplicación» de la página de votación.
-7. En la config del add-in de Revit ([README](../tool-use-case/revit/README.md)), cambia `apiUrl` (`https://vigente-api.onrender.com/api`), `webUrl` (`https://hack-team-27.vercel.app`) y `presenterKey`.
 
 ## El día del pitch
 
-- Abre `/sala` unos minutos antes para despertar la API.
-- `/presentador` pide la clave una vez por pestaña: es la `PRESENTER_KEY` de Render.
-- La URL es pública y cualquiera puede tomar un asiento. Desde `/presentador` se sueltan.
-- Después del pitch, deja la sala cargada: quien vote abre `deploy-url` y, con el lago vacío, solo vería «Esperando la carga inicial».
+- Abre la web unos minutos antes para despertar la API: el plan gratis tarda cerca de un minuto.
+- Quien presente entra con una cuenta: su correo tiene que estar en `SUPERADMIN_EMAILS` o invitado a una organización. El login manda un código al correo, así que ten la bandeja a mano.
+- La web pública sin sesión solo ofrece entrar: quien vote y abra `deploy-url` ve la pantalla de entrada, no un proyecto.

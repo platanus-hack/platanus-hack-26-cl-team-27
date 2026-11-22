@@ -265,35 +265,16 @@ model OverlapVote {
   @@map("overlap_votes")
 }
 
-model Seat {
-  projectId  String   @map("project_id")
-  castId     String   @map("cast_id")
-  tokenHash  String   @map("token_hash")
-  claimedAt  DateTime @default(now()) @map("claimed_at")
-  lastBeatAt DateTime @default(now()) @map("last_beat_at")
-
-  @@id([projectId, castId])
-  @@map("seats")
-}
-
-model RoomEvent {
+model ProjectEvent {
   projectId String   @map("project_id")
   seq       Int      @id @default(autoincrement())
-  epoch     Int
   kind      String
   message   String
   refs      Json
   at        DateTime @default(now())
 
-  @@index([projectId, epoch])
-  @@map("room_events")
-}
-
-model RoomState {
-  projectId String @id @map("project_id")
-  epoch     Int    @default(1)
-
-  @@map("room_state")
+  @@index([projectId, seq])
+  @@map("project_events")
 }
 
 model Organization {

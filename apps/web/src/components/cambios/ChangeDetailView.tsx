@@ -1,43 +1,47 @@
 'use client';
 
+import type { Route } from 'next';
 import Link from 'next/link';
 import { useCallback } from 'react';
 
 import { Loading, LoadError } from '@/components/common/LoadState';
 import { textLink } from '@/components/common/link-styles';
+import { useProjectId } from '@/components/proyectos/ProjectContext';
 import { useLive } from '@/hooks/use-live';
+import { useResource } from '@/hooks/use-resource';
+import { getMe } from '@/lib/accounts-api';
 import { getChange } from '@/lib/changes-api';
+import { projectPage } from '@/lib/project-paths';
 import { DEFAULT_INTERVAL_MS } from '@/lib/pulse';
 
 import { ChangeDetailBody, changeTitle } from './ChangeDetailBody';
 import { ChangeResponse } from './ChangeResponse';
 
-export function ChangeDetailView({
-  changeId,
-  forStakeholder,
-}: {
-  readonly changeId: string;
-  readonly forStakeholder: string | null;
-}) {
+export function ChangeDetailView({ changeId }: { readonly changeId: string }) {
+  const projectId = useProjectId();
+  const me = useResource(getMe, 'me');
   const load = useCallback(
-    (signal: AbortSignal) => getChange(changeId, signal),
-    [changeId],
+    (signal: AbortSignal) => getChange(projectId, changeId, signal),
+    [projectId, changeId],
   );
   const { data, error, loading, reload } = useLive({
     load,
     intervalMs: DEFAULT_INTERVAL_MS,
-    dependencyKey: changeId,
+    dependencyKey: `${projectId}/${changeId}`,
+    projectId,
   });
 
   if (loading && !data) return <Loading />;
   if (!data)
     return <LoadError message={error ?? 'No encontramos este cambio.'} />;
 
+  const userId = me.data?.user.id ?? null;
+
   return (
     <article className="mx-auto flex max-w-3xl flex-col gap-5">
       <nav className="text-sm">
-        <Link href="/sala" className={textLink}>
-          ← Volver a la sala
+        <Link href={projectPage(projectId) as Route} className={textLink}>
+          ← Volver al proyecto
         </Link>
       </nav>
       <header>
@@ -48,13 +52,9 @@ export function ChangeDetailView({
       </header>
       <ChangeDetailBody
         change={data}
-        forStakeholder={forStakeholder}
+        forStakeholder={userId}
         response={
-          <ChangeResponse
-            change={data}
-            forStakeholder={forStakeholder}
-            onDone={reload}
-          />
+          <ChangeResponse change={data} userId={userId} onDone={reload} />
         }
       />
     </article>

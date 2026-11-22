@@ -129,4 +129,3 @@ export type {
 export { latestPerDocument } from './Revision.ts';
 export type { Revision, RevisionDraft } from './Revision.ts';
 export type { Space, SpaceKind } from './Space.ts';
-export * from './spatial/index.ts';

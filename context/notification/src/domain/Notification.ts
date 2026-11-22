@@ -38,13 +38,14 @@ export interface AddressedFinding extends NotificationFinding {
 }
 
 export interface ChangeToNotify {
+  readonly projectId: string;
   readonly changeId: string;
   readonly title: string;
   readonly findings: readonly AddressedFinding[];
 }
 
-export const detailLink = (changeId: string, stakeholderId: string): string =>
-  `/cambios/${changeId}?para=${encodeURIComponent(stakeholderId)}`;
+export const detailLink = (projectId: string, changeId: string): string =>
+  `/proyectos/${encodeURIComponent(projectId)}/cambios/${changeId}`;
 
 export const draftNotifications = (
   change: ChangeToNotify,
@@ -67,7 +68,7 @@ export const draftNotifications = (
         channel: stakeholder.channel,
         title: change.title,
         findings,
-        link: detailLink(change.changeId, stakeholder.id),
+        link: detailLink(change.projectId, change.changeId),
       },
     ];
   });

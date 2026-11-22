@@ -1,10 +1,8 @@
 import { project } from '../../project.ts';
 import {
-  checkAuthor,
   checkRevision,
   knownDocument,
   revisionBody,
-  seedBody,
 } from '../../../src/modules/coordination/revision-body.ts';
 
 const valid = {
@@ -173,18 +171,5 @@ describe('cuerpo de una revisión', () => {
       'chunks[0]: no existe el sujeto torre',
       'chunks[1]: no existe el atributo color',
     ]);
-  });
-
-  it('la carga inicial pide el autor y que sea del elenco', () => {
-    expect(seedBody.safeParse({ revisions: [valid] }).success).toBe(false);
-    expect(
-      seedBody.safeParse({
-        revisions: [{ ...valid, authorId: 'fernanda-lagos' }],
-      }).success,
-    ).toBe(true);
-    expect(() => checkAuthor(project, 'nadie')).toThrow(
-      expect.objectContaining({ status: 422 }),
-    );
-    expect(() => checkAuthor(project, 'fernanda-lagos')).not.toThrow();
   });
 });

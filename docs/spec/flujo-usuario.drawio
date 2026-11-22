@@ -7,7 +7,7 @@
         <mxCell id="flujo-title" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1;fontColor=#2C2C2A;" value="Vigente · flujo de usuario de un cambio" vertex="1">
           <mxGeometry x="40" y="0" width="900" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="flujo-admin" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FDF1E7;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="&lt;b&gt;Administrador configura el proyecto una vez&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Conecta su software, define espacios, documentos, elenco y mapa de dependencias. Hoy vive en código: apps/api/src/scenario&lt;/span&gt;" vertex="1">
+        <mxCell id="flujo-admin" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FDF1E7;strokeColor=#B4690E;fontColor=#7A4508;dashed=1;" value="&lt;b&gt;Administrador configura el proyecto una vez&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Conecta su software y define espacios, documentos, equipo y mapa de dependencias. Todavía no hay cómo hacerlo desde la web&lt;/span&gt;" vertex="1">
           <mxGeometry x="40" y="40" width="920" height="56" as="geometry" />
         </mxCell>
         <mxCell id="flujo-laneA" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FAFAF7;strokeColor=#D3D1C7;verticalAlign=top;align=center;fontSize=13;fontStyle=1;fontColor=#5F5E5A;spacingTop=6;" value="Autor del cambio" vertex="1">
@@ -22,10 +22,10 @@
         <mxCell id="flujo-a1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#F1EFE8;strokeColor=#888780;fontColor=#2C2C2A;" value="&lt;b&gt;Trabaja en su software&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Guarda el modelo en Revit o sube una revisión a su espacio: Drive, planilla, correo, WhatsApp o libro de obra&lt;/span&gt;" vertex="1">
           <mxGeometry x="60" y="160" width="220" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="flujo-b1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;Captura la revisión&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Add-in de Revit (real) o ETL (simulado) → POST /api/revisions, partida en fragmentos&lt;/span&gt;" vertex="1">
+        <mxCell id="flujo-b1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;Captura la revisión&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Un conector la sube al proyecto (POST /api/projects/:id/revisions), partida en fragmentos. Hoy ningún conector lo hace&lt;/span&gt;" vertex="1">
           <mxGeometry x="340" y="160" width="300" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="flujo-b2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;Compara cada hecho con lo vigente&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;El texto libre lo lee Claude o respuestas fijas; bajo 0,7 no cuenta&lt;/span&gt;" vertex="1">
+        <mxCell id="flujo-b2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;Compara cada hecho con lo vigente&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Con ANTHROPIC_API_KEY, Claude lee el texto libre; bajo 0,7 de confianza no cuenta&lt;/span&gt;" vertex="1">
           <mxGeometry x="340" y="255" width="300" height="60" as="geometry" />
         </mxCell>
         <mxCell id="flujo-b3" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=12;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="¿Cambia un dato y la fuente manda sobre él?" vertex="1">
@@ -49,10 +49,10 @@
         <mxCell id="flujo-c6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#F1EFE8;strokeColor=#888780;fontColor=#2C2C2A;" value="&lt;b&gt;Validadores votan&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;«Se tocan» bloquea la propuesta; «No se tocan» la libera&lt;/span&gt;" vertex="1">
           <mxGeometry x="700" y="635" width="240" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="flujo-b7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#085041;dashed=1;" value="&lt;b&gt;Avisa en su canal&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Correo, WhatsApp o Slack, maquetas en la web: resumen, costo, plazo y enlace a /cambios/:id&lt;/span&gt;" vertex="1">
+        <mxCell id="flujo-b7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#085041;" value="&lt;b&gt;Avisa al afectado&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Un aviso por persona, con resumen, costo, plazo y enlace al cambio. Hoy se ve en la web y no sale por ningún canal&lt;/span&gt;" vertex="1">
           <mxGeometry x="340" y="725" width="300" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="flujo-a7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#F1EFE8;strokeColor=#888780;fontColor=#2C2C2A;" value="&lt;b&gt;Ve el estado en vivo&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Quién aprobó, disputó o falta: /sala, /presentador, «Tus propuestas»&lt;/span&gt;" vertex="1">
+        <mxCell id="flujo-a7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#F1EFE8;strokeColor=#888780;fontColor=#2C2C2A;" value="&lt;b&gt;Ve el estado en vivo&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;Quién aprobó, disputó o falta, en el detalle del cambio dentro del proyecto&lt;/span&gt;" vertex="1">
           <mxGeometry x="60" y="730" width="220" height="60" as="geometry" />
         </mxCell>
         <mxCell id="flujo-c7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fontSize=13;fillColor=#F1EFE8;strokeColor=#888780;fontColor=#2C2C2A;" value="&lt;b&gt;Afectado responde&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:11px&quot;&gt;«Revisado» o «Tengo un problema», con nota&lt;/span&gt;" vertex="1">
@@ -160,23 +160,17 @@
         <mxCell id="flujo-lt1" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="Vigente, construido" vertex="1">
           <mxGeometry x="250" y="1260" width="165" height="24" as="geometry" />
         </mxCell>
-        <mxCell id="flujo-lg2" parent="1" style="rounded=1;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;dashed=1;" value="" vertex="1">
+        <mxCell id="flujo-lg3" parent="1" style="rounded=1;html=1;fillColor=#FDF1E7;strokeColor=#B4690E;dashed=1;" value="" vertex="1">
           <mxGeometry x="420" y="1265" width="14" height="14" as="geometry" />
         </mxCell>
-        <mxCell id="flujo-lt2" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="Simulado en la muestra" vertex="1">
+        <mxCell id="flujo-lt3" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="Por construir" vertex="1">
           <mxGeometry x="440" y="1260" width="165" height="24" as="geometry" />
         </mxCell>
-        <mxCell id="flujo-lg3" parent="1" style="rounded=1;html=1;fillColor=#FDF1E7;strokeColor=#B4690E;dashed=1;" value="" vertex="1">
+        <mxCell id="flujo-lg4" parent="1" style="rounded=1;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;" value="" vertex="1">
           <mxGeometry x="610" y="1265" width="14" height="14" as="geometry" />
         </mxCell>
-        <mxCell id="flujo-lt3" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="Por construir" vertex="1">
-          <mxGeometry x="630" y="1260" width="165" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="flujo-lg4" parent="1" style="rounded=1;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;" value="" vertex="1">
-          <mxGeometry x="800" y="1265" width="14" height="14" as="geometry" />
-        </mxCell>
         <mxCell id="flujo-lt4" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5F5E5A;" value="Datos" vertex="1">
-          <mxGeometry x="820" y="1260" width="165" height="24" as="geometry" />
+          <mxGeometry x="630" y="1260" width="165" height="24" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

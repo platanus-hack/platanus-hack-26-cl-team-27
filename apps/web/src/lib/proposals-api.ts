@@ -1,6 +1,8 @@
-import { request, type Auth } from './http';
-import { formatChange, latest, type FactValue } from './format';
-import type { Channel } from './room-api';
+import { request } from './http';
+import type { FactValue } from './format';
+import { projectApi } from './project-paths';
+
+export type Channel = 'email' | 'whatsapp' | 'slack';
 
 export type ProposalStatus =
   'open' | 'disputed' | 'merged' | 'withdrawn' | 'replaced';
@@ -61,33 +63,14 @@ export interface ProposalsResponse {
 }
 
 export const getProposals = (
+  projectId: string,
   status?: ProposalStatus | 'active',
   signal?: AbortSignal,
 ): Promise<ProposalsResponse> =>
   request<ProposalsResponse>(
-    `/api/proposals${status ? `?status=${status}` : ''}`,
+    projectApi(projectId, `/proposals${status ? `?status=${status}` : ''}`),
     { signal },
   );
-
-export const reopenProposal = (
-  proposalId: string,
-  auth: Auth,
-): Promise<ProposalView> =>
-  request<ProposalView>(`/api/proposals/${proposalId}/reopen`, {
-    method: 'POST',
-    body: {},
-    ...auth,
-  });
-
-export const withdrawProposal = (
-  proposalId: string,
-  auth: Auth,
-): Promise<ProposalView> =>
-  request<ProposalView>(`/api/proposals/${proposalId}/withdraw`, {
-    method: 'POST',
-    body: {},
-    ...auth,
-  });
 
 export const isActive = (status: ProposalStatus): boolean =>
   status === 'open' || status === 'disputed';
@@ -114,45 +97,3 @@ export const statusLabel = (status: string): string => {
   const known = toProposalStatus(status);
   return known ? STATUS_LABEL[known] : status;
 };
-
-export const lastActivity = (proposal: ProposalView): string =>
-  latest([
-    proposal.openedAt,
-    proposal.mergedAt,
-    ...proposal.reviewers.map((reviewer) => reviewer.at),
-  ]) ?? proposal.openedAt;
-
-export const disputersOf = (
-  proposal: ProposalView,
-): readonly ProposalReviewer[] =>
-  proposal.reviewers.filter((reviewer) => reviewer.decision === 'dispute');
-
-export interface ProposalActions {
-  readonly reopen: boolean;
-  readonly withdraw: boolean;
-}
-
-export const actionsFor = (status: ProposalStatus): ProposalActions => ({
-  reopen: status === 'disputed',
-  withdraw: isActive(status),
-});
-
-export const byLastActivity = (
-  proposals: readonly ProposalView[],
-): ProposalView[] =>
-  [...proposals].sort((a, b) => lastActivity(b).localeCompare(lastActivity(a)));
-
-export const splitProposals = (
-  proposals: readonly ProposalView[],
-): { readonly active: ProposalView[]; readonly history: ProposalView[] } => {
-  const sorted = byLastActivity(proposals);
-  return {
-    active: sorted.filter((proposal) => isActive(proposal.status)),
-    history: sorted.filter((proposal) => !isActive(proposal.status)),
-  };
-};
-
-export const changeOf = (proposal: ProposalView): string =>
-  proposal.diffs
-    .map((diff) => formatChange(diff.before, diff.after, diff.unit))
-    .join(' · ');

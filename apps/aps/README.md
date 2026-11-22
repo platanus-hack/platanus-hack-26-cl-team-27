@@ -7,7 +7,7 @@ pnpm aps:check                                  # prueba las credenciales y el b
 pnpm aps:models [--force] [--carpeta <ruta>]    # sube y traduce los .rvt de apps/aps/models (o de <ruta>)
 ```
 
-Node la ejecuta sin compilar, como el ETL.
+Node la ejecuta sin compilar, como a los contextos.
 
 ## Variables
 
@@ -30,7 +30,7 @@ Pide un token de `viewables:read` y revisa que la app vea el bucket. Distingue u
 
 La carpeta por defecto es `apps/aps/models/`; `--carpeta` acepta otra, relativa a la raíz. Los `.rvt` no se versionan (`.gitignore`) ni entran a la imagen de la API (`.dockerignore`).
 
-La disciplina no la decide la CLI: la API la saca del nombre del archivo al listar (`arch`, `site`, `struct`, `plumb`, `hvac` o `mech`, `elec`). Por eso `caso-estructura.rvt` queda en `structural` y `caso-electrico.rvt` en `electrical`. Un modelo nuevo aparece en `/modelos` cuando termina su traducción, sin commitear nada; la API guarda la lista 5 minutos.
+La disciplina no la decide la CLI: la API la saca del nombre del archivo al listar (`arch`, `site`, `struct`, `plumb`, `hvac` o `mech`, `elec`). Por eso `torre-estructura.rvt` queda en `structural` y `torre-electrico.rvt` en `electrical`. Un modelo nuevo aparece en `/modelos` cuando termina su traducción, sin commitear nada; la API guarda la lista 5 minutos.
 
 ## Estructura
 

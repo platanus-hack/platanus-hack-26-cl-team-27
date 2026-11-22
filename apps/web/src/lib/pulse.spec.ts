@@ -17,18 +17,19 @@ const event = (seq: number) => ({
 });
 
 describe('eventsPath', () => {
-  it('arma el sondeo con cursor, época y asiento', () => {
-    expect(eventsPath({ after: null, epoch: null })).toBe('/api/events');
-    expect(eventsPath({ after: 4, epoch: 2, castId: 'paula-rojas' })).toBe(
-      '/api/events?after=4&epoch=2&seat=paula-rojas',
+  it('arma el sondeo del proyecto con el cursor', () => {
+    expect(eventsPath('edificio-norte', null)).toBe(
+      '/api/projects/edificio-norte/events',
+    );
+    expect(eventsPath('edificio-norte', 4)).toBe(
+      '/api/projects/edificio-norte/events?after=4',
     );
   });
 });
 
 describe('applyPulse', () => {
-  it('la primera respuesta fija época y cursor sin recargar ni anunciar', () => {
+  it('la primera respuesta fija el cursor sin recargar ni anunciar', () => {
     const step = applyPulse(INITIAL_PULSE, {
-      epoch: 3,
       cursor: 7,
       reset: false,
       events: [event(6), event(7)],
@@ -40,9 +41,8 @@ describe('applyPulse', () => {
   });
 
   it('suma eventos nuevos, sin duplicar, y avanza el cursor', () => {
-    const state: PulseState = { epoch: 1, cursor: 2, events: [event(2)] };
+    const state: PulseState = { cursor: 2, events: [event(2)] };
     const step = applyPulse(state, {
-      epoch: 1,
       cursor: 4,
       reset: false,
       events: [event(2), event(3), event(4)],
@@ -53,9 +53,8 @@ describe('applyPulse', () => {
   });
 
   it('sin eventos no mueve el cursor hacia atrás', () => {
-    const state: PulseState = { epoch: 1, cursor: 9, events: [] };
+    const state: PulseState = { cursor: 9, events: [] };
     const step = applyPulse(state, {
-      epoch: 1,
       cursor: 5,
       reset: false,
       events: [],
@@ -65,33 +64,21 @@ describe('applyPulse', () => {
   });
 
   it('reset:true limpia el ticker y pide recargar', () => {
-    const state: PulseState = { epoch: 1, cursor: 9, events: [event(9)] };
+    const state: PulseState = { cursor: 9, events: [event(9)] };
     const step = applyPulse(state, {
-      epoch: 2,
       cursor: 0,
       reset: true,
       events: [],
     });
     expect(step.reset).toBe(true);
-    expect(step.state).toEqual({ epoch: 2, cursor: 0, events: [] });
-  });
-
-  it('un cambio de época también es un reinicio', () => {
-    const state: PulseState = { epoch: 1, cursor: 3, events: [] };
-    const step = applyPulse(state, {
-      epoch: 2,
-      cursor: 1,
-      reset: false,
-      events: [event(1)],
-    });
-    expect(step.reset).toBe(true);
+    expect(step.state).toEqual({ cursor: 0, events: [] });
   });
 
   it('limita el ticker', () => {
     const events = Array.from({ length: 10 }, (_, i) => event(i + 1));
     const step = applyPulse(
-      { epoch: 1, cursor: 0, events: [] },
-      { epoch: 1, cursor: 10, reset: false, events },
+      { cursor: 0, events: [] },
+      { cursor: 10, reset: false, events },
       3,
     );
     expect(step.state.events.map((e) => e.seq)).toEqual([10, 9, 8]);
