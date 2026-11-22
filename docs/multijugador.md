@@ -321,7 +321,7 @@ Sondeo corto con cursor, sin SSE ni WebSockets: el `rewrite` de Next puede buffe
 - Cada mutación inserta sus eventos en la misma transacción. Los eventos son invalidaciones con un mensaje en español para el ticker; al recibirlos, la pantalla vuelve a pedir su snapshot.
 - Si cambió la época (reinicio) o el cursor está por delante del servidor, la respuesta trae `reset: true` y el cliente recarga todo.
 - El token en la petición es el latido de presencia.
-- Las mutaciones y el reinicio se serializan con un advisory lock de Postgres.
+- Las mutaciones y el reinicio se serializan con un advisory lock de Postgres. Las lecturas del flujo (`/flow`, `/flow/history`) no lo toman: leen una instantánea `RepeatableRead` y memoizan por época y cursor. `GET /events` no escribe salvo para crear `room_state` y para renovar el latido de un asiento cuando el último tiene 5 s o más.
 - `useRoomPulse` usa `AbortController`, backoff hasta 3 s, pausa con la pestaña oculta y reanuda al volver.
 
 ## La web

@@ -12,6 +12,8 @@ import { PRISMA_CLIENT } from '../database/prisma-token.ts';
 import { emitEvents } from './events.ts';
 import { PRESENCE_MS } from './state.ts';
 
+export const HEARTBEAT_MIN_MS = 5_000;
+
 export const SEAT_TOKEN_HEADER = 'x-seat-token';
 export const PRESENTER_KEY_HEADER = 'x-presenter-key';
 export const ACT_AS_HEADER = 'x-act-as';
@@ -154,12 +156,17 @@ export class SeatsService {
       },
     });
     if (!seat) return null;
-    await this.prisma.seat.update({
-      where: {
-        projectId_castId: { projectId: this.project.id, castId: seat.castId },
-      },
-      data: { lastBeatAt: new Date() },
-    });
+    if (Date.now() - seat.lastBeatAt.getTime() >= HEARTBEAT_MIN_MS) {
+      await this.prisma.seat.update({
+        where: {
+          projectId_castId: {
+            projectId: this.project.id,
+            castId: seat.castId,
+          },
+        },
+        data: { lastBeatAt: new Date() },
+      });
+    }
     return seat.castId;
   }
 

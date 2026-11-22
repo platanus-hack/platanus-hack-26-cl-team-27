@@ -177,7 +177,7 @@ Nx carga el `.env` de la raíz en cada tarea (plantilla: `.env.example`). La API
 - [`data/main`](../data/main/README.md) tiene el schema (`prisma/schema.prisma`), las migraciones (`prisma/migrations`) y `createPrismaClient(url)`, que usa el driver adapter de `pg`. El cliente se genera en `data/main/generated/`, que no se versiona.
 - `prisma.config.ts` lee el `.env` de la raíz, así que los comandos de Prisma funcionan desde cualquier carpeta.
 - La API crea un solo `PrismaClient` (`DatabaseModule`, token `PRISMA_CLIENT`), lo inyecta donde se pide y lo cierra al apagarse.
-- Una acción de escritura corre en `UnitOfWork.run`: una transacción interactiva con un advisory lock, cuyo cliente reciben los adapters de todos los contextos para que queden en la misma transacción.
+- Una acción de escritura corre en `UnitOfWork.run`: una transacción interactiva con un advisory lock, cuyo cliente reciben los adapters de todos los contextos para que queden en la misma transacción. Las lecturas calientes (`GET /api/flow`, `/api/flow/history`) usan `UnitOfWork.read`: transacción de solo lectura con aislamiento `RepeatableRead` y sin el lock, con el resultado memoizado por proyecto, época y cursor de eventos.
 
 ## TypeScript
 
