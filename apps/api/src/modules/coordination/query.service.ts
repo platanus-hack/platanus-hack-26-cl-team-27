@@ -4,7 +4,11 @@ import {
   type Impact,
   SuggestAffected,
 } from '@team27/context-impact';
-import type { OverlapStatus, ProposalStatus } from '@team27/context-lake';
+import type {
+  Overlap,
+  OverlapStatus,
+  ProposalStatus,
+} from '@team27/context-lake';
 import type { PrismaClient } from '@team27/data-main';
 
 import { PRISMA_CLIENT } from '../database/database.module.ts';
@@ -19,6 +23,7 @@ import {
   detectForChange,
   liveOverlapsOf,
 } from './conflicts.ts';
+import { combinedImpactOf } from './impact.ts';
 import { suggestForChange } from './suggestions.ts';
 import {
   areasResponse,
@@ -84,14 +89,37 @@ export class QueryService {
         otherDetectedAt: other?.detectedAt ?? null,
       };
     };
+    const combinedWith = (otherChangeIds: readonly string[]) =>
+      combinedImpactOf(
+        snapshot.impacts,
+        [change.id, ...otherChangeIds],
+        project.graph,
+      );
+    const otherChangeIdsOf = (overlap: Overlap): string[] => {
+      const otherProposalId =
+        overlap.proposalId === proposal?.id
+          ? overlap.otherProposalId
+          : overlap.proposalId;
+      return (
+        snapshot.proposals
+          .find((item) => item.id === otherProposalId)
+          ?.changeIds.filter((item) => item !== change.id) ?? []
+      );
+    };
     return {
       changeId: change.id,
       overlaps: liveOverlapsOf(
         snapshot.overlaps,
         change,
         proposal?.id ?? null,
-      ).map((overlap) => overlapView(snapshot, overlap)),
-      conflicts: result.conflicts.map(withChange),
+      ).map((overlap) => ({
+        ...overlapView(snapshot, overlap),
+        combinedImpact: combinedWith(otherChangeIdsOf(overlap)),
+      })),
+      conflicts: result.conflicts.map((item) => ({
+        ...withChange(item),
+        combinedImpact: combinedWith([item.otherChangeId]),
+      })),
       watch: result.watch.map(withChange),
       inference: result.inference,
       inferenceMessage: result.inferenceMessage,

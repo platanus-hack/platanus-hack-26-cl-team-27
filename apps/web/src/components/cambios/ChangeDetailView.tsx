@@ -58,7 +58,7 @@ export function ChangeDetailView({ changeId }: { readonly changeId: string }) {
           <ChangeResponse change={data} userId={userId} onDone={reload} />
         }
       />
-      <ChangeAnalysis projectId={projectId} changeId={changeId} />
+      <ChangeAnalysis projectId={projectId} changeId={changeId} change={data} />
     </article>
   );
 }

@@ -26,6 +26,8 @@ Ningún modelo calcula costos ni plazos: eso sale solo de las reglas. Lo que dev
   - Si la entrega se mueve, quien lleva el plazo (`scheduleOwnerId`) recibe un hallazgo.
   - Si la holgura lo absorbe, no se le avisa y la razón queda en `filtered`.
 - **Formato.** Los números van en español de Chile: `3,75`, `$3.636.500`, `1 día` y `4 días`.
+- **Impacto conjunto.** `combineImpacts(impactos, tareas)` junta el impacto de varios cambios, por ejemplo los dos de un choque: suma el costo, une las partidas por código y las tareas por id, y recalcula la ruta crítica con las duraciones de todos. El atraso sale de ese recálculo, no de sumar los atrasos: dos tareas en paralelo no se acumulan, dos en la misma cadena sí. Un cambio repetido cuenta una vez.
+- **Sin regla.** `ruleCoverage(cambio, grafo)` dice, por cada atributo que cambió, si alguna partida (`cost`) o alguna tarea con `driver` en el elemento (`schedule`) usa una cantidad que ese atributo mueve. `ruleGapMessage(cobertura, etiqueta)` lo pone en palabras: «No hay reglas de costo ni de plazo para Ancho del shaft.», o solo de costo, o solo de plazo; `null` si están las dos. Así un cambio sin reglas no se lee como un cambio que cuesta cero.
 
 ## Probabilidad
 

@@ -7,12 +7,16 @@ import { useCallback } from 'react';
 import { textLink } from '@/components/common/link-styles';
 import { useResource } from '@/hooks/use-resource';
 import {
+  type ChangeDetail,
+  type CombinedImpactView,
   type ConflictView,
   getChangeConflicts,
   getChangeSuggestions,
   type ProbabilityBand,
 } from '@/lib/changes-api';
 import { projectPage } from '@/lib/project-paths';
+
+import { ImpactFigures } from './ImpactFigures';
 
 const percent = (probability: number) => `${Math.round(probability * 100)} %`;
 
@@ -75,12 +79,37 @@ function ConflictItem({
   );
 }
 
+function CombinedImpact({
+  withName,
+  combined,
+}: {
+  readonly withName: string;
+  readonly combined: CombinedImpactView;
+}) {
+  return (
+    <section className="rounded-lg bg-accent-soft/30 p-4">
+      <h4 className="mb-2 text-sm font-semibold text-ink">
+        Junto con {withName}
+      </h4>
+      <ImpactFigures impact={combined} />
+      {combined.missingChangeIds.length > 0 && (
+        <p className="mt-3 text-sm text-ink-2">
+          Uno de los dos cambios no tiene costo ni plazo calculados: la cifra
+          cuenta solo el que sí.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function ChangeAnalysis({
   projectId,
   changeId,
+  change,
 }: {
   readonly projectId: string;
   readonly changeId: string;
+  readonly change: ChangeDetail;
 }) {
   const key = `${projectId}/${changeId}`;
   const loadSuggestions = useCallback(
@@ -98,6 +127,37 @@ export function ChangeAnalysis({
   const watched = suggestions.data?.watch ?? [];
   const found = conflicts.data?.conflicts ?? [];
   const overlaps = conflicts.data?.overlaps ?? [];
+  const { impact, ruleGaps } = change;
+  const hasFigures =
+    impact !== null &&
+    (impact.costDelta !== 0 ||
+      impact.delayDays !== 0 ||
+      impact.costLines.length > 0 ||
+      impact.tasks.length > 0);
+  const combined = [
+    ...overlaps.flatMap((overlap) =>
+      overlap.combinedImpact
+        ? [
+            {
+              key: overlap.id,
+              withName: overlap.otherSubjectName,
+              combined: overlap.combinedImpact,
+            },
+          ]
+        : [],
+    ),
+    ...found.flatMap((item) =>
+      item.combinedImpact
+        ? [
+            {
+              key: item.otherChangeId,
+              withName: item.otherElement?.name ?? item.otherSummary,
+              combined: item.combinedImpact,
+            },
+          ]
+        : [],
+    ),
+  ];
 
   return (
     <>
@@ -161,6 +221,38 @@ export function ChangeAnalysis({
             ) : null}
           </div>
         )}
+      </Block>
+      <Block
+        title="Calculador de impacto"
+        question="¿Cuánto cuesta y cuánto atrasa?"
+      >
+        <div className="flex flex-col gap-4">
+          {impact && hasFigures ? (
+            <div>
+              <ImpactFigures impact={impact} />
+            </div>
+          ) : ruleGaps.length === 0 ? (
+            <Muted>
+              {impact
+                ? 'Este cambio no mueve el costo ni el plazo.'
+                : 'Todavía no calculamos el costo ni el plazo de este cambio.'}
+            </Muted>
+          ) : null}
+          {ruleGaps.length > 0 && (
+            <ul className="flex flex-col gap-1 text-sm text-ink-2">
+              {ruleGaps.map((gap) => (
+                <li key={gap.key}>{gap.message}</li>
+              ))}
+            </ul>
+          )}
+          {combined.map((item) => (
+            <CombinedImpact
+              key={item.key}
+              withName={item.withName}
+              combined={item.combined}
+            />
+          ))}
+        </div>
       </Block>
     </>
   );
