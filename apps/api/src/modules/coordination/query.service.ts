@@ -24,6 +24,7 @@ import type { ProjectCatalog } from '../project/project-catalog.ts';
 import { fail } from './http-errors.ts';
 import {
   briefOf,
+  comparableChanges,
   CONFLICT_WINDOW,
   detectForChange,
   liveOverlapsOf,
@@ -204,7 +205,7 @@ export class QueryService {
     );
     const result = await detectForChange(this.detect, {
       change,
-      others: recent,
+      others: comparableChanges(recent, snapshot.proposals),
       vocabulary: buildVocabulary(project),
     });
     const byId = new Map(recent.map((item) => [item.id, item]));

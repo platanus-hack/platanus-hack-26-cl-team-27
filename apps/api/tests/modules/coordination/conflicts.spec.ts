@@ -8,6 +8,7 @@ import { chooseConflictEstimator } from '../../../src/modules/impact/conflict-es
 import { buildVocabulary } from '../../../src/modules/impact/vocabulary.ts';
 import {
   briefOf,
+  comparableChanges,
   detectForChange,
 } from '../../../src/modules/coordination/conflicts.ts';
 import { project } from '../../project.ts';
@@ -112,5 +113,24 @@ describe('detectar choques de un cambio con otros', () => {
     expect(chooseConflictEstimator('', { apiKey: 'AIza-x' }).mode).toBe(
       'gemini',
     );
+  });
+});
+
+describe('con qué cambios se compara', () => {
+  it('no compara con la revisión que fue reemplazada ni con una propuesta retirada', () => {
+    expect(
+      comparableChanges(
+        [shaft, colector, ventana],
+        [
+          { status: 'superseded', changeIds: [shaft.id] },
+          { status: 'withdrawn', changeIds: [ventana.id] },
+          { status: 'open', changeIds: [colector.id] },
+        ],
+      ),
+    ).toEqual([colector]);
+  });
+
+  it('un cambio sin propuesta sigue contando', () => {
+    expect(comparableChanges([shaft], [])).toEqual([shaft]);
   });
 });
