@@ -104,7 +104,8 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 **7 · Spike de AEC Data Model** · `distinto`
 
 - Hay: el cambio por elemento. El add-in compara cada guardado con el anterior (`tool-use-case/revit/src/Team27.Minuta.Revit/ChangeTracker.cs`) y `DetectChanges` lo convierte en `Change`.
-- Falta: comprobar si ACC entrega ese diff desde la nube. Es un spike: su salida es un doc, no código en `main`.
+- Spike hecho: [aec-data-model.md](aec-data-model.md). ACC lo entrega con `diffElementGroupByVersionWithLatest`, por versión sincronizada o publicada y no por guardado, y solo con el modelo en un hub de ACC con AEC Data Model activado.
+- Falta: comprobarlo con un hub real (la lista está al final del spike) y, si sirve, un conector que arme la misma minuta y la mande a `POST /api/integrations/revit/minutes`.
 
 **8 · Parser de Presto o S10** · `distinto`
 
