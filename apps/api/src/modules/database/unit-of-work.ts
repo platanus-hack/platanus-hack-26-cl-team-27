@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, PrismaClient } from '@team27/data-main';
 
+import { ChangeSignal } from './change-signal.ts';
 import { PRISMA_CLIENT } from './prisma-token.ts';
 
 const ROOM_LOCK = 2_700_001;
@@ -41,16 +42,23 @@ const asClient = (tx: Prisma.TransactionClient): PrismaClient => {
 @Injectable()
 export class UnitOfWork {
   private readonly prisma: PrismaClient;
+  private readonly signal: ChangeSignal;
 
-  constructor(@Inject(PRISMA_CLIENT) prisma: PrismaClient) {
+  constructor(
+    @Inject(PRISMA_CLIENT) prisma: PrismaClient,
+    @Inject(ChangeSignal) signal: ChangeSignal,
+  ) {
     this.prisma = prisma;
+    this.signal = signal;
   }
 
-  run<T>(work: (db: PrismaClient) => Promise<T>): Promise<T> {
-    return this.prisma.$transaction(async (tx) => {
+  async run<T>(work: (db: PrismaClient) => Promise<T>): Promise<T> {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(${ROOM_LOCK}::bigint)::text AS locked`;
       return work(asClient(tx));
     }, TRANSACTION_OPTIONS);
+    this.signal.notify();
+    return result;
   }
 
   read<T>(work: (db: PrismaClient) => Promise<T>): Promise<T> {

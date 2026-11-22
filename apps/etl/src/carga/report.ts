@@ -7,6 +7,9 @@ export interface Report {
   readonly minutos: number;
   readonly ciclos: number;
   readonly base: string;
+  readonly espera: number;
+  readonly segundos: number;
+  readonly eventosPorSegundo: number;
   readonly endpoints: readonly EndpointStats[];
   readonly acciones: readonly ActionStats[];
   readonly cumple: boolean;
@@ -48,17 +51,32 @@ const table = (
   return [line(head), ...rows.map(line)];
 };
 
+export const requestsPerSecond = (
+  endpoints: readonly EndpointStats[],
+  endpoint: string,
+  seconds: number,
+): number => {
+  const count = endpoints.find((entry) => entry.endpoint === endpoint)?.count;
+  return seconds > 0 && count !== undefined
+    ? Math.round((count / seconds) * 100) / 100
+    : 0;
+};
+
 export const buildReport = (
   options: CargaOptions,
   cycles: number,
   endpoints: readonly EndpointStats[],
   actions: readonly ActionStats[],
+  seconds = 0,
 ): Report => ({
   escenario: options.escenario,
   clientes: options.clientes,
   minutos: options.minutos,
   ciclos: cycles,
   base: options.base,
+  espera: options.espera,
+  segundos: Math.round(seconds * 10) / 10,
+  eventosPorSegundo: requestsPerSecond(endpoints, 'GET /events', seconds),
   endpoints,
   acciones: actions,
   cumple: meetsCriterion(actions),
@@ -82,6 +100,8 @@ export const formatReport = (report: Report): string[] => {
         ms(entry.max),
       ]),
     ),
+    '',
+    `GET /events: ${report.eventosPorSegundo} peticiones por segundo en ${report.segundos} s · espera ${report.espera} s`,
     '',
     'Por acción: cuánto tarda en verse, sobre todos los espectadores y ciclos',
     ...table(

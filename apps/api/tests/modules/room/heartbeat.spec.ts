@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { ConfigService } from '@nestjs/config';
 import type { PrismaClient } from '@team27/data-main';
 
+import { ChangeSignal } from '../../../src/modules/database/change-signal.ts';
 import { project } from '../../project.ts';
 import type { Env } from '../../../src/config/index.ts';
 import { SeatsService } from '../../../src/modules/room/seats.service.ts';
@@ -28,7 +29,10 @@ const build = (lastBeatAt: Date, released = false) => {
     },
   } as unknown as PrismaClient;
   const config = { get: () => 'clave' } as unknown as ConfigService<Env, true>;
-  return { seats: new SeatsService(prisma, config, project), updates };
+  return {
+    seats: new SeatsService(prisma, config, project, new ChangeSignal()),
+    updates,
+  };
 };
 
 describe('latido del asiento al sondear', () => {

@@ -200,7 +200,7 @@ El orden de la tabla es el del modo automático: s1, s2, s3, s4, x1, x2, x3, s5,
 
 ## La carga: 30 celulares
 
-`pnpm etl carga` simula un público de celulares contra la API y mide cuánto tarda cada cambio en verse. Cada espectador sondea `GET /api/events` con cursor y época como el cliente de hoy (1000 ms ±150 ms en `/caso`, 700 ms en `/sala`, backoff de 2 s y 3 s ante un error, timeout de 10 s por petición) y, ante eventos nuevos o un reinicio, recarga lo que recarga su pantalla. No usa dependencias nuevas: `fetch`, `AbortSignal.timeout` y `crypto.randomUUID`.
+`pnpm etl carga` simula un público de celulares contra la API y mide cuánto tarda cada cambio en verse. Cada espectador y cada actor piden `GET /api/events` con cursor y época como el cliente de hoy: la primera sin `wait`, y si la API anuncia `longPoll`, las siguientes con `wait=10` (timeout de `wait` + 10 s) y la siguiente a los 0 a 100 ms; si no lo anuncia, o con `--espera 0`, sondeo corto (1000 ms ±150 ms en `/caso`, 700 ms en `/sala`, backoff de 2 s y 3 s ante un error, timeout de 10 s por petición) y, ante eventos nuevos o un reinicio, recarga lo que recarga su pantalla. No usa dependencias nuevas: `fetch`, `AbortSignal.timeout` y `crypto.randomUUID`.
 
 ```bash
 pnpm etl carga                                          # 30 clientes, 5 min, escenario caso
@@ -217,6 +217,7 @@ pnpm etl carga --base https://<api>/api --produccion    # contra otra API
 | `--pulsos`     | 1                           | `1` o `2`. Con 2, cada espectador corre además un segundo bucle que recarga `/flow/history`    |
 | `--historial`  | apagado                     | Recarga también `/flow/history` en el bucle único                                              |
 | `--ciclo`      | 60                          | Segundos entre el inicio de un ciclo y el siguiente (un ciclo dura unos 30 s)                  |
+| `--espera`     | 10                          | Segundos de `wait` en `/events` si la API anuncia espera larga (0 a 10). `0` fuerza el sondeo corto |
 | `--base`       | `http://localhost:3001/api` | URL de la API, con `/api`                                                                      |
 | `--produccion` | apagado                     | Obligatorio si la base no es `localhost` ni `127.0.0.1`; sin él, el comando se niega           |
 | `--forzar`     | apagado                     | Corre aunque haya alguien conectado o un caso abierto                                          |
@@ -243,6 +244,7 @@ No produce votos. Un voto real (`POST /api/overlaps/:id/vote` o `POST /api/notif
 ### Cómo leer el informe
 
 - **Por endpoint:** cantidad de llamadas, errores por código (`500×2`; `timeout` y `red` son llamadas sin respuesta) y p50, p95, p99 y máximo de la latencia de la petición.
+- **Peticiones por segundo:** la línea `GET /events: N peticiones por segundo` divide las peticiones de `/events` por la duración de la corrida. Con espera larga, la latencia de `/events` en la tabla por endpoint incluye lo que la petición esperó (hasta 10 s): no es un costo, mide cuánto aguantó abierta.
 - **Por acción:** `propuesta`, `resuelto` y `reinicio` en `caso`; `asiento tomado` y `asiento soltado` en `sala`. `vistas` es cuántas veces lo vio un espectador, de las esperadas (espectadores por ciclos). La latencia corre desde justo antes de mandar la acción hasta que la recarga de ese espectador la refleja, y lo que no se vio cuenta como fallo en `bajo 2 s`.
 - **Línea final:** `30 clientes · 5 min · todo se ve en < 2 s: ✓/✗`. Es ✓ solo si todo lo esperado se vio en menos de 2 s; con ✗ el comando sale con código 1.
 

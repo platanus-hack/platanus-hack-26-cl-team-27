@@ -5,8 +5,9 @@ import {
   type CargaOptions,
   parseCargaArgs,
 } from '../src/carga/options.ts';
-import { meetsCriterion } from '../src/carga/report.ts';
-import { pulseDelay } from '../src/carga/pulse.ts';
+import { meetsCriterion, requestsPerSecond } from '../src/carga/report.ts';
+import type { CallOptions, Http } from '../src/carga/http.ts';
+import { Pulse, pulseDelay } from '../src/carga/pulse.ts';
 import { flowPhase, pickFreeSeat, seatPhase } from '../src/carga/scenarios.ts';
 import { percentile, Tracker } from '../src/carga/stats.ts';
 
@@ -19,6 +20,7 @@ describe('opciones de carga', () => {
       pulsos: 1,
       historial: false,
       ciclo: 60,
+      espera: 10,
       base: 'http://localhost:3001/api',
       produccion: false,
       forzar: false,
@@ -65,6 +67,8 @@ describe('opciones de carga', () => {
     expect(() => parseCargaArgs(['--clientes', '0'])).toThrow(CargaUsageError);
     expect(() => parseCargaArgs(['--escenario', 'x'])).toThrow(CargaUsageError);
     expect(() => parseCargaArgs(['--pulsos', '3'])).toThrow(CargaUsageError);
+    expect(() => parseCargaArgs(['--espera', '11'])).toThrow(CargaUsageError);
+    expect(() => parseCargaArgs(['--espera', '1.5'])).toThrow(CargaUsageError);
     expect(() => parseCargaArgs(['--rapido'])).toThrow(CargaUsageError);
     expect(() => parseCargaArgs(['--ciclo'])).toThrow('Falta el valor');
   });
@@ -142,6 +146,9 @@ describe('sondeo y fases', () => {
     expect(pulseDelay(1000, 1)).toBe(2000);
     expect(pulseDelay(1000, 2)).toBe(3000);
     expect(pulseDelay(1000, 9)).toBe(3000);
+    expect(pulseDelay(1000, 0, () => 0, true)).toBe(0);
+    expect(pulseDelay(1000, 0, () => 0.999999, true)).toBe(100);
+    expect(pulseDelay(1000, 1, () => 0.5, true)).toBe(2000);
   });
 
   it('lee la fase del caso', () => {
@@ -164,5 +171,75 @@ describe('sondeo y fases', () => {
     expect(seatPhase(room, 'ocupado')).toBe('ocupado');
     expect(seatPhase(room, 'javier')).toBe('libre');
     expect(seatPhase(room, 'nadie')).toBe('ausente');
+  });
+});
+
+describe('peticiones por segundo', () => {
+  it('divide las peticiones de /events por la duración', () => {
+    const endpoints = [
+      {
+        endpoint: 'GET /events',
+        count: 250,
+        errors: {},
+        p50: 0,
+        p95: 0,
+        p99: 0,
+        max: 0,
+      },
+    ];
+    expect(requestsPerSecond(endpoints, 'GET /events', 100)).toBe(2.5);
+    expect(requestsPerSecond(endpoints, 'GET /flow', 100)).toBe(0);
+    expect(requestsPerSecond(endpoints, 'GET /events', 0)).toBe(0);
+  });
+});
+
+describe('pulso con espera larga', () => {
+  const fakeHttp = (announce: boolean) => {
+    const paths: string[] = [];
+    const timeouts: (number | undefined)[] = [];
+    const http = {
+      call: (options: CallOptions) => {
+        paths.push(options.path);
+        timeouts.push(options.timeoutMs);
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          error: null,
+          data: {
+            epoch: 1,
+            cursor: 3,
+            reset: false,
+            events: [],
+            ...(announce ? { longPoll: true } : {}),
+          },
+        });
+      },
+    } as unknown as Http;
+    return { http, paths, timeouts };
+  };
+
+  it('la primera petición sale sin wait y las siguientes con wait si la API lo anuncia', async () => {
+    const { http, paths, timeouts } = fakeHttp(true);
+    const pulse = new Pulse(http, 1000, null, 10);
+    await pulse.tick();
+    await pulse.tick();
+    expect(paths).toEqual(['/events', '/events?after=3&epoch=1&wait=10']);
+    expect(timeouts).toEqual([undefined, 20_000]);
+  });
+
+  it('sin anuncio de la API sigue con el sondeo corto', async () => {
+    const { http, paths } = fakeHttp(false);
+    const pulse = new Pulse(http, 1000, null, 10);
+    await pulse.tick();
+    await pulse.tick();
+    expect(paths).toEqual(['/events', '/events?after=3&epoch=1']);
+  });
+
+  it('con espera 0 fuerza el sondeo corto aunque la API la anuncie', async () => {
+    const { http, paths } = fakeHttp(true);
+    const pulse = new Pulse(http, 1000, null, 0);
+    await pulse.tick();
+    await pulse.tick();
+    expect(paths).toEqual(['/events', '/events?after=3&epoch=1']);
   });
 });

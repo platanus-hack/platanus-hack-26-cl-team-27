@@ -7,8 +7,10 @@ import { isAbort } from '@/lib/http';
 import {
   applyPulse,
   INITIAL_PULSE,
-  nextDelay,
+  nextPulseDelay,
   startDelay,
+  supportsLongPoll,
+  waitSecondsFor,
   type PulseState,
 } from '@/lib/pulse';
 
@@ -48,13 +50,14 @@ export const useRoomPulse = ({
     if (!enabled) return undefined;
     let state: PulseState = INITIAL_PULSE;
     let failures = 0;
+    let longPoll = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let controller: AbortController | null = null;
     let stopped = false;
 
     const schedule = () => {
       if (stopped || document.hidden) return;
-      timer = setTimeout(tick, nextDelay(intervalMs, failures));
+      timer = setTimeout(tick, nextPulseDelay(intervalMs, failures, longPoll));
     };
 
     const tick = async () => {
@@ -67,6 +70,10 @@ export const useRoomPulse = ({
             epoch: state.epoch,
             castId,
             seatToken,
+            waitSeconds: waitSecondsFor(
+              longPoll,
+              state.cursor !== null && state.epoch !== null,
+            ),
           },
           controller.signal,
         );
@@ -74,6 +81,7 @@ export const useRoomPulse = ({
         const step = applyPulse(state, response);
         state = step.state;
         failures = 0;
+        longPoll = supportsLongPoll(response);
         setStatus('live');
         if (step.reset) {
           setEvents([]);

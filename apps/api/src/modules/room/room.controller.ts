@@ -9,7 +9,9 @@ import {
   Param,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import { RoomService } from './room.service.ts';
@@ -28,6 +30,7 @@ const eventsQuery = z.object({
   epoch: z.coerce.number().int().min(0).optional(),
   seat: castId.optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
+  wait: z.coerce.number().int().min(0).max(10).default(0),
 });
 
 @Controller()
@@ -52,8 +55,13 @@ export class RoomController {
   events(
     @Query({ schema: eventsQuery }) query: z.output<typeof eventsQuery>,
     @Headers(SEAT_TOKEN_HEADER) token: string | undefined,
+    @Res({ passthrough: true }) response: Response,
   ) {
+    const gone = new AbortController();
+    response.once('close', () => gone.abort());
     return this.room.events({
+      waitSeconds: query.wait,
+      signal: gone.signal,
       after: query.after,
       epoch: query.epoch,
       limit: query.limit,

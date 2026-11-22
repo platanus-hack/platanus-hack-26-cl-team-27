@@ -21,7 +21,7 @@ Todas cuelgan de `/api`. Los POST responden 201, salvo los que dicen 204. Los er
 | `GET /health` | `{"status":"ok"}` si el proceso vive. No toca la base |
 | `GET /health/ready` | `{"status":"ok","database":"ok"}`, o 503 `{"status":"unavailable","database":"error"}` si la base no responde |
 | `GET /room` | Snapshot: `epoch`, `cursor`, proyecto, `projectVersion`, `totals`, `consensus`, elenco con `occupant` (`human`, `bot` si lo juega el ETL, o `presenter`), espacios, `counters` (incluye `openOverlaps`), `seal` y `lake: { empty }` (`true` mientras no hay carga inicial: el snapshot responde igual, con ceros) |
-| `GET /events?after&epoch&seat&limit` | Sondeo con cursor: `{ epoch, cursor, reset, seat, events }`. Con `x-seat-token` es el latido y devuelve en `seat` el asiento que reconoció (`null` si el token no vale o si el asiento ya se soltó, por ejemplo con un reinicio). `limit` 1 a 200 (100 por defecto) |
+| `GET /events?after&epoch&seat&limit&wait` | Sondeo con cursor, corto o de espera larga: `{ epoch, cursor, reset, seat, longPoll, events }`. Con `x-seat-token` es el latido y devuelve en `seat` el asiento que reconoció (`null` si el token no vale o si el asiento ya se soltó, por ejemplo con un reinicio). `limit` 1 a 200 (100 por defecto). `wait` son segundos enteros de 0 a 10 (0 por defecto: responde al tiro, como los clientes viejos); fuera de rango, 400. `longPoll: true` va en toda respuesta y le dice al cliente que puede pedir `wait` |
 | `POST /seats/:castId/claim` | 201 `{ castId, token, cast }`. El token se devuelve una sola vez y se guarda hasheado. 409 `seat_taken` si hay latido en los últimos 20 s; 403 `presenter_seat` para Fernanda |
 | `DELETE /seats/:castId` | 204. Suelta el asiento: el del dueño (`x-seat-token`) o cualquiera con `x-presenter-key` |
 | `GET /seats/:castId/inbox` | `{ castId, items, authoring }`: solapamientos por validar (`type: 'overlap'`, con `myVote`), votos (con progreso y `blockedByOverlap`), discrepancias, desfases y filtrados del asiento, y las propuestas activas que escribió |
@@ -74,6 +74,8 @@ Tipos de evento (`kind`, repetido en `type`; cada uno trae `message` en español
 
 Cursor y época: `reset: true` (sin eventos) si `epoch` no es la actual o `after` va por delante del servidor; sin `after`, la respuesta trae solo el cursor actual; sin novedades, `events: []` y 200.
 
+Espera larga: con `wait > 0`, `after` y sin eventos nuevos en la época vigente, la petición queda esperando hasta que haya un evento del proyecto, cambie la época (responde `reset: true` con la época y el cursor nuevos), venza el `wait` (responde `events: []`) o el cliente se desconecte (se saca la espera al cerrarse la respuesta). Las esperas no consultan la base una por una: el `EventsHub` (`modules/room/events-hub.ts`) mantiene un solo vigilante por proyecto, que corre mientras haya esperas y cada 250 ms lee la época y `MAX(seq)` con una consulta; si algo cambió, trae los eventos nuevos una vez (desde el menor `after` de las esperas, con el tope de `limit`) y despierta a cada espera con su tramo. Además, `ChangeSignal` avisa apenas confirma una mutación (`UnitOfWork.run` al resolver, y los eventos de tomar o soltar un asiento), así que el tick de 250 ms es solo la red de seguridad. Hay un tope de 1000 esperas simultáneas: pasado el tope, la petición responde de inmediato como sondeo corto. El latido de `x-seat-token` se hace al empezar y, si la espera duró 5 s o más o terminó en `reset`, también al responder, para que un asiento con espera larga no pase los 20 s sin latido. Con `wait=10` aguanta detrás del `rewrite` de Vercel.
+
 Errores de negocio:
 
 | Código | Cuándo |
@@ -98,7 +100,7 @@ Errores de negocio:
 | 422 `minute_empty` | Ningún cambio de la minuta corresponde a valores que siga el proyecto (el cuerpo trae `ignored`) |
 
 - Los ids de propuestas, avisos, discrepancias, revisiones y cambios son UUID.
-- Cada acción de escritura corre en una transacción de Postgres bajo un advisory lock; el voto además bloquea la fila de la propuesta con `SELECT … FOR UPDATE`. Las lecturas calientes (`/flow`, `/flow/history`) no lo toman: usan `UnitOfWork.read`. `GET /events` solo escribe `room_state` si falta, y el latido del asiento si el último fue hace 5 s o más.
+- Cada acción de escritura corre en una transacción de Postgres bajo un advisory lock; el voto además bloquea la fila de la propuesta con `SELECT … FOR UPDATE`. Las lecturas calientes (`/flow`, `/flow/history`) no lo toman: usan `UnitOfWork.read`. `GET /events` solo escribe `room_state` si falta, y el latido del asiento si el último fue hace 5 s o más; si `after` ya es el cursor, tampoco lee eventos.
 
 ## El flujo del caso P-12
 

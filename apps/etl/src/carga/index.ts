@@ -46,9 +46,10 @@ export const runCarga = async (
     out,
   };
   out(
-    `Carga · escenario ${options.escenario} · ${options.clientes} clientes · ${options.minutos} min · ciclo de ${options.ciclo} s · ${options.base}`,
+    `Carga · escenario ${options.escenario} · ${options.clientes} clientes · ${options.minutos} min · ciclo de ${options.ciclo} s · espera ${options.espera} s · ${options.base}`,
   );
   let cycles = 0;
+  const started = performance.now();
   try {
     cycles =
       options.escenario === 'caso' ? await runCaso(ctx) : await runSala(ctx);
@@ -60,6 +61,7 @@ export const runCarga = async (
     cycles,
     metrics.endpoints(),
     tracker.actions(),
+    (performance.now() - started) / 1000,
   );
   for (const line of formatReport(report)) out(line);
   if (options.json !== null) {

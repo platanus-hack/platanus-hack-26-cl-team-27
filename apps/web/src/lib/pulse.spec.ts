@@ -5,7 +5,14 @@ import {
   applyPulse,
   BACKOFF_CAP_MS,
   INITIAL_PULSE,
+  LONG_POLL_GAP_MS,
+  LONG_POLL_WAIT_SECONDS,
+  longPollGap,
+  longPollTimeoutMs,
   nextDelay,
+  nextPulseDelay,
+  supportsLongPoll,
+  waitSecondsFor,
   reloadDelay,
   retryDelay,
   startDelay,
@@ -24,6 +31,9 @@ describe('eventsPath', () => {
     expect(eventsPath({ after: null, epoch: null })).toBe('/api/events');
     expect(eventsPath({ after: 4, epoch: 2, castId: 'paula-rojas' })).toBe(
       '/api/events?after=4&epoch=2&seat=paula-rojas',
+    );
+    expect(eventsPath({ after: 4, epoch: 2, waitSeconds: 10 })).toBe(
+      '/api/events?after=4&epoch=2&wait=10',
     );
   });
 });
@@ -130,5 +140,47 @@ describe('jitter y reintento', () => {
     expect([0, 1, 2, 3, 4, 9].map(retryDelay)).toEqual([
       1000, 2000, 4000, 8000, 8000, 8000,
     ]);
+  });
+});
+
+describe('espera larga', () => {
+  const reply = (longPoll?: boolean) => ({
+    epoch: 1,
+    cursor: 1,
+    reset: false,
+    events: [],
+    ...(longPoll === undefined ? {} : { longPoll }),
+  });
+
+  it('detecta el soporte solo si la API lo anuncia', () => {
+    expect(supportsLongPoll(reply(true))).toBe(true);
+    expect(supportsLongPoll(reply(false))).toBe(false);
+    expect(supportsLongPoll(reply())).toBe(false);
+  });
+
+  it('la primera petición sale sin wait y las siguientes con 10 s si hay soporte', () => {
+    expect(waitSecondsFor(true, false)).toBe(0);
+    expect(waitSecondsFor(true, true)).toBe(LONG_POLL_WAIT_SECONDS);
+    expect(waitSecondsFor(false, true)).toBe(0);
+  });
+
+  it('el timeout de la petición es wait + 10 s', () => {
+    expect(longPollTimeoutMs(10)).toBe(20_000);
+  });
+
+  it('con soporte la siguiente sale entre 0 y 100 ms después', () => {
+    expect(longPollGap(() => 0)).toBe(0);
+    expect(longPollGap(() => 0.999999)).toBe(LONG_POLL_GAP_MS);
+    expect(nextPulseDelay(1000, 0, true, () => 0.5)).toBe(50);
+  });
+
+  it('sin soporte sigue con el sondeo corto de siempre', () => {
+    expect(nextPulseDelay(1000, 0, false, () => 0.5)).toBe(1000);
+    expect(nextPulseDelay(700, 0, false, () => 0)).toBe(550);
+  });
+
+  it('con errores retrocede aunque haya soporte', () => {
+    expect(nextPulseDelay(700, 2, true, () => 0.5)).toBe(2800);
+    expect(nextPulseDelay(700, 9, true, () => 0.5)).toBe(BACKOFF_CAP_MS);
   });
 });

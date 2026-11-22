@@ -7,6 +7,7 @@ export interface CargaOptions {
   readonly pulsos: 1 | 2;
   readonly historial: boolean;
   readonly ciclo: number;
+  readonly espera: number;
   readonly base: string;
   readonly produccion: boolean;
   readonly forzar: boolean;
@@ -51,6 +52,7 @@ const VALUE_FLAGS = new Set([
   '--escenario',
   '--pulsos',
   '--ciclo',
+  '--espera',
   '--base',
   '--json',
 ]);
@@ -97,6 +99,10 @@ export const parseCargaArgs = (argv: readonly string[]): CargaOptions => {
   if (pulsos !== 1 && pulsos !== 2) {
     throw new CargaUsageError('--pulsos debe ser 1 o 2.');
   }
+  const espera = Number(values.get('--espera') ?? '10');
+  if (!Number.isInteger(espera) || espera < 0 || espera > 10) {
+    throw new CargaUsageError('--espera debe ser un entero de 0 a 10.');
+  }
   const base = (values.get('--base') ?? DEFAULT_BASE).replace(/\/+$/, '');
   try {
     new URL(base);
@@ -118,6 +124,7 @@ export const parseCargaArgs = (argv: readonly string[]): CargaOptions => {
     pulsos,
     historial: flags.has('--historial'),
     ciclo: positive('--ciclo', values.get('--ciclo') ?? '60'),
+    espera,
     base,
     produccion,
     forzar: flags.has('--forzar'),

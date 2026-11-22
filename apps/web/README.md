@@ -123,11 +123,11 @@ Todo el acceso a `/api/flow` vive en `lib/flow-api.ts` (tipos y llamadas: `getFl
 
 ## Tiempo real
 
-`useRoomPulse` consulta `GET /api/events?after=<seq>&epoch=<n>&seat=<castId>` cada 700 ms en `/sala` y cada 1000 ms en el resto, con ±150 ms de jitter. Manda `x-seat-token` si el visitante tiene asiento: es su latido. La lógica pura vive en `lib/pulse.ts`:
+`useRoomPulse` consulta `GET /api/events?after=<seq>&epoch=<n>&seat=<castId>`. La primera petición va sin `wait`: trae cursor y época, y su respuesta dice con `longPoll: true` si la API soporta la espera larga. Si lo dice, las siguientes van con `wait=10` (`LONG_POLL_WAIT_SECONDS`) y, al volver, la siguiente sale de 0 a 100 ms después. Si no lo dice (la web puede salir antes que la API), sigue con el sondeo corto: cada 700 ms en `/sala` y cada 1000 ms en el resto, con ±150 ms de jitter. Manda `x-seat-token` si el visitante tiene asiento: es su latido. La lógica pura vive en `lib/pulse.ts`:
 
 - `applyPulse` fija época y cursor en la primera respuesta, descarta los eventos ya vistos, mantiene el ticker (40 eventos) y marca el reinicio con `reset: true` o con un cambio de época.
-- `nextDelay` suma el jitter y, tras errores, retrocede hasta 3 s.
-- Cada sondeo lleva un `AbortController`; con la pestaña oculta se pausa y al volver se consulta de inmediato.
+- `nextDelay` suma el jitter y, tras errores, retrocede hasta 3 s. `nextPulseDelay` elige entre ese retraso y el de la espera larga (`longPollGap`, de 0 a 100 ms); con errores siempre retrocede. `supportsLongPoll`, `waitSecondsFor` y `longPollTimeoutMs` deciden si pedir `wait` y fijan el timeout de esa petición en `wait` + 10 s.
+- Cada sondeo lleva un `AbortController`; con la pestaña oculta se aborta, también una espera larga, y al volver se consulta de inmediato.
 - El primer tick espera de 0 a 600 ms al azar (`startDelay`), para que muchos celulares no lleguen a la vez.
 - Toda petición de `lib/http.ts` vence a los 10 s (`withDeadline`, con un `AbortController` propio que también obedece la señal del llamador). Un vencimiento es un `RequestTimeoutError`: cuenta como error de red, el pulso pasa a `offline` y retrocede.
 

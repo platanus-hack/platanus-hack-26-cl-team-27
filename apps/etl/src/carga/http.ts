@@ -11,6 +11,8 @@ export interface CallOptions {
   readonly seatToken?: string;
   readonly presenterKey?: string;
   readonly body?: unknown;
+  readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
 }
 
 export interface Reply {
@@ -46,7 +48,10 @@ export class Http {
         body:
           options.body === undefined ? undefined : JSON.stringify(options.body),
         cache: 'no-store',
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.any([
+          AbortSignal.timeout(options.timeoutMs ?? REQUEST_TIMEOUT_MS),
+          ...(options.signal ? [options.signal] : []),
+        ]),
       });
       const text = await response.text();
       let data: unknown = null;
@@ -62,6 +67,9 @@ export class Http {
         data,
       };
     } catch (error) {
+      if (options.signal?.aborted) {
+        return { ok: false, status: 0, error: 'abortado', data: null };
+      }
       const timeout = error instanceof Error && error.name === 'TimeoutError';
       reply = {
         ok: false,

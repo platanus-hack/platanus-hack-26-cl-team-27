@@ -152,14 +152,22 @@ const flowClient = async (
   const history = async (): Promise<void> => {
     await http.call({ label: '/flow/history', path: '/flow/history' });
   };
-  const main = new Pulse(http, FLOW_INTERVAL_MS, seat).run(async () => {
-    const reply = await http.call({ label: '/flow', path: '/flow' });
-    if (reply.ok && measured) tracker.observe(id, flowPhase(reply.data));
-    if (options.historial && options.pulsos === 1) await history();
-  }, signal);
+  const main = new Pulse(http, FLOW_INTERVAL_MS, seat, options.espera).run(
+    async () => {
+      const reply = await http.call({ label: '/flow', path: '/flow' });
+      if (reply.ok && measured) tracker.observe(id, flowPhase(reply.data));
+      if (options.historial && options.pulsos === 1) await history();
+    },
+    signal,
+  );
   const tasks = [main];
   if (options.pulsos === 2) {
-    tasks.push(new Pulse(http, FLOW_INTERVAL_MS, seat).run(history, signal));
+    tasks.push(
+      new Pulse(http, FLOW_INTERVAL_MS, seat, options.espera).run(
+        history,
+        signal,
+      ),
+    );
   }
   await Promise.all(tasks);
 };
@@ -317,15 +325,18 @@ export const runSala = async (ctx: Context): Promise<number> => {
   const held: { seat: PulseSeat | null } = { seat: null };
   const client = async (id: number): Promise<void> => {
     await sleep(Math.random() * 1000, inner);
-    await new Pulse(http, SALA_INTERVAL_MS).run(async () => {
-      const replies = await Promise.all(
-        SALA_LOADS.map(([path, label]) => http.call({ label, path })),
-      );
-      const snapshot = replies[0];
-      if (snapshot?.ok) {
-        tracker.observe(id, seatPhase(snapshot.data, castId));
-      }
-    }, inner);
+    await new Pulse(http, SALA_INTERVAL_MS, null, options.espera).run(
+      async () => {
+        const replies = await Promise.all(
+          SALA_LOADS.map(([path, label]) => http.call({ label, path })),
+        );
+        const snapshot = replies[0];
+        if (snapshot?.ok) {
+          tracker.observe(id, seatPhase(snapshot.data, castId));
+        }
+      },
+      inner,
+    );
   };
   try {
     ctx.out(

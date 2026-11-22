@@ -8,6 +8,7 @@ import type { Env } from '../../config/index.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
 import { PROJECT_CATALOG } from '../project/project.module.ts';
 import { fail } from '../coordination/http-errors.ts';
+import { ChangeSignal } from '../database/change-signal.ts';
 import { PRISMA_CLIENT } from '../database/prisma-token.ts';
 import { emitEvents } from './events.ts';
 import { PRESENCE_MS } from './state.ts';
@@ -44,12 +45,15 @@ export class SeatsService {
   private readonly prisma: PrismaClient;
   private readonly presenterKey: string;
   private readonly project: ProjectCatalog;
+  private readonly signal: ChangeSignal;
 
   constructor(
     @Inject(PRISMA_CLIENT) prisma: PrismaClient,
     @Inject(ConfigService) config: ConfigService<Env, true>,
     @Inject(PROJECT_CATALOG) project: ProjectCatalog,
+    @Inject(ChangeSignal) signal: ChangeSignal,
   ) {
+    this.signal = signal;
     this.prisma = prisma;
     this.presenterKey = config.get('PRESENTER_KEY', { infer: true });
     this.project = project;
@@ -235,6 +239,7 @@ export class SeatsService {
         refs: { castId },
       },
     ]);
+    this.signal.notify();
     return { castId, token };
   }
 
@@ -260,6 +265,7 @@ export class SeatsService {
           refs: { castId },
         },
       ]);
+      this.signal.notify();
     }
   }
 }
