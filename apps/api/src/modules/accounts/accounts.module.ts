@@ -8,9 +8,11 @@ import { AccountsService, IDENTITY, SUPERADMINS } from './accounts.service.ts';
 import { AdminController } from './admin.controller.ts';
 import { AdminService } from './admin.service.ts';
 import { Auth0Identity } from './identity.ts';
+import { ProjectsController } from './projects.controller.ts';
+import { ProjectsService } from './projects.service.ts';
 
 @Module({
-  controllers: [AccountsController, AdminController],
+  controllers: [AccountsController, AdminController, ProjectsController],
   providers: [
     {
       provide: IDENTITY,
@@ -31,6 +33,7 @@ import { Auth0Identity } from './identity.ts';
     },
     AccountsService,
     AdminService,
+    ProjectsService,
     AccountGuard,
   ],
   exports: [AccountsService, AccountGuard],

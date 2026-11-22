@@ -11,7 +11,7 @@ export class ApiError extends Error {
 }
 
 export interface RequestOptions {
-  readonly method?: 'GET' | 'POST' | 'DELETE';
+  readonly method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   readonly body?: unknown;
   readonly signal?: AbortSignal;
   readonly write?: boolean;
@@ -118,6 +118,16 @@ export const describeError = (error: unknown): string => {
         return 'Esa organización no existe.';
       case 'not_on_team':
         return 'No eres parte del equipo de este proyecto.';
+      case 'project_admin_required':
+        return 'Solo un administrador de la organización o quien creó el proyecto puede hacerlo.';
+      case 'not_in_organization':
+        return 'Esa persona no es parte de la organización del proyecto.';
+      case 'already_on_team':
+        return 'Esa persona ya está en el equipo del proyecto.';
+      case 'project_owner':
+        return 'Quien creó el proyecto, o es dueño del costo o del plazo, no sale del equipo.';
+      case 'owns_documents':
+        return 'Esa persona es dueña de espacios o documentos del proyecto: pásaselos a otra antes.';
       case 'inference_unavailable':
         return 'No pudimos leer el texto libre: falta configurar Claude en la API.';
       default:

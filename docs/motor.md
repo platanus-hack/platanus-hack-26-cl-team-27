@@ -29,7 +29,7 @@ Todo el motor cuelga de un proyecto: sus rutas son `/api/projects/:projectId/...
 
 En cada pedido, `ProjectCatalogs.load(projectId)` lee la definición del proyecto de la base (equipo, espacios, documentos, sujetos con su huella, atributos, modelo, partidas, tareas, dependencias, niveles, ejes y sistemas), la valida con `project-schema.ts` y arma un `ProjectCatalog`. Con él se arman, por proyecto, el lago (`buildLake`), el impacto (`buildImpact`) y los avisos (`buildNotification`); los adapters Prisma reciben el id del proyecto y filtran por él cada lectura y escritura.
 
-**Un proyecto creado desde la web parte vacío.** Tiene a quien lo creó como único integrante del equipo (autor y dueño del costo y del plazo) y no tiene espacios, documentos, sujetos ni modelo. Por eso el motor todavía no tiene nada que procesar en él: una revisión responde `404 unknown_document`. Cargarle a un proyecto sus espacios, documentos, sujetos, modelo y equipo está pendiente ([spec](spec/README.md), tarea 21).
+**Un proyecto creado desde la web parte vacío.** Tiene a quien lo creó como integrante del equipo (autor y dueño del costo y del plazo), y un admin de la organización o quien lo creó suma al resto desde la página del proyecto, pero no tiene espacios, documentos, sujetos ni modelo. Por eso el motor todavía no tiene nada que procesar en él: una revisión responde `404 unknown_document`. Cargarle a un proyecto sus espacios, documentos, sujetos y modelo está pendiente ([spec](spec/README.md), tarea 21).
 
 ## El lago y el consenso
 
