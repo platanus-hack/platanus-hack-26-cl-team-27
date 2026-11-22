@@ -29,6 +29,7 @@ import type { Env } from '../../config/index.ts';
 import { PRISMA_CLIENT } from '../database/database.module.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
 import { buildChannelSenders } from './channel-senders.ts';
+import { ModelImager } from './model-imager.ts';
 import { DELIVER_NOTIFICATIONS, DeliveryWorker } from './delivery.worker.ts';
 
 export interface NotificationOptions {
@@ -90,6 +91,7 @@ export const buildNotification = (
           emailFrom: config.get('EMAIL_FROM', { infer: true }),
           slackWebhookUrl: config.get('SLACK_WEBHOOK_URL', { infer: true }),
           teamsWebhookUrl: config.get('TEAMS_WEBHOOK_URL', { infer: true }),
+          imager: new ModelImager(),
         });
         if (Object.keys(senders).length === 0) return null;
         const emailRedirect = config.get('EMAIL_REDIRECT_TO', { infer: true });

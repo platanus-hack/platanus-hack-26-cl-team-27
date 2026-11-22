@@ -1,5 +1,6 @@
 import {
   fallbackWhy,
+  visualOf,
   type Notice,
   type NoticeFinding,
   noticeRoleOf,
@@ -303,5 +304,27 @@ describe('renderNotice sin choque, sin impacto y sin modelo', () => {
       'Gemini cree que este cambio te afecta (82 %): Las vigas del nivel 2 reciben la losa.',
     );
     expect(rendered.text).toContain('Espesor: 15 cm → 20 cm');
+  });
+
+  it('elige qué pintar del modelo según el cambio y el color según el rol', () => {
+    expect(
+      visualOf(
+        { ...notice, title: 'Shaft de instalaciones S1 · Posición' },
+        'costos',
+      ),
+    ).toMatchObject({ focus: 'canerias', color: '#d92d20' });
+    expect(visualOf(notice, 'ingenieria')).toMatchObject({
+      focus: 'losa',
+      color: '#256abf',
+    });
+    expect(
+      visualOf(
+        { ...notice, title: 'Muro eje 4', findings: [] },
+        'planificacion',
+      ),
+    ).toMatchObject({ focus: 'muros', color: '#7a5af8' });
+    const rendered = renderNotice(notice, 'ingenieria', 'email');
+    expect(rendered.visual?.focus).toBe('losa');
+    expect(rendered.html).toContain('cid:vista-modelo@vigente');
   });
 });

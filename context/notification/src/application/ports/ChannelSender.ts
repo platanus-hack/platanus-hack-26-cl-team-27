@@ -1,4 +1,4 @@
-import type { RenderedNotice } from '../../domain/Notice.ts';
+import type { NoticeVisual, RenderedNotice } from '../../domain/Notice.ts';
 import type { Channel } from '../../domain/Stakeholder.ts';
 
 export interface OutgoingDelivery {
@@ -12,3 +12,7 @@ export interface ChannelSender {
 }
 
 export type ChannelSenders = Partial<Record<Channel, ChannelSender>>;
+
+export interface NoticeImager {
+  image(visual: NoticeVisual): Promise<Uint8Array | null>;
+}

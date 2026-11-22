@@ -89,3 +89,5 @@ Los correos salen de una sola cuenta de Gmail (`EMAIL_FROM`, hoy `appvigente@gma
 ## El correo
 
 El aviso de cambio sale como una ficha en HTML con estilos en línea, para que Gmail la muestre igual: el porqué (con la marca del modelo si lo escribió uno), el costo y el plazo en recuadros de color, una tabla con cada valor de antes y de después, lo que le toca a la persona, los choques y un botón al detalle. Si a la persona la sumó el modelo, la ficha lo dice con la probabilidad, la razón y la evidencia. El texto plano lleva lo mismo.
+
+Cada sección lleva su ícono, y la ficha trae una vista 3D del modelo de muestra (el Duplex de buildingSMART en `apps/api/assets/model`): en color lo que toca el cambio (muros, losas o cañerías según el texto del cambio), con el color del rol de quien lo recibe, y el resto en gris. La dibuja `ModelImager` en la API, sin GPU: lee los IFC con `web-ifc`, rasteriza los triángulos en TypeScript y arma el PNG, que va adjunto en línea (`cid:vista-modelo@vigente`). Si no hay imagen, el bloque sale del HTML.

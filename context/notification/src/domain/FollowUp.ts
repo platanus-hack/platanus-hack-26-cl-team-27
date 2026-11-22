@@ -42,6 +42,7 @@ export const asReminder = (rendered: RenderedNotice): RenderedNotice => ({
     rendered.html === null
       ? null
       : `<p><strong>${REMINDER}</strong></p>${rendered.html}`,
+  ...(rendered.visual ? { visual: rendered.visual } : {}),
 });
 
 export const ANSWER_KINDS = [
