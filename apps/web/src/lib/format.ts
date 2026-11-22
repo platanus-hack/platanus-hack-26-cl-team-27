@@ -13,6 +13,13 @@ const CLOCK = new Intl.DateTimeFormat('es-CL', {
   hour12: false,
 });
 
+const DATE = new Intl.DateTimeFormat('es-CL', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'America/Santiago',
+});
+
 export type FactValue = number | string;
 
 export const MINUS = '−';
@@ -42,6 +49,11 @@ export const formatValue = (value: FactValue, unit: string | null): string => {
 export const formatClock = (iso: string): string => {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? '' : CLOCK.format(date);
+};
+
+export const formatDate = (iso: string): string => {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : DATE.format(date);
 };
 
 export const joinNames = (names: readonly string[]): string => {

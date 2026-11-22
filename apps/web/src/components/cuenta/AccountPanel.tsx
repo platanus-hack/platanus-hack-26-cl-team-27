@@ -1,12 +1,17 @@
 'use client';
 
 import { Card } from '@team27/ui';
+import type { Route } from 'next';
+import Link from 'next/link';
 
+import { buttonLink, textLink } from '@/components/common/link-styles';
 import { Empty, LoadError, Loading } from '@/components/common/LoadState';
 import { useResource } from '@/hooks/use-resource';
 import {
   getMe,
   getProjects,
+  newProjectHref,
+  projectHref,
   projectsByOrganization,
   ROLE_LABELS,
 } from '@/lib/accounts-api';
@@ -39,14 +44,29 @@ export function AccountPanel() {
           <Card
             title={organization.name}
             description={`Tu rol: ${ROLE_LABELS[organization.role]}`}
+            actions={
+              <Link
+                href={newProjectHref(organization.id) as Route}
+                className={buttonLink('secondary', 'sm')}
+              >
+                Crear proyecto
+              </Link>
+            }
           >
             {organization.projects.length === 0 ? (
-              <Empty>Esta organización todavía no tiene proyectos.</Empty>
+              <Empty>
+                Esta organización todavía no tiene proyectos. Crea el primero.
+              </Empty>
             ) : (
               <ul className="flex flex-col gap-2">
                 {organization.projects.map((project) => (
                   <li key={project.id}>
-                    <p className="font-medium text-ink">{project.name}</p>
+                    <Link
+                      href={projectHref(project.id) as Route}
+                      className={textLink}
+                    >
+                      {project.name}
+                    </Link>
                     <p className="text-sm text-ink-2">
                       {[project.location, project.description]
                         .filter(Boolean)

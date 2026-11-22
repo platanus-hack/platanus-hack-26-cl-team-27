@@ -20,15 +20,11 @@ const chooseProjectId = async (
   configured: string | undefined,
 ): Promise<string> => {
   if (configured) return configured;
-  const ids = await listProjectIds(prisma);
-  const [only] = ids;
-  if (ids.length === 1 && only) return only;
-  if (ids.length === 0) {
+  const [oldest] = await listProjectIds(prisma);
+  if (!oldest) {
     throw new Error(`La base no tiene ningún proyecto. ${SEED_HINT}`);
   }
-  throw new Error(
-    `La base tiene ${ids.length} proyectos (${ids.join(', ')}): elige uno con PROJECT_ID.`,
-  );
+  return oldest;
 };
 
 export const loadProjectCatalog = async (

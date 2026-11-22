@@ -15,6 +15,15 @@ import { type Account, AccountsService, ROLES } from './accounts.service.ts';
 
 const organizationId = z.string().min(1).max(64);
 
+const projectId = z.string().min(1).max(64);
+
+export const projectBody = z.object({
+  organizationId,
+  name: z.string().trim().min(1).max(120),
+  location: z.string().trim().max(200).default(''),
+  description: z.string().trim().max(1000).default(''),
+});
+
 const invitationBody = z.object({
   email: z.string().trim().email().max(254),
   role: z.enum(ROLES),
@@ -45,6 +54,23 @@ export class AccountsController {
   @Get('projects')
   async projects(@CurrentAccount() account: Account) {
     return { projects: await this.accounts.projects(account) };
+  }
+
+  @Post('projects')
+  createProject(
+    @CurrentAccount() account: Account,
+    @Body({ schema: projectBody }) body: z.output<typeof projectBody>,
+  ) {
+    return this.accounts.createProject(account, body);
+  }
+
+  @Get('projects/:projectId')
+  @Header('Cache-Control', 'no-store')
+  project(
+    @CurrentAccount() account: Account,
+    @Param('projectId', { schema: projectId }) id: string,
+  ) {
+    return this.accounts.project(account, id);
   }
 
   @Get('organizations/:organizationId/members')
