@@ -36,6 +36,15 @@ export const envSchema = z
       .transform((value) => (value && value.trim() !== '' ? value : undefined)),
     AUTH0_DOMAIN: optionalText,
     AUTH0_AUDIENCE: optionalText,
+    SUPERADMIN_EMAILS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        (value ?? '')
+          .split(',')
+          .map((email) => email.trim().toLowerCase())
+          .filter(Boolean),
+      ),
     APS_CLIENT_ID: optionalText,
     APS_CLIENT_SECRET: optionalText,
     APS_BUCKET_KEY: optionalText,

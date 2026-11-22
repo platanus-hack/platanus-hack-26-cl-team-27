@@ -1,8 +1,10 @@
 'use client';
 
 import { Card } from '@team27/ui';
+import Link from 'next/link';
 
 import { Empty, LoadError, Loading } from '@/components/common/LoadState';
+import { buttonLink } from '@/components/common/link-styles';
 import { useResource } from '@/hooks/use-resource';
 import {
   getMe,
@@ -23,17 +25,31 @@ export function AccountPanel() {
   }, 'account');
   if (account.error) return <LoadError message={account.error} />;
   if (!account.data) return <Loading />;
-  const { organizations } = account.data;
+  const { me, organizations } = account.data;
+  const admin = me.superadmin && (
+    <Card
+      title="Administración de Vigente"
+      description="Eres superadmin: ves a todos los usuarios, creas organizaciones e invitas a sus equipos."
+    >
+      <Link href="/admin" className={buttonLink('primary', 'sm')}>
+        Abrir la administración
+      </Link>
+    </Card>
+  );
   if (organizations.length === 0) {
     return (
-      <Empty>
-        Todavía no eres parte de ninguna organización. Pídele a un administrador
-        que invite tu correo y vuelve a entrar.
-      </Empty>
+      <div className="flex flex-col gap-6">
+        {admin}
+        <Empty>
+          Todavía no eres parte de ninguna organización. Pídele a un
+          administrador que invite tu correo y vuelve a entrar.
+        </Empty>
+      </div>
     );
   }
   return (
     <div className="flex flex-col gap-6">
+      {admin}
       {organizations.map((organization) => (
         <section key={organization.id} className="flex flex-col gap-4">
           <Card

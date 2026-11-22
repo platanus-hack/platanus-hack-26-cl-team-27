@@ -119,6 +119,12 @@ export const describeError = (error: unknown): string => {
         return 'No eres parte de esa organización.';
       case 'already_member':
         return 'Esa persona ya es parte de la organización.';
+      case 'superadmin_required':
+        return 'Solo un superadmin de Vigente puede administrar la plataforma.';
+      case 'organization_exists':
+        return 'Ya existe una organización con ese nombre.';
+      case 'organization_not_found':
+        return 'Esa organización no existe.';
       default:
     }
     if (error.status === 401) return 'Tu asiento o tu clave ya no son válidos.';

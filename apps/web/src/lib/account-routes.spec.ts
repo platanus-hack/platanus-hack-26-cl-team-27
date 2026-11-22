@@ -25,16 +25,22 @@ describe('needsAccountToken', () => {
     '/api/me',
     '/api/projects',
     '/api/organizations/inmobiliaria-los-aromos/members',
+    '/api/admin/users',
+    '/api/admin/invitations',
   ])('%s lleva el token de la cuenta', (path) => {
     expect(needsAccountToken(path)).toBe(true);
   });
 
-  it.each(['/api/room', '/api/events', '/api/members', '/api/meta', '/sala'])(
-    '%s no',
-    (path) => {
-      expect(needsAccountToken(path)).toBe(false);
-    },
-  );
+  it.each([
+    '/api/room',
+    '/api/events',
+    '/api/members',
+    '/api/meta',
+    '/api/administration',
+    '/sala',
+  ])('%s no', (path) => {
+    expect(needsAccountToken(path)).toBe(false);
+  });
 });
 
 it('el login vuelve a la página pedida', () => {

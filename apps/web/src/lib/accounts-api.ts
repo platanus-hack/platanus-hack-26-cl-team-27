@@ -8,6 +8,7 @@ export interface Me {
     readonly email: string;
     readonly name: string | null;
   };
+  readonly superadmin: boolean;
   readonly organizations: readonly {
     readonly id: string;
     readonly name: string;

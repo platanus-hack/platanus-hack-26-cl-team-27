@@ -8,7 +8,16 @@ describe('envSchema', () => {
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5427/team27',
       CORS_ALLOW_ORIGINS: ['http://localhost:3000'],
       PRESENTER_KEY: DEV_PRESENTER_KEY,
+      SUPERADMIN_EMAILS: [],
     });
+  });
+
+  it('SUPERADMIN_EMAILS es una lista de correos en minúsculas', () => {
+    expect(
+      envSchema.parse({
+        SUPERADMIN_EMAILS: ' Ana@Vigente.example, ,bruno@vigente.example ',
+      }).SUPERADMIN_EMAILS,
+    ).toEqual(['ana@vigente.example', 'bruno@vigente.example']);
   });
 
   it('la clave de Anthropic es opcional: ausente o vacía deja la lectura determinista', () => {

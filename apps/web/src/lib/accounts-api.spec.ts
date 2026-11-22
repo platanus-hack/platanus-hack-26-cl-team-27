@@ -9,6 +9,7 @@ import { ApiError, describeError } from './http';
 
 const me: Me = {
   user: { id: 'u1', email: 'paula@calculo.example', name: 'Paula' },
+  superadmin: false,
   organizations: [
     { id: 'aromos', name: 'Inmobiliaria Los Aromos', role: 'admin' },
     { id: 'vacia', name: 'Sin proyectos', role: 'member' },

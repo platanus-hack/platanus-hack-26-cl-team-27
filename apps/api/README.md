@@ -44,10 +44,14 @@ Todas cuelgan de `/api`. Los POST responden 201, salvo los que dicen 204. Los er
 | `GET /aps/viewer-token` | `{ access_token, expires_in }`: un token 2-legged de APS con solo `viewables:read`, para el visor del navegador. Se cachea hasta un minuto antes de vencer y va con `Cache-Control: no-store`. 503 `aps_not_configured` sin `APS_CLIENT_ID` y `APS_CLIENT_SECRET`; 503 `aps_unavailable` si APS no lo entrega |
 | `GET /aps/models` | `{ models: { file, discipline, urn }[] }`: los modelos traducidos del bucket `APS_BUCKET_KEY`, que la API le pide a APS y guarda en memoria 5 minutos, ordenados por archivo. `discipline`: `architectural`, `site`, `structural`, `plumbing`, `hvac`, `electrical` u `other`. 503 `aps_not_configured` sin `APS_CLIENT_ID`, `APS_CLIENT_SECRET` o `APS_BUCKET_KEY`; 503 `aps_unavailable` si APS no entrega la lista |
 | `GET /changes/:id` | Un cambio con su impacto, sus avisos y su propuesta; 404 si no existe |
-| `GET /me` | Con `Authorization: Bearer <token de Auth0>`. `{ user: { id, email, name }, organizations: { id, name, role }[] }`. La primera vez registra a la persona con el correo de su perfil (403 `email_not_verified` si no lo confirmó) y en cada entrada acepta las invitaciones pendientes a su correo. 401 `login_required` sin token, 401 `invalid_token` si no vale, 503 `auth_not_configured` sin `AUTH0_DOMAIN` y `AUTH0_AUDIENCE` |
+| `GET /me` | Con `Authorization: Bearer <token de Auth0>`. `{ user: { id, email, name }, superadmin, organizations: { id, name, role }[] }`. La primera vez registra a la persona con el correo de su perfil (403 `email_not_verified` si no lo confirmó) y en cada entrada acepta las invitaciones pendientes a su correo. 401 `login_required` sin token, 401 `invalid_token` si no vale, 503 `auth_not_configured` sin `AUTH0_DOMAIN` y `AUTH0_AUDIENCE` |
 | `GET /projects` | Con token. `{ projects: { id, organizationId, name, location, description }[] }`: solo los de sus organizaciones |
 | `GET /organizations/:id/members` | Con token y siendo parte de la organización (403 `not_a_member`). `{ members: { userId, email, name, role }[], invitations: { id, email, role, createdAt }[] }` (las pendientes) |
 | `POST /organizations/:id/invitations` | Con token y rol `admin` (403 `admin_required`). `{ email, role: 'admin' \| 'member' }`. Crea o actualiza la invitación; 409 `already_member` si ya es parte. Se acepta sola cuando esa persona entra |
+| `GET /admin/users` | Con token de superadmin (403 `superadmin_required`). `{ users: { id, email, name, createdAt, organizations: { id, name, role }[] }[], invitations: { id, email, organizationId, organizationName, role, createdAt }[] }`: todos los usuarios de la plataforma y las invitaciones pendientes |
+| `GET /admin/organizations` | Con token de superadmin. `{ organizations: { id, name, createdAt, members, projects }[] }`, con la cantidad de miembros y proyectos |
+| `POST /admin/organizations` | Con token de superadmin. `{ name }` (2 a 120 caracteres). Crea la organización con un id legible sacado del nombre (`Constructora Ñuñoa` → `constructora-nunoa`, y `-2`, `-3`… si ya está tomado). 409 `organization_exists` si el nombre ya existe, sin importar mayúsculas. El superadmin no queda como miembro |
+| `POST /admin/invitations` | Con token de superadmin. `{ email, organizationId, role }`. Invita un correo a cualquier organización, sin ser parte de ella; 404 `organization_not_found`, 409 `already_member`. Responde la invitación con `organizationName` |
 
 Cabeceras:
 
@@ -140,12 +144,13 @@ tests/                            replica src/: Vitest, sin base de datos
 
 ## Cuentas, organizaciones y roles
 
-Las rutas del producto (`/me`, `/projects`, `/organizations/*`) piden una cuenta; las de la sala y la muestra siguen con el token de asiento y `PRESENTER_KEY`, sin cuentas.
+Las rutas del producto (`/me`, `/projects`, `/organizations/*`, `/admin/*`) piden una cuenta; las de la sala y la muestra siguen con el token de asiento y `PRESENTER_KEY`, sin cuentas.
 
 - **Auth0 solo dice quién es.** `AccountGuard` lee el `Bearer`, y `Auth0Identity` lo valida con `jose` contra las llaves públicas del tenant (`https://<AUTH0_DOMAIN>/.well-known/jwks.json`), el emisor y la audiencia `AUTH0_AUDIENCE`, en RS256. La primera vez que llega un `sub`, pide el perfil a `/userinfo` para tener el correo confirmado.
 - **Lo demás vive en Postgres.** `users` (por `auth_subject` y correo), `organizations`, `memberships` con su rol e `invitations` por correo. Cada proyecto es de una organización.
 - **Roles.** `admin` configura la organización e invita; `member` es parte del equipo y ve sus proyectos. Autor y afectado no son roles: cambian de un cambio a otro ([negocio](../../docs/negocio.md#actores)).
-- **Se entra por invitación.** Un administrador invita un correo; quien entra con ese correo confirmado queda como miembro con el rol de la invitación. En local, `SEED_ADMIN_EMAIL=<tu correo> pnpm db:seed` te invita como administrador de Inmobiliaria Los Aromos.
+- **Superadmin.** Es un permiso de la plataforma, no un rol de una organización: es superadmin quien entra con un correo de `SUPERADMIN_EMAILS` (separados por coma, sin importar mayúsculas). Nadie lo da ni lo quita desde la web. Ve a todos los usuarios, crea organizaciones e invita a cualquiera de ellas (`AdminController`, `AdminService`); `requireSuperadmin` responde 403 `superadmin_required` al resto.
+- **Se entra por invitación.** Un administrador de la organización o un superadmin invita un correo; la cuenta no existe hasta su primer login, y mientras tanto la invitación es el usuario pendiente. Quien entra con ese correo confirmado queda como miembro con el rol de la invitación. En local, `SEED_ADMIN_EMAIL=<tu correo> pnpm db:seed` te invita como administrador de Inmobiliaria Los Aromos.
 - **Sin Auth0 configurado** la API arranca igual y esas rutas responden 503 `auth_not_configured`.
 
 ## Modelos BIM (APS)

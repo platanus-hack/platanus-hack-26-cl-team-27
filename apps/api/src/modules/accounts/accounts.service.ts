@@ -7,6 +7,8 @@ import { type Identity, InvalidTokenError } from './identity.ts';
 
 export const IDENTITY = 'IDENTITY';
 
+export const SUPERADMINS = 'SUPERADMINS';
+
 export const ROLES = ['admin', 'member'] as const;
 
 export type Role = (typeof ROLES)[number];
@@ -21,6 +23,7 @@ export interface Account {
   readonly id: string;
   readonly email: string;
   readonly name: string | null;
+  readonly superadmin: boolean;
   readonly memberships: readonly AccountMembership[];
 }
 
@@ -31,13 +34,18 @@ const isRole = (value: string): value is Role =>
 export class AccountsService {
   private readonly prisma: PrismaClient;
   private readonly identity: Identity | null;
+  private readonly superadmins: ReadonlySet<string>;
 
   constructor(
     @Inject(PRISMA_CLIENT) prisma: PrismaClient,
     @Inject(IDENTITY) identity: Identity | null,
+    @Inject(SUPERADMINS) superadmins: readonly string[] = [],
   ) {
     this.prisma = prisma;
     this.identity = identity;
+    this.superadmins = new Set(
+      superadmins.map((email) => email.trim().toLowerCase()),
+    );
   }
 
   async authenticate(token: string): Promise<Account> {
@@ -76,6 +84,16 @@ export class AccountsService {
         HttpStatus.FORBIDDEN,
         'admin_required',
         'Solo un administrador de la organización puede hacerlo',
+      );
+    }
+  }
+
+  requireSuperadmin(account: Account): void {
+    if (!account.superadmin) {
+      throw fail(
+        HttpStatus.FORBIDDEN,
+        'superadmin_required',
+        'Solo un superadmin de Vigente puede hacerlo',
       );
     }
   }
@@ -242,6 +260,7 @@ export class AccountsService {
       id: user.id,
       email: user.email,
       name: user.name,
+      superadmin: this.superadmins.has(user.email.toLowerCase()),
       memberships: user.memberships.flatMap((item) =>
         isRole(item.role)
           ? [

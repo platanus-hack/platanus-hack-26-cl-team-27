@@ -216,14 +216,21 @@ const statusOf = async (promise: Promise<unknown>) => {
   }
 };
 
-const setup = (profiles: Record<string, Profile> = { paula: PAULA }) => {
+const setup = (
+  profiles: Record<string, Profile> = { paula: PAULA },
+  superadmins: readonly string[] = [],
+) => {
   const db = fakeDb();
   const subjects = Object.fromEntries(
     Object.keys(profiles).map((token) => [token, `email|${token}`]),
   );
   return {
     ...db,
-    service: new AccountsService(db.prisma, identityFor(subjects, profiles)),
+    service: new AccountsService(
+      db.prisma,
+      identityFor(subjects, profiles),
+      superadmins,
+    ),
   };
 };
 
@@ -292,6 +299,7 @@ describe('roles y proyectos', () => {
     id: 'u1',
     email: PAULA.email,
     name: null,
+    superadmin: false,
     memberships: [
       {
         organizationId: 'aromos',
@@ -334,5 +342,24 @@ describe('roles y proyectos', () => {
     expect(
       await statusOf(service.invite('aromos', PAULA.email, 'admin')),
     ).toMatchObject({ status: 409, body: { code: 'already_member' } });
+  });
+});
+
+describe('superadmin', () => {
+  it('es superadmin quien entra con un correo de SUPERADMIN_EMAILS, sin importar mayúsculas', async () => {
+    const { service } = setup({ paula: PAULA }, [
+      ' Paula.Rojas@Calculo.example ',
+    ]);
+    const account = await service.authenticate('paula');
+    expect(account.superadmin).toBe(true);
+    expect(() => service.requireSuperadmin(account)).not.toThrow();
+  });
+
+  it('nadie más lo es, ni siquiera un administrador de una organización', async () => {
+    const { service } = setup({ paula: PAULA }, ['otra@vigente.example']);
+    await service.invite('aromos', PAULA.email, 'admin');
+    const account = await service.authenticate('paula');
+    expect(account.superadmin).toBe(false);
+    expect(() => service.requireSuperadmin(account)).toThrow(/superadmin/);
   });
 });
