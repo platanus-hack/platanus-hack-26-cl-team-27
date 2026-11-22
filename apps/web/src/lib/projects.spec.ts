@@ -10,6 +10,7 @@ import {
 
 const me: Me = {
   user: { id: 'u1', email: 'paula@calculo.example', name: 'Paula' },
+  superadmin: false,
   organizations: [
     { id: 'aromos', name: 'Inmobiliaria Los Aromos', role: 'admin' },
     { id: 'encinas', name: 'Constructora Las Encinas', role: 'member' },

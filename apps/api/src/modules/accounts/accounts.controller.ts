@@ -50,6 +50,7 @@ export class AccountsController {
   me(@CurrentAccount() account: Account) {
     return {
       user: { id: account.id, email: account.email, name: account.name },
+      superadmin: account.superadmin,
       organizations: account.memberships.map((item) => ({
         id: item.organizationId,
         name: item.organizationName,

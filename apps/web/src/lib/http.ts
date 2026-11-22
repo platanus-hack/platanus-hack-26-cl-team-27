@@ -131,6 +131,10 @@ export const describeError = (error: unknown): string => {
         return 'Ya hay un proyecto con ese nombre en la organización. Elige otro.';
       case 'aps_oauth_not_configured':
         return 'La conexión con Autodesk no está configurada en la API.';
+      case 'superadmin_required':
+        return 'Solo un superadmin de Vigente puede administrar la plataforma.';
+      case 'organization_not_found':
+        return 'Esa organización no existe.';
       default:
     }
     if (error.status === 401) return 'Tu asiento o tu clave ya no son válidos.';
