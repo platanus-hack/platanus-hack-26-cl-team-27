@@ -20,6 +20,15 @@ import { suggestForChange } from './suggestions.ts';
 
 export const ADVICE_TIMEOUT_MS = 9_000;
 
+export const ADVICE_BATCH_MS = 2_500;
+
+export const ADVICE_PER_MINUTE = 10;
+
+const SUMMARY_MAX = 140;
+
+const compact = (text: string): string =>
+  text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX - 1)}…` : text;
+
 export interface AdvisedProposal {
   readonly changeId: string | null;
   readonly authorId: string | null;
@@ -86,6 +95,12 @@ export class NoticeAdvisor {
   private readonly suggest: SuggestAffected;
   private readonly explain: ExplainNotices;
   private readonly model: string;
+  private readonly pending = new Map<
+    string,
+    { project: ProjectCatalog; proposal: AdvisedProposal }
+  >();
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private spent: number[] = [];
 
   constructor(
     @Inject(PRISMA_CLIENT) prisma: PrismaClient,
@@ -97,6 +112,61 @@ export class NoticeAdvisor {
     this.suggest = suggest;
     this.explain = explain;
     this.model = modelName(config.get('ANTHROPIC_API_KEY', { infer: true }));
+  }
+
+  enqueue(
+    project: ProjectCatalog,
+    proposals: readonly AdvisedProposal[],
+  ): void {
+    for (const proposal of proposals) {
+      if (proposal.changeId === null) continue;
+      this.pending.set(`${project.id}:${proposal.changeId}`, {
+        project,
+        proposal,
+      });
+    }
+    if (this.timer || this.pending.size === 0) return;
+    this.timer = setTimeout(() => void this.drain(), ADVICE_BATCH_MS);
+    this.timer.unref();
+  }
+
+  private withinBudget(now = Date.now()): boolean {
+    this.spent = this.spent.filter((at) => now - at < 60_000);
+    if (this.spent.length >= ADVICE_PER_MINUTE) return false;
+    this.spent.push(now);
+    return true;
+  }
+
+  private async drain(): Promise<void> {
+    const batch = [...this.pending.values()];
+    this.pending.clear();
+    const latest = new Map<string, { item: (typeof batch)[number]; at: number }>();
+    for (const item of batch) {
+      const change = await buildLake(this.prisma, item.project)
+        .getChange.execute(item.proposal.changeId ?? '')
+        .catch(() => null);
+      const key = `${item.project.id}:${change?.element.id ?? item.proposal.changeId}`;
+      const at = change?.detectedAt.getTime() ?? 0;
+      const previous = latest.get(key);
+      if (!previous || at >= previous.at) latest.set(key, { item, at });
+    }
+    const chosen = [...latest.values()]
+      .map((entry) => entry.item)
+      .filter(() => this.withinBudget());
+    const skipped = batch.length - chosen.length;
+    if (skipped > 0) {
+      this.logger.log(
+        `Junté ${batch.length} cambios en ${chosen.length} consultas al modelo; ${skipped} salen con el porqué fijo`,
+      );
+    }
+    for (const item of chosen) {
+      await this.adviseAll(item.project, [item.proposal]);
+    }
+    this.timer = null;
+    if (this.pending.size > 0) {
+      this.timer = setTimeout(() => void this.drain(), ADVICE_BATCH_MS);
+      this.timer.unref();
+    }
   }
 
   async adviseAll(
@@ -133,7 +203,18 @@ export class NoticeAdvisor {
     ).filter((item) => item.changeId === change.id);
     const [reasons, split] = await Promise.all([
       withinTime(
-        reasonsFor(this.explain, briefOf(change), project, notified),
+        reasonsFor(
+          this.explain,
+          briefOf(change),
+          project,
+          notified.map((item) => ({
+            ...item,
+            findings: item.findings.slice(0, 2).map((finding) => ({
+              ...finding,
+              summary: compact(finding.summary),
+            })),
+          })),
+        ),
         ADVICE_TIMEOUT_MS,
         { reasons: [], inference: 'unavailable' as const },
       ),

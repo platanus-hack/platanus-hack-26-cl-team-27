@@ -1,12 +1,13 @@
 'use client';
 
 import { Button, Card } from '@team27/ui';
+import { ArrowUpRight, Building2, FolderKanban, MapPin, ShieldCheck } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useState } from 'react';
 
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { buttonLink, textLink } from '@/components/common/link-styles';
+import { buttonLink } from '@/components/common/link-styles';
 import { Empty, LoadError, Loading } from '@/components/common/LoadState';
 import { useResource } from '@/hooks/use-resource';
 import { ADMIN_HREF } from '@/lib/admin-api';
@@ -60,7 +61,12 @@ export function AccountPanel() {
   const { me, organizations } = account.data;
   const admin = me.superadmin && (
     <Card
-      title="Administración de Vigente"
+      title={
+        <span className="flex items-center gap-2">
+          <ShieldCheck className="size-4 text-accent-text" />
+          Administración de Vigente
+        </span>
+      }
       description="Eres superadmin: ves a todos los usuarios, creas organizaciones e invitas a sus equipos."
     >
       <Link href={ADMIN_HREF as Route} className={buttonLink('primary', 'sm')}>
@@ -88,9 +94,20 @@ export function AccountPanel() {
         </div>
       )}
       {organizations.map((organization) => (
-        <section key={organization.id} className="flex flex-col gap-4">
+        <section
+          key={organization.id}
+          className="grid grid-cols-1 gap-4 lg:grid-cols-2"
+        >
           <Card
-            title={organization.name}
+            className="lg:col-span-2"
+            title={
+              <span className="flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
+                  <Building2 className="size-4" />
+                </span>
+                {organization.name}
+              </span>
+            }
             description={`Tu rol: ${ROLE_LABELS[organization.role]}`}
             actions={
               <div className="flex flex-wrap gap-2">
@@ -120,20 +137,34 @@ export function AccountPanel() {
                 Esta organización todavía no tiene proyectos. Crea el primero.
               </Empty>
             ) : (
-              <ul className="flex flex-col gap-2">
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {organization.projects.map((project) => (
                   <li key={project.id}>
                     <Link
                       href={projectHref(project.id) as Route}
-                      className={textLink}
+                      className="group flex h-full items-start gap-3 rounded-xl border border-hairline bg-surface-2/50 p-4 transition hover:-translate-y-0.5 hover:border-accent-text hover:shadow-md"
                     >
-                      {project.name}
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
+                        <FolderKanban className="size-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center justify-between gap-2 font-semibold text-ink">
+                          <span className="truncate">{project.name}</span>
+                          <ArrowUpRight className="size-4 shrink-0 text-ink-3 transition group-hover:text-accent-text" />
+                        </span>
+                        {project.location && (
+                          <span className="mt-0.5 flex items-center gap-1 text-xs text-ink-2">
+                            <MapPin className="size-3" />
+                            {project.location}
+                          </span>
+                        )}
+                        {project.description && (
+                          <span className="mt-1 line-clamp-2 block text-xs text-ink-3">
+                            {project.description}
+                          </span>
+                        )}
+                      </span>
                     </Link>
-                    <p className="text-sm text-ink-2">
-                      {[project.location, project.description]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </p>
                   </li>
                 ))}
               </ul>

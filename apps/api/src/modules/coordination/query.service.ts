@@ -119,12 +119,16 @@ export class QueryService {
             (member) => member.id === b.stakeholderId,
           ),
       );
-    const { reasons, inference } = await reasonsFor(
-      this.explain,
-      briefOf(change),
-      project,
-      notifications,
-    );
+    const stored = notifications.every((item) => item.context?.why);
+    const { reasons, inference } = stored
+      ? {
+          reasons: notifications.map((item) => ({
+            stakeholderId: item.stakeholderId,
+            why: item.context?.why ?? '',
+          })),
+          inference: 'ok' as const,
+        }
+      : await reasonsFor(this.explain, briefOf(change), project, notifications);
     const impact = snapshot.impacts.get(change.id);
     const overlapIds = new Set(
       snapshot.overlaps
