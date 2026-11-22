@@ -32,6 +32,12 @@ export {
   type ScoreFixture,
 } from './Fixtures.ts';
 export {
+  GEMINI_MODEL,
+  GeminiClaimReader,
+  geminiParts,
+  type GeminiOptions,
+} from './GeminiClaimReader.ts';
+export {
   JEV_MODEL,
   JevDependencyScorer,
   jevQuestions,
