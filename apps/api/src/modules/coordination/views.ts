@@ -27,6 +27,7 @@ import {
 import type { Notification } from '@team27/context-notification';
 
 import type { ProjectCatalog } from '../project/project-catalog.ts';
+import { ruleGapsOf } from './impact.ts';
 import { revisionTitle } from './lookup.ts';
 
 export interface LakeSnapshot {
@@ -868,6 +869,7 @@ export const changeView = (
     id,
     ...rest,
     impact: impact ? withoutChangeId(impact) : null,
+    ruleGaps: ruleGapsOf(change, snapshot.project.graph),
     notifications: snapshot.notifications
       .filter((notification) => notification.changeId === id)
       .map(withoutFindings),

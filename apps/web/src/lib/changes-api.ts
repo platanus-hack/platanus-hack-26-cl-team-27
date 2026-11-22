@@ -54,6 +54,25 @@ export interface ImpactView {
   readonly filtered: readonly FilteredStakeholder[];
 }
 
+export interface RuleGap {
+  readonly key: string;
+  readonly label: string;
+  readonly cost: boolean;
+  readonly schedule: boolean;
+  readonly message: string;
+}
+
+export interface CombinedImpactView {
+  readonly changeIds: readonly string[];
+  readonly missingChangeIds: readonly string[];
+  readonly costDelta: number;
+  readonly delayDays: number;
+  readonly projectDaysBefore: number;
+  readonly projectDaysAfter: number;
+  readonly costLines: readonly CostLine[];
+  readonly tasks: readonly TaskImpact[];
+}
+
 export interface ChangeNotification {
   readonly id: string;
   readonly changeId: string;
@@ -81,6 +100,7 @@ export interface ChangeDetail {
   readonly diffs: readonly PropertyDiff[];
   readonly detectedAt: string;
   readonly impact: ImpactView | null;
+  readonly ruleGaps: readonly RuleGap[];
   readonly notifications: readonly ChangeNotification[];
   readonly proposal: ProposalView | null;
 }
@@ -137,12 +157,15 @@ export interface ConflictView {
     readonly category: string;
   } | null;
   readonly otherDetectedAt: string | null;
+  readonly combinedImpact: CombinedImpactView | null;
 }
 
 export interface ChangeOverlapView {
   readonly id: string;
   readonly status: string;
   readonly title: string;
+  readonly otherSubjectName: string;
+  readonly combinedImpact: CombinedImpactView | null;
 }
 
 export interface ChangeConflicts {

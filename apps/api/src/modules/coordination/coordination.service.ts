@@ -22,6 +22,7 @@ import { ChunkReader } from './chunk-reader.ts';
 import { elementsFromBaseline } from './elements-from-baseline.ts';
 import { diffEvents, type EventDraft, emitEvents, observe } from './events.ts';
 import { fail } from './http-errors.ts';
+import { underAnalysisOf } from './impact.ts';
 import {
   checkRevision,
   knownDocument,
@@ -300,15 +301,9 @@ export class CoordinationService {
     let costDelta = 0;
     let delayDays = 0;
     for (const change of changes) {
-      const analysis = await impact.analyzeChange.execute({
-        id: change.id,
-        elementId: change.element.id,
-        elementName: change.element.name,
-        category: change.element.category,
-        changedKeys: change.diffs.map((diff) => diff.key),
-        before: change.before,
-        after: change.after,
-      });
+      const analysis = await impact.analyzeChange.execute(
+        underAnalysisOf(change),
+      );
       findings.push(...analysis.findings);
       for (const item of analysis.filtered) {
         const reasons = filteredBy.get(item.stakeholderId) ?? [];
