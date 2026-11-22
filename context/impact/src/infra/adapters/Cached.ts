@@ -14,10 +14,15 @@ import type {
   ConflictQuery,
 } from '../../application/ports/ConflictEstimator.ts';
 import type { DependencyScorer } from '../../application/ports/DependencyScorer.ts';
+import type {
+  ReasonQuery,
+  ReasonWriter,
+} from '../../application/ports/ReasonWriter.ts';
 import type { AffectedEstimate } from '../../domain/AffectedSuggestion.ts';
 import type { ConflictEstimate } from '../../domain/ConflictSuggestion.ts';
 import type { DependencyScore } from '../../domain/DependencyScore.ts';
 import type { ClaimCandidate } from '../../domain/ExtractedClaim.ts';
+import type { NoticeReason } from '../../domain/NoticeReason.ts';
 import { stableStringify } from '../../domain/stableStringify.ts';
 
 export interface ResponseCache {
@@ -172,6 +177,26 @@ export class CachedDependencyScorer implements DependencyScorer {
       this.cache,
       cacheKey(`scores:${this.namespace}`, query),
       () => this.inner.score(query),
+    );
+  }
+}
+
+export class CachedReasonWriter implements ReasonWriter {
+  private readonly inner: ReasonWriter;
+  private readonly cache: ResponseCache;
+  private readonly namespace: string;
+
+  constructor(inner: ReasonWriter, cache: ResponseCache, namespace: string) {
+    this.inner = inner;
+    this.cache = cache;
+    this.namespace = namespace;
+  }
+
+  write(query: ReasonQuery): Promise<NoticeReason[]> {
+    return throughCache(
+      this.cache,
+      cacheKey(`reasons:${this.namespace}`, query),
+      () => this.inner.write(query),
     );
   }
 }

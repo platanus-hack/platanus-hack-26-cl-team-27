@@ -49,6 +49,7 @@ model Notification {
   title         String
   findings      Json
   link          String
+  context       Json?
   sentAt        DateTime  @default(now()) @map("sent_at")
   response      String?
   responseNote  String?   @map("response_note")

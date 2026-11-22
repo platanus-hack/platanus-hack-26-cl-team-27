@@ -24,6 +24,7 @@ const delivery = (
     title: 'Losa nivel 3',
     findings: [],
     link: '/cambios/c1?para=costos',
+    context: null,
     sentAt: NOW,
     response: null,
   },

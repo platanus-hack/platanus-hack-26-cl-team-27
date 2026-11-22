@@ -11,6 +11,7 @@ export {
   type NotificationResponse,
   RESPONSE_KINDS,
   type ResponseKind,
+  withClashes,
 } from './Notification.ts';
 export {
   CLAIM_LEASE_MS,
@@ -18,8 +19,27 @@ export {
   emailAddress,
   MAX_AGE_MS,
   MAX_ATTEMPTS,
+  noticeOf,
   type PendingDelivery,
   renderEmail,
   retryDelayMs,
 } from './Delivery.ts';
 export { type Channel, CHANNELS, type Stakeholder } from './Stakeholder.ts';
+export {
+  fallbackWhy,
+  FINDING_TOPICS,
+  type FindingTopic,
+  type Notice,
+  NOTICE_ROLES,
+  type NoticeClash,
+  type NoticeContext,
+  type NoticeFinding,
+  type NoticeImpact,
+  type NoticeRole,
+  noticeRoleOf,
+  type RenderedNotice,
+  renderNotice,
+  SLACK_MAX_LENGTH,
+  topicOf,
+  WHATSAPP_MAX_LENGTH,
+} from './Notice.ts';

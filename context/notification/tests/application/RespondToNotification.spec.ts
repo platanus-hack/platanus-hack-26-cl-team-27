@@ -12,6 +12,7 @@ const repository = () => ({
   respond: vi.fn<NotificationRepository['respond']>().mockResolvedValue(null),
   clearResponse: vi.fn<NotificationRepository['clearResponse']>(),
   findById: vi.fn<NotificationRepository['findById']>(),
+  setClashes: vi.fn<NotificationRepository['setClashes']>(),
 });
 
 describe('RespondToNotification', () => {

@@ -119,7 +119,7 @@ El **índice de consenso** son los documentos al día sobre los documentos total
 ## Cómo encajan impacto y avisos
 
 - `impact` recibe el elemento con sus propiedades antes y después, que la API arma desde el modelo del proyecto y lo vigente (`elementsFromBaseline`), y devuelve costo, plazo, un hallazgo por afectado y los filtrados con su razón. Los afectados son los del equipo del proyecto menos el autor.
-- `notification` crea un aviso por afectado y cambio, con su canal y el `link` al detalle del cambio en su proyecto. Su respuesta es el voto: `reviewed` aprueba, `issue` disputa.
+- `notification` crea un aviso por afectado y cambio, con su canal y el `link` al detalle del cambio en su proyecto, y lo escribe para el rol y el canal de cada persona (`renderNotice`), con el impacto y los choques. Su respuesta es el voto: `reviewed` aprueba, `issue` disputa.
 - Un aviso guardado todavía no sale por ningún canal: el afectado lo ve y lo responde en el detalle del cambio, dentro de la web (`/proyectos/[projectId]/cambios/[id]`).
 - Las discrepancias, los desfases, los solapamientos por validar y los filtrados no son avisos de `notification`: la API los compone en la bandeja de cada persona (`GET /api/projects/:projectId/inbox`) desde el repositorio.
 

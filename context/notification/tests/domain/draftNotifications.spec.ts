@@ -73,6 +73,42 @@ describe('draftNotifications', () => {
     ]);
   });
 
+  it('guarda el tema de cada hallazgo y el contexto para redactar: rol, nombre e impacto', () => {
+    const [draft] = draftNotifications(
+      {
+        projectId: 'edificio-norte',
+        changeId: 'c1',
+        title: 'Losa nivel 3',
+        impact: { costDelta: 3_636_500, delayDays: 1 },
+        findings: [
+          {
+            stakeholderId: 'costos',
+            topic: 'cost',
+            summary: 'El presupuesto sube $3.636.500',
+            details: [],
+            action: 'Actualiza',
+          },
+        ],
+      },
+      STAKEHOLDERS,
+    );
+
+    expect(draft?.findings).toEqual([
+      {
+        topic: 'cost',
+        summary: 'El presupuesto sube $3.636.500',
+        details: [],
+        action: 'Actualiza',
+      },
+    ]);
+    expect(draft?.context).toEqual({
+      role: 'Costos',
+      recipientName: 'Daniela',
+      impact: { costDelta: 3_636_500, delayDays: 1 },
+      clashes: [],
+    });
+  });
+
   it('ignora a quien no está en el directorio', () => {
     expect(
       draftNotifications(
