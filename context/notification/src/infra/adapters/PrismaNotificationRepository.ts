@@ -4,6 +4,7 @@ import type {
   NotificationFilter,
   NotificationRepository,
 } from '../../application/ports/NotificationRepository.ts';
+import type { AnswerKind } from '../../domain/FollowUp.ts';
 import {
   type NoticeClash,
   type NoticeContext,
@@ -15,7 +16,6 @@ import {
   type NotificationDraft,
   type NotificationFinding,
   type NotificationResponse,
-  type ResponseKind,
   withClashes,
 } from '../../domain/Notification.ts';
 import type { Channel } from '../../domain/Stakeholder.ts';
@@ -35,7 +35,7 @@ export const toNotification = (row: NotificationRow): Notification => ({
   response:
     row.response && row.respondedAt
       ? {
-          kind: row.response as ResponseKind,
+          kind: row.response as AnswerKind,
           note: row.responseNote,
           at: row.respondedAt,
         }
@@ -140,6 +140,28 @@ export class PrismaNotificationRepository implements NotificationRepository {
       where: { id, projectId: this.projectId },
     });
     return row ? toNotification(row) : null;
+  }
+
+  async markEscalated(ids: readonly string[], at: Date): Promise<void> {
+    const rows = await this.prisma.notification.findMany({
+      where: { projectId: this.projectId, id: { in: [...ids] } },
+    });
+    for (const row of rows) {
+      const context = row.context as unknown as NoticeContext | null;
+      await this.prisma.notification.update({
+        where: { id: row.id },
+        data: {
+          context: {
+            role: '',
+            recipientName: '',
+            impact: null,
+            clashes: [],
+            ...context,
+            escalatedAt: at.toISOString(),
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
+    }
   }
 
   async setClashes(

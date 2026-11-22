@@ -125,6 +125,14 @@ El **índice de consenso** son los documentos al día sobre los documentos total
 - Cada aviso guardado deja una entrega en la cola, en el canal de la persona. El **Notificador** (`DeliverNotifications`, con un `ChannelSender` por canal) lo manda por correo (Gmail) o por el chat (un incoming webhook de Slack o de Teams); un canal sin sender cae al correo si la persona tiene uno, y si no la entrega queda omitida con su motivo ([notification](../context/notification/README.md#envío)). El afectado responde en el detalle del cambio, dentro de la web (`/proyectos/[projectId]/cambios/[id]`).
 - Las discrepancias, los desfases, los solapamientos por validar y los filtrados no son avisos de `notification`: la API los compone en la bandeja de cada persona (`GET /api/projects/:projectId/inbox`) desde el repositorio.
 
+### Seguimiento
+
+- **Avisa al autor.** Cada respuesta a un aviso de cambio y cada voto de un solapamiento deja un aviso para el autor de la propuesta (`answer`): quién respondió, qué dijo, su nota y cómo van las confirmaciones. Quien responde sobre su propia propuesta no se avisa a sí mismo.
+- **Recuerda.** `FollowUpService` revisa cada `FOLLOW_UP_SECONDS` los avisos que siguen esperando respuesta: el revisor que no ha votado una propuesta activa y el validador que no ha votado un solapamiento vivo. Pasados `REMINDER_AFTER_MINUTES` desde el aviso o su último recordatorio, encola un recordatorio por el mismo canal. Un aviso respondido, una propuesta cerrada o un solapamiento resuelto no reciben ninguno.
+- **Escala.** Después de `ESCALATE_AFTER_REMINDERS` recordatorios y un plazo más sin respuesta, un solo aviso (`escalation`) al autor de la propuesta y a los administradores de la organización del proyecto dice quién no ha respondido. No se repite.
+- El detalle de un cambio trae `followUp`: cada persona con su respuesta, cuántas veces se le recordó y si se escaló (las objeciones primero), y los avisos que recibió el autor.
+- Eventos: `notice.reminded` y `notice.escalated`.
+
 ## Contextos y capas
 
 | Contexto       | Papel                                                                                                                                                                                                                    |
@@ -177,7 +185,7 @@ Todas las rutas cuelgan de `/api/projects/:projectId` y piden la cuenta (`Author
 | `POST /proposals/:id/reopen`, `/withdraw`        | Reabrir con la observación; retirar                                                                                  |
 | `POST /discrepancies/:id/dismiss`                | Descartar una discrepancia                                                                                           |
 | `POST /stale/acknowledge`                        | Confirmar sin cambio con nota                                                                                        |
-| `GET /changes?limit`, `GET /changes/:id`         | Feed y detalle de cambios, con su propuesta                                                                          |
+| `GET /changes?limit`, `GET /changes/:id`         | Feed y detalle de cambios, con su propuesta; el detalle trae además el seguimiento (`followUp`)                      |
 
 Formas principales:
 

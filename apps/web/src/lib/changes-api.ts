@@ -88,6 +88,50 @@ export interface ChangeNotification {
   } | null;
 }
 
+export type NoticeChannel = 'email' | 'whatsapp' | 'slack';
+
+export interface NoticeDelivery {
+  readonly channel: NoticeChannel;
+  readonly status: 'pending' | 'sent' | 'skipped' | 'failed';
+  readonly reason: string | null;
+  readonly attempts: number;
+  readonly sentAt: string | null;
+}
+
+export type FollowUpAnswer =
+  'reviewed' | 'issue' | 'not_affected' | 'se_tocan' | 'no_se_tocan';
+
+export interface FollowUpPerson {
+  readonly stakeholderId: string;
+  readonly name: string;
+  readonly role: string;
+  readonly about: 'change' | 'conflict';
+  readonly answer: FollowUpAnswer | null;
+  readonly note: string | null;
+  readonly answeredAt: string | null;
+  readonly awaiting: boolean;
+  readonly reminders: number;
+  readonly lastReminderAt: string | null;
+  readonly escalatedAt: string | null;
+  readonly delivery: NoticeDelivery | null;
+}
+
+export interface AuthorNotice {
+  readonly id: string;
+  readonly kind: 'answer' | 'escalation' | 'closing';
+  readonly to: string;
+  readonly toName: string | null;
+  readonly subject: string;
+  readonly lines: readonly string[];
+  readonly sentAt: string;
+  readonly delivery: NoticeDelivery | null;
+}
+
+export interface FollowUp {
+  readonly people: readonly FollowUpPerson[];
+  readonly authorNotices: readonly AuthorNotice[];
+}
+
 export interface ChangeDetail {
   readonly id: string;
   readonly summary: string;
@@ -103,6 +147,7 @@ export interface ChangeDetail {
   readonly ruleGaps: readonly RuleGap[];
   readonly notifications: readonly ChangeNotification[];
   readonly proposal: ProposalView | null;
+  readonly followUp: FollowUp | null;
 }
 
 export const getChange = (
@@ -186,16 +231,6 @@ export const getChangeConflicts = (
     projectApi(projectId, `/changes/${changeId}/conflicts`),
     { signal },
   );
-
-export type NoticeChannel = 'email' | 'whatsapp' | 'slack';
-
-export interface NoticeDelivery {
-  readonly channel: NoticeChannel;
-  readonly status: 'pending' | 'sent' | 'skipped' | 'failed';
-  readonly reason: string | null;
-  readonly attempts: number;
-  readonly sentAt: string | null;
-}
 
 export interface ConflictNoticePreview {
   readonly kind: 'conflict';

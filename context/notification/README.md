@@ -1,6 +1,6 @@
 # @team27/context-notification
 
-Lleva el impacto a cada afectado. Hay dos tipos de aviso (`NoticeKind`): el **aviso de cambio** (`change`), solo a los afectados, y el **aviso de conflicto** (`conflict`), a los dos autores y a los afectados de los dos cambios que chocan. `NotifyStakeholders` junta los hallazgos de cada persona en un solo aviso (`Notification`) por cambio, en el canal de esa persona, con el enlace al detalle del cambio en su proyecto (`/proyectos/<proyecto>/cambios/<cambio>`). `NotifyConflict` guarda un aviso por persona y solapamiento. `RespondToNotification` guarda lo que contesta.
+Lleva el impacto a cada afectado. Los avisos que piden una respuesta son dos (`NoticeKind`): el **aviso de cambio** (`change`), solo a los afectados, y el **aviso de conflicto** (`conflict`), a los dos autores y a los afectados de los dos cambios que chocan. Los del seguimiento solo informan: `answer` le cuenta al autor cada respuesta y `escalation` le dice al autor y a la administración quién no responde. `NotifyStakeholders` junta los hallazgos de cada persona en un solo aviso (`Notification`) por cambio, en el canal de esa persona, con el enlace al detalle del cambio en su proyecto (`/proyectos/<proyecto>/cambios/<cambio>`). `NotifyConflict` guarda un aviso por persona y solapamiento. `RespondToNotification` guarda lo que contesta.
 
 ## Dominio
 
@@ -13,6 +13,7 @@ Lleva el impacto a cada afectado. Hay dos tipos de aviso (`NoticeKind`): el **av
   - **Canal:** el correo saluda por el nombre y lleva todo (el detalle de cada hallazgo, en texto y en HTML escapado). WhatsApp va en texto plano y corto: el primer hallazgo con su acción, cuántos más hay, las cifras y el enlace, en 600 caracteres como máximo. Slack usa su formato (título en negrita, un punto por hallazgo con su acción, el enlace con texto), sin el detalle, en 1.500 caracteres como máximo. Al recortar, el enlace se conserva.
   - **Impacto y choque:** si el cambio mueve el costo o el plazo, una línea «Impacto del cambio: costo +$3.636.500 · plazo +1 día». Por cada choque, «Puede chocar con X.», la pregunta de sí o no y, si hay, la cifra de los dos cambios juntos. Un impacto en cero no se anuncia.
   - **Aviso de conflicto:** si el aviso trae `conflict`, sale en su forma: el asunto «Choque: A y B», el porqué fijo según el papel («…porque uno de los dos cambios es tuyo.» o «…te afecta.»), qué choca con qué (cada elemento con su documento), dónde, la pregunta y «Los dos juntos: costo … · plazo …». Sin cifra conjunta va el impacto del cambio, y sin área no dice dónde. A quien valida le pide «Responde si se tocan o no se tocan»; al resto, «Mira el choque». Vale para los tres canales, con los mismos largos máximos.
+  - **Aviso con memo:** los avisos del seguimiento traen `context.memo` (`NoticeMemo`: asunto, porqué, líneas y el texto del enlace) y salen en esa forma en los tres canales, con el impacto del cambio si lo hay.
   - **El porqué:** una frase que dice por qué le toca a esa persona. Si el aviso trae una (`why`, que escribe un modelo en `context/impact`), va esa; si no, una fija según el primer hallazgo: «Te avisamos porque llevas el presupuesto y este cambio lo mueve.», «…porque llevas el plazo y este cambio mueve la entrega.» o «…porque tu trabajo depende de lo que cambió.». `renderNotice` nunca cambia una cifra.
 - **Respuesta:** la de un aviso de cambio es `reviewed` (revisado), `issue` (tengo un problema) o `not_affected` (no me afecta), con una nota opcional de hasta 280 caracteres. Una nota en blanco se guarda como `null`. Responder de nuevo reemplaza la respuesta anterior. Reabrir la respuesta la limpia: quien disputó vuelve a estar pendiente. Un aviso de conflicto no se responde aquí: su respuesta es el voto del solapamiento, en `lake`.
 
@@ -28,6 +29,9 @@ Lleva el impacto a cada afectado. Hay dos tipos de aviso (`NoticeKind`): el **av
 | `ReopenResponse`        | `ReopenResponse(notificationId)` limpia la respuesta; `null` si el aviso no existe |
 | `GetNotification`       | Un aviso por id, o `null`                                   |
 | `ListStakeholders`      | El directorio                                               |
+| `NotifyMemo`            | Guarda un aviso informativo (`answer` o `escalation`) para cada destinatario del directorio |
+| `AnswerConflictNotice`  | `{ stakeholderId, overlapId, kind, note? }`: deja en el aviso de conflicto de esa persona su voto (`se_tocan` o `no_se_tocan`) como respuesta |
+| `FollowUpNotices`       | `(avisos que esperan respuesta, ahora)`: encola el recordatorio de los que cumplen el plazo y marca como escalados los que ya agotaron los recordatorios; devuelve qué hizo con cada uno |
 | `DeliverNotifications`  | Una vuelta de envío: toma de la cola los avisos pendientes y manda cada uno por el sender de su canal |
 | `ListDeliveries`        | Las entregas de unos avisos, con el canal que usó cada una, su estado y el motivo |
 
@@ -37,6 +41,16 @@ Lleva el impacto a cada afectado. Hay dos tipos de aviso (`NoticeKind`): el **av
 - `WebhookSender`: el `ChannelSender` del chat, sobre un incoming webhook de Slack o de Teams.
 - `GmailEmailSender`: el `ChannelSender` del correo. Manda un correo con la API de Gmail (`users.messages.send`) desde la cuenta autorizada. Renueva el access token con el refresh token y lo reusa hasta un minuto antes de que venza; si Gmail responde 401, lo olvida.
 - `gmailAuthorizationUrl` y `exchangeGmailCode`: la autorización OAuth 2.0 de esa cuenta, solo con el permiso `gmail.send`.
+
+## Seguimiento
+
+El seguimiento son tres cosas, todas con texto fijo y sin modelo:
+
+- **Avisa al autor.** `answerMemo` escribe el aviso de cada respuesta: quién, qué respondió (`AnswerKind`: `reviewed`, `issue`, `not_affected`, `se_tocan` o `no_se_tocan`), su nota, cómo van las confirmaciones y qué hacer. Una objeción parte con «Objeción:».
+- **Recuerda.** `followUpStep(estado, ahora, ajustes)` es pura: mientras no pase el plazo desde el último contacto (el aviso o su último recordatorio) responde `wait`; pasado el plazo, `remind` hasta agotar los recordatorios y después `escalate`, una sola vez. Un recordatorio es otra entrega del mismo aviso (`kind: 'reminder'` en la cola) que nace cuando toca, no una fila a futuro: así no la alcanza el descarte de entregas de más de un día. Sale con «Recordatorio: todavía falta tu respuesta.» (`asReminder`), y si la persona respondió antes de que saliera, queda `skipped` con «Ya respondió».
+- **Escala.** `escalationMemo` nombra a quien no responde y cuántas veces se le recordó. El aviso que escaló guarda `context.escalatedAt`.
+
+`expectsAnswer` dice qué avisos esperan respuesta: los de cambio y los de conflicto de quien valida. Quién sigue pendiente de verdad (la propuesta sigue activa, el solapamiento sigue vivo) lo decide la API con `lake`. Los ajustes (`FollowUpSettings`) son el plazo y cuántos recordatorios van antes de escalar; por defecto, un día y dos.
 
 ## Envío
 

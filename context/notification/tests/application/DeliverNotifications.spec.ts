@@ -22,6 +22,7 @@ const delivery = (
   channel,
   recipient,
   attempts,
+  kind: 'notice',
   notification: {
     id: `n-${id}`,
     changeId: 'c1',
@@ -48,6 +49,7 @@ const queue = (pending: PendingDelivery[]) => ({
   retry: vi.fn<DeliveryQueue['retry']>(),
   fail: vi.fn<DeliveryQueue['fail']>(),
   listFor: vi.fn<DeliveryQueue['listFor']>(),
+  remind: vi.fn<DeliveryQueue['remind']>(),
 });
 
 const sender = (send: ChannelSender['send']) => ({ send: vi.fn(send) });

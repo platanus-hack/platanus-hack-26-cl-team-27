@@ -67,6 +67,7 @@ model NotificationDelivery {
   id             String       @id @default(uuid()) @db.Uuid
   notificationId String       @map("notification_id") @db.Uuid
   notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  kind           String       @default("notice")
   channel        String
   recipient      String?
   status         String       @default("pending")

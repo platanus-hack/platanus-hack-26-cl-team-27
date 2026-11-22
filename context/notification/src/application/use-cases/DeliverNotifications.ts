@@ -1,3 +1,4 @@
+import { asReminder } from '../../domain/FollowUp.ts';
 import {
   type ChannelRedirects,
   MAX_ATTEMPTS,
@@ -48,6 +49,12 @@ export class DeliverNotifications {
     );
     const pending = await this.queue.claim(BATCH_SIZE, now);
     for (const delivery of pending) {
+      const reminder = delivery.kind === 'reminder';
+      if (reminder && delivery.notification.response !== null) {
+        await this.queue.markSkipped(delivery.id, 'Ya respondió');
+        round.skipped += 1;
+        continue;
+      }
       const route = routeDelivery(delivery, available, this.options.redirects);
       const sender = route.channel ? this.senders[route.channel] : undefined;
       if (route.channel === null || !sender) {
@@ -58,6 +65,11 @@ export class DeliverNotifications {
         round.skipped += 1;
         continue;
       }
+      const rendered = renderDelivery(
+        delivery.notification,
+        this.options.baseUrl,
+        route.channel,
+      );
       try {
         const providerId = await sender.send(
           {
@@ -65,11 +77,7 @@ export class DeliverNotifications {
             to: route.to,
             recipientName: delivery.notification.context?.recipientName ?? null,
           },
-          renderDelivery(
-            delivery.notification,
-            this.options.baseUrl,
-            route.channel,
-          ),
+          reminder ? asReminder(rendered) : rendered,
         );
         await this.queue.markSent(
           delivery.id,

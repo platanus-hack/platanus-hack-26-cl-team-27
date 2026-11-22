@@ -11,7 +11,7 @@ import type {
   OverlapStatus,
   ProposalStatus,
 } from '@team27/context-lake';
-import { isChangeNotice } from '@team27/context-notification';
+import { isChangeNotice, noticeKindOf } from '@team27/context-notification';
 import type { PrismaClient } from '@team27/data-main';
 
 import type { Env } from '../../config/index.ts';
@@ -28,6 +28,7 @@ import {
   detectForChange,
   liveOverlapsOf,
 } from './conflicts.ts';
+import { followUpView } from './follow-up.ts';
 import { combinedImpactOf } from './impact.ts';
 import {
   conflictPreviews,
@@ -143,12 +144,7 @@ export class QueryService {
           overlapIds.has(notification.context?.conflict?.overlapId ?? ''),
       )
       .sort((a, b) => teamOrder(a.stakeholderId) - teamOrder(b.stakeholderId));
-    const deliveries = await buildNotification(
-      this.prisma,
-      project,
-    ).listDeliveries.execute(
-      [...notifications, ...conflictNotices].map((item) => item.id),
-    );
+    const { deliveries } = snapshot;
     return {
       changeId: change.id,
       inference,
@@ -282,12 +278,14 @@ export class QueryService {
     const changeIds = [
       ...new Set(proposals.flatMap((proposal) => proposal.changeIds)),
     ];
+    const notification = buildNotification(this.prisma, project);
     const [impacts, notices] = await Promise.all([
       buildImpact(this.prisma, project).getImpacts.execute(changeIds),
-      buildNotification(this.prisma, project).listNotifications.execute({
-        changeIds,
-      }),
+      notification.listNotifications.execute({ changeIds }),
     ]);
+    const deliveries = await notification.listDeliveries.execute(
+      notices.map((notice) => notice.id),
+    );
     return {
       project,
       revisions,
@@ -302,7 +300,14 @@ export class QueryService {
         impacts.map((impact) => [impact.changeId, impact]),
       ),
       notifications: notices.filter(isChangeNotice),
-      conflictNotices: notices.filter((notice) => !isChangeNotice(notice)),
+      conflictNotices: notices.filter(
+        (notice) => noticeKindOf(notice.context) === 'conflict',
+      ),
+      authorNotices: notices.filter(
+        (notice) =>
+          !['change', 'conflict'].includes(noticeKindOf(notice.context)),
+      ),
+      deliveries,
     };
   }
 
@@ -409,13 +414,13 @@ export class QueryService {
       );
     }
     const snapshot = await this.snapshot(project);
-    return changeView(
-      snapshot,
-      change,
-      snapshot.proposals.find((proposal) =>
-        proposal.changeIds.includes(change.id),
-      ),
+    const proposal = snapshot.proposals.find((item) =>
+      item.changeIds.includes(change.id),
     );
+    return {
+      ...changeView(snapshot, change, proposal),
+      followUp: proposal ? followUpView(snapshot, proposal) : null,
+    };
   }
 
   async suggestions(project: ProjectCatalog, id: string) {

@@ -26,6 +26,7 @@ const repository = () => ({
   findById: vi
     .fn<NotificationRepository['findById']>()
     .mockResolvedValue(pending),
+  markEscalated: vi.fn<NotificationRepository['markEscalated']>(),
   setClashes: vi.fn<NotificationRepository['setClashes']>(),
 });
 

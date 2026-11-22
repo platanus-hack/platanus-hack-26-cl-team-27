@@ -6,6 +6,7 @@ import type {
 } from '../../application/ports/DeliveryQueue.ts';
 import {
   CLAIM_LEASE_MS,
+  type DeliveryKind,
   type DeliveryRecord,
   type DeliveryStatus,
   MAX_AGE_MS,
@@ -48,6 +49,7 @@ export class PrismaDeliveryQueue implements DeliveryQueue {
     });
     return rows.map((row) => ({
       id: row.id,
+      kind: row.kind as DeliveryKind,
       channel: row.channel as Channel,
       recipient: row.recipient,
       attempts: row.attempts,
@@ -75,6 +77,7 @@ export class PrismaDeliveryQueue implements DeliveryQueue {
     });
     return rows.map((row) => ({
       notificationId: row.notificationId,
+      kind: row.kind as DeliveryKind,
       channel: row.channel as Channel,
       status: row.status as DeliveryStatus,
       reason: row.lastError,
@@ -103,5 +106,26 @@ export class PrismaDeliveryQueue implements DeliveryQueue {
       where: { id },
       data: { status: 'failed', lastError: error },
     });
+  }
+
+  async remind(notificationId: string, at: Date): Promise<boolean> {
+    const first = await this.prisma.notificationDelivery.findFirst({
+      where: { notificationId, kind: 'notice' },
+      orderBy: { createdAt: 'asc' },
+      include: { notification: true },
+    });
+    if (!first) return false;
+    await this.prisma.notificationDelivery.create({
+      data: {
+        projectId: first.projectId,
+        notificationId,
+        kind: 'reminder',
+        channel: first.notification.channel,
+        recipient: first.recipient,
+        nextAttemptAt: at,
+        createdAt: at,
+      },
+    });
+    return true;
   }
 }

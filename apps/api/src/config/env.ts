@@ -78,6 +78,15 @@ export const envSchema = z
     EMAIL_REDIRECT_TO: optionalText.pipe(z.email().optional()),
     SLACK_WEBHOOK_URL: optionalText.pipe(z.url().optional()),
     TEAMS_WEBHOOK_URL: optionalText.pipe(z.url().optional()),
+    REMINDER_AFTER_MINUTES: blankAsDefault(
+      z.coerce.number().min(0.05).max(43_200).default(1440),
+    ),
+    ESCALATE_AFTER_REMINDERS: blankAsDefault(
+      z.coerce.number().int().min(0).max(10).default(2),
+    ),
+    FOLLOW_UP_SECONDS: blankAsDefault(
+      z.coerce.number().int().min(0).max(3600).default(60),
+    ),
     INTEGRATIONS_POLL_SECONDS: blankAsDefault(
       z.coerce.number().int().min(0).max(3600).default(60),
     ),
