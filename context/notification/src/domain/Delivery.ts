@@ -63,6 +63,16 @@ const CHANNEL_NAMES: Readonly<Record<Channel, string>> = {
 
 const NEEDS_ADDRESS: readonly Channel[] = ['email', 'whatsapp'];
 
+const PLACEHOLDER_DOMAIN = /\.(example|test|invalid|localhost)$/i;
+
+export const isRealEmail = (address: string | null): address is string =>
+  address !== null && address !== '' && !PLACEHOLDER_DOMAIN.test(address.split('@')[1] ?? '');
+
+const redirected = (
+  own: string | null,
+  redirect: string | undefined,
+): string | null => (isRealEmail(own) ? own : (redirect ?? own));
+
 export const routeDelivery = (
   delivery: { readonly channel: Channel; readonly recipient: string | null },
   available: readonly Channel[],
@@ -73,7 +83,10 @@ export const routeDelivery = (
   const name = CHANNEL_NAMES[channel];
   if (available.includes(channel)) {
     const own = channel === 'email' ? emailAddress(recipient) : recipient;
-    const to = redirects[channel] ?? own;
+    const to =
+      channel === 'email'
+        ? redirected(own, redirects.email)
+        : (redirects[channel] ?? own);
     if (to || (to !== null && !NEEDS_ADDRESS.includes(channel))) {
       return { channel, to, note: null };
     }
@@ -86,7 +99,7 @@ export const routeDelivery = (
     };
   }
   if (channel !== 'email' && available.includes('email')) {
-    const to = redirects.email ?? emailAddress(recipient);
+    const to = redirected(emailAddress(recipient), redirects.email);
     if (to) {
       return {
         channel: 'email',
