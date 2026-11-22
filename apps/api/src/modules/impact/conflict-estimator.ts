@@ -5,10 +5,9 @@ import {
 } from '@team27/context-impact';
 import {
   anthropicClient,
-  CachedConflictEstimator,
   ClaudeConflictEstimator,
   GeminiConflictEstimator,
-  MemoryResponseCache,
+  PairedConflictEstimator,
 } from '@team27/context-impact/adapters';
 
 import type { GeminiSettings } from './claim-reader.ts';
@@ -39,23 +38,19 @@ export const chooseConflictEstimator = (
   if (present(apiKey)) {
     return {
       mode: 'claude',
-      estimator: new CachedConflictEstimator(
+      estimator: new PairedConflictEstimator(
         new ClaudeConflictEstimator(anthropicClient(apiKey)),
-        new MemoryResponseCache(),
-        'claude',
       ),
     };
   }
   if (present(gemini.apiKey)) {
     return {
       mode: 'gemini',
-      estimator: new CachedConflictEstimator(
+      estimator: new PairedConflictEstimator(
         new GeminiConflictEstimator({
           apiKey: gemini.apiKey,
           ...(present(gemini.model) ? { model: gemini.model } : {}),
         }),
-        new MemoryResponseCache(),
-        'gemini',
       ),
     };
   }

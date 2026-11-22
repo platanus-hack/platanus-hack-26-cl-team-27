@@ -62,6 +62,7 @@ export const generateStructured = async <T>(
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: 'user', parts }],
         generationConfig: {
+          temperature: 0,
           responseMimeType: 'application/json',
           responseJsonSchema: z.toJSONSchema(schema),
         },

@@ -40,6 +40,7 @@ export {
   ConflictsSchema,
 } from './ClaudeConflictEstimator.ts';
 export { GeminiConflictEstimator } from './GeminiConflictEstimator.ts';
+export { PairedConflictEstimator } from './PairedConflictEstimator.ts';
 export { GeminiAffectedEstimator } from './GeminiAffectedEstimator.ts';
 export { GeminiClaimReader } from './GeminiClaimReader.ts';
 export {
