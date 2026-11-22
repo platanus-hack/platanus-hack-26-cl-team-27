@@ -104,6 +104,8 @@ export const routeDelivery = (
   };
 };
 
+export const NOTICE_GRACE_MS = 12_000;
+
 export interface PendingDelivery {
   readonly id: string;
   readonly kind: DeliveryKind;
@@ -130,7 +132,10 @@ export const noticeOf = (
   recipientName: notification.context?.recipientName ?? null,
   impact: notification.context?.impact ?? null,
   clashes: notification.context?.clashes ?? [],
-  why,
+  why: why ?? notification.context?.why ?? null,
+  whyBy: why ? null : (notification.context?.whyBy ?? null),
+  diffs: notification.context?.diffs ?? [],
+  suggested: notification.context?.suggested ?? null,
   conflict: notification.context?.conflict ?? null,
   memo: notification.context?.memo ?? null,
 });

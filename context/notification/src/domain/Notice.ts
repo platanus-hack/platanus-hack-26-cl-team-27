@@ -53,6 +53,19 @@ export interface NoticeConflict {
   readonly votes: boolean;
 }
 
+export interface NoticeDiff {
+  readonly label: string;
+  readonly before: string | null;
+  readonly after: string | null;
+}
+
+export interface NoticeSuggestion {
+  readonly probability: number;
+  readonly reason: string;
+  readonly evidence: string;
+  readonly model: string;
+}
+
 export interface NoticeMemo {
   readonly subject: string;
   readonly why: string;
@@ -69,6 +82,10 @@ export interface NoticeContext {
   readonly conflict?: NoticeConflict;
   readonly memo?: NoticeMemo;
   readonly escalatedAt?: string;
+  readonly why?: string | null;
+  readonly whyBy?: string | null;
+  readonly diffs?: readonly NoticeDiff[];
+  readonly suggested?: NoticeSuggestion;
 }
 
 export const noticeKindOf = (
@@ -85,6 +102,9 @@ export interface Notice {
   readonly why?: string | null;
   readonly conflict?: NoticeConflict | null;
   readonly memo?: NoticeMemo | null;
+  readonly whyBy?: string | null;
+  readonly diffs?: readonly NoticeDiff[];
+  readonly suggested?: NoticeSuggestion | null;
 }
 
 export interface RenderedNotice {
@@ -256,12 +276,168 @@ interface Parts {
   readonly clashes: readonly string[];
 }
 
+const BLUE = '#256abf';
+const INK = '#1b2433';
+const MUTED = '#5b6678';
+const LINE = '#e3e8f0';
+const UP = '#b42318';
+const UP_BG = '#fdecea';
+const DOWN = '#067647';
+const DOWN_BG = '#e7f6ec';
+const AI = '#6941c6';
+const AI_BG = '#f4f0ff';
+const WARN = '#93370d';
+const WARN_BG = '#fff4e5';
+
+const FONT =
+  "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;";
+
+const percent = (value: number): string =>
+  `${Math.round(Math.min(Math.max(value, 0), 1) * 100)} %`;
+
+const shown = (value: string | null): string =>
+  value === null || value.trim() === '' ? '—' : value;
+
+const LABEL_STYLE = `margin:24px 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:${MUTED};`;
+
+const diffRow = (diff: NoticeDiff, index: number): string => {
+  const border = index > 0 ? `border-top:1px solid ${LINE};` : '';
+  return [
+    '<tr>',
+    `<td style="padding:12px 14px;${border}font-size:14px;color:${INK};">${escapeHtml(diff.label)}</td>`,
+    `<td align="right" style="padding:12px 14px;${border}white-space:nowrap;font-size:14px;">`,
+    `<span style="display:inline-block;padding:3px 8px;border-radius:6px;background:${UP_BG};color:${UP};text-decoration:line-through;">${escapeHtml(shown(diff.before))}</span>`,
+    `<span style="color:${MUTED};padding:0 8px;">&rarr;</span>`,
+    `<span style="display:inline-block;padding:3px 8px;border-radius:6px;background:${DOWN_BG};color:${DOWN};font-weight:600;">${escapeHtml(shown(diff.after))}</span>`,
+    '</td></tr>',
+  ].join('');
+};
+
+const diffTable = (diffs: readonly NoticeDiff[]): string =>
+  diffs.length === 0
+    ? ''
+    : [
+        `<p style="${LABEL_STYLE}">Qué cambió</p>`,
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${LINE};border-radius:10px;border-collapse:separate;">`,
+        diffs.map(diffRow).join(''),
+        '</table>',
+      ].join('');
+
+const tile = (label: string, value: string, worse: boolean): string =>
+  [
+    '<td width="50%" style="padding:6px;">',
+    `<div style="border-radius:10px;padding:14px 16px;background:${worse ? UP_BG : DOWN_BG};">`,
+    `<div style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:${MUTED};">${escapeHtml(label)}</div>`,
+    `<div style="font-size:24px;font-weight:700;color:${worse ? UP : DOWN};margin-top:4px;">${escapeHtml(value)}</div>`,
+    '</div></td>',
+  ].join('');
+
+const impactTiles = (impact: NoticeImpact | null | undefined): string => {
+  if (!impact || (impact.costDelta === 0 && impact.delayDays === 0)) return '';
+  const tiles = [
+    ...(impact.costDelta !== 0
+      ? [tile('Costo', signedMoney(impact.costDelta), impact.costDelta > 0)]
+      : []),
+    ...(impact.delayDays !== 0
+      ? [tile('Plazo', signedDays(impact.delayDays), impact.delayDays > 0)]
+      : []),
+  ];
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr>${tiles.join('')}</tr></table>`;
+};
+
+const aiBadge = (text: string): string =>
+  `<span style="display:inline-block;padding:3px 10px;border-radius:999px;background:${AI};color:#ffffff;font-size:12px;font-weight:600;">&#10022; ${escapeHtml(text)}</span>`;
+
+const suggestionBlock = (suggested: NoticeSuggestion): string =>
+  [
+    `<div style="margin-top:20px;border-radius:10px;padding:16px;background:${AI_BG};border:1px solid #d9ccff;">`,
+    aiBadge(
+      `${suggested.model} · ${percent(suggested.probability)} de probabilidad`,
+    ),
+    `<p style="margin:10px 0 0;font-size:15px;color:${INK};">Las reglas no te marcaron, pero ${escapeHtml(suggested.model)} leyó el cambio y cree que te toca.</p>`,
+    `<p style="margin:8px 0 0;font-size:14px;color:${MUTED};">${escapeHtml(suggested.reason)}</p>`,
+    suggested.evidence.trim()
+      ? `<p style="margin:8px 0 0;font-size:13px;color:${MUTED};font-style:italic;">${escapeHtml(suggested.evidence)}</p>`
+      : '',
+    '</div>',
+  ].join('');
+
+const whyBlock = (why: string, whyBy: string | null | undefined): string =>
+  [
+    `<div style="margin-top:20px;border-left:4px solid ${whyBy ? AI : BLUE};padding:4px 0 4px 14px;">`,
+    whyBy
+      ? `<div style="margin-bottom:6px;">${aiBadge(`Escrito por ${whyBy}`)}</div>`
+      : '',
+    `<p style="margin:0;font-size:16px;line-height:1.5;color:${INK};">${escapeHtml(why)}</p>`,
+    '</div>',
+  ].join('');
+
+const findingCard = (finding: NoticeFinding): string =>
+  [
+    `<div style="border:1px solid ${LINE};border-radius:10px;padding:14px 16px;margin-bottom:10px;">`,
+    `<p style="margin:0;font-size:15px;font-weight:600;color:${INK};">${escapeHtml(finding.summary)}</p>`,
+    finding.details.length > 0
+      ? `<ul style="margin:8px 0 0;padding-left:18px;color:${MUTED};font-size:14px;">${finding.details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join('')}</ul>`
+      : '',
+    `<p style="margin:10px 0 0;font-size:14px;color:${BLUE};"><strong>Qué hacer:</strong> ${escapeHtml(finding.action)}</p>`,
+    '</div>',
+  ].join('');
+
+const findingCards = (findings: readonly NoticeFinding[]): string =>
+  findings.length === 0
+    ? ''
+    : `<p style="${LABEL_STYLE}">Lo que te toca</p>${findings.map(findingCard).join('')}`;
+
+const clashBlock = (clashes: readonly string[]): string =>
+  clashes.length === 0
+    ? ''
+    : `<div style="margin-top:16px;border-radius:10px;padding:14px 16px;background:${WARN_BG};color:${WARN};font-size:14px;"><strong>&#9888; Puede chocar</strong>${clashes.map((line) => `<p style="margin:6px 0 0;">${escapeHtml(line)}</p>`).join('')}</div>`;
+
+const emailFrame = (
+  label: string,
+  body: string,
+  url: string,
+  ask: string,
+): string =>
+  [
+    '<!doctype html><html><body style="margin:0;padding:0;background:#f3f5f9;">',
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f5f9;${FONT}"><tr><td align="center" style="padding:24px 12px;">`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ${LINE};">`,
+    `<tr><td style="background:${BLUE};padding:18px 24px;color:#ffffff;">`,
+    '<span style="font-size:18px;font-weight:700;letter-spacing:.02em;">Vigente</span>',
+    `<span style="float:right;font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85;padding-top:4px;">${escapeHtml(label)}</span>`,
+    '</td></tr>',
+    `<tr><td style="padding:24px;">${body}`,
+    '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:28px;"><tr>',
+    `<td style="border-radius:8px;background:${BLUE};"><a href="${escapeHtml(url)}" style="display:inline-block;padding:13px 22px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">${escapeHtml(ask)} &rarr;</a></td>`,
+    '</tr></table></td></tr>',
+    `<tr><td style="padding:14px 24px;border-top:1px solid ${LINE};font-size:12px;color:${MUTED};">Vigente avisa a cada equipo cuando un cambio del proyecto lo afecta.</td></tr>`,
+    '</table></td></tr></table></body></html>',
+  ].join('');
+
 const emailOf = (notice: Notice, parts: Parts): RenderedNotice => {
   const extras = [...(parts.impact ? [parts.impact] : []), ...parts.clashes];
+  const suggested = notice.suggested ?? null;
+  const diffs = notice.diffs ?? [];
   const text = [
     ...(parts.greeting ? [`Hola ${parts.greeting}:`, ''] : []),
     notice.title,
     parts.why,
+    ...(suggested
+      ? [
+          '',
+          `${suggested.model} cree que este cambio te afecta (${percent(suggested.probability)}): ${suggested.reason}`,
+        ]
+      : []),
+    ...(diffs.length > 0
+      ? [
+          '',
+          ...diffs.map(
+            (diff) =>
+              `${diff.label}: ${shown(diff.before)} → ${shown(diff.after)}`,
+          ),
+        ]
+      : []),
     '',
     ...parts.findings.flatMap((finding) => [
       `• ${finding.summary}`,
@@ -273,25 +449,28 @@ const emailOf = (notice: Notice, parts: Parts): RenderedNotice => {
     ...(extras.length > 0 ? [''] : []),
     `Revisa el cambio y responde: ${notice.url}`,
   ].join('\n');
-  const findings = parts.findings
-    .map(
-      (finding) =>
-        `<li><p><strong>${escapeHtml(finding.summary)}</strong></p>${
-          finding.details.length > 0
-            ? `<ul>${finding.details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join('')}</ul>`
-            : ''
-        }<p>Qué hacer: ${escapeHtml(finding.action)}</p></li>`,
-    )
-    .join('');
-  const html = [
-    parts.greeting ? `<p>Hola ${escapeHtml(parts.greeting)}:</p>` : '',
-    `<h2>${escapeHtml(notice.title)}</h2>`,
-    `<p>${escapeHtml(parts.why)}</p>`,
-    `<ul>${findings}</ul>`,
-    extras.map((line) => `<p>${escapeHtml(line)}</p>`).join(''),
-    `<p><a href="${escapeHtml(notice.url)}">Revisa el cambio y responde</a></p>`,
+  const body = [
+    parts.greeting
+      ? `<p style="margin:0 0 6px;font-size:15px;color:${MUTED};">Hola ${escapeHtml(parts.greeting)}:</p>`
+      : '',
+    `<h1 style="margin:0;font-size:22px;line-height:1.3;color:${INK};">${escapeHtml(notice.title)}</h1>`,
+    suggested ? suggestionBlock(suggested) : '',
+    whyBlock(parts.why, notice.whyBy),
+    impactTiles(notice.impact),
+    diffTable(diffs),
+    findingCards(parts.findings),
+    clashBlock(parts.clashes),
   ].join('');
-  return { subject: parts.subject, text, html };
+  return {
+    subject: parts.subject,
+    text,
+    html: emailFrame(
+      suggested ? 'Detectado por IA' : 'Aviso de cambio',
+      body,
+      notice.url,
+      'Revisa el cambio y responde',
+    ),
+  };
 };
 
 const whatsappOf = (notice: Notice, parts: Parts): RenderedNotice => {

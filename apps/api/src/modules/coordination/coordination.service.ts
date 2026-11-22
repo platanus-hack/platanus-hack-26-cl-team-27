@@ -36,6 +36,7 @@ import { diffEvents, type EventDraft, emitEvents, observe } from './events.ts';
 import { closingOf } from './follow-up.ts';
 import { fail } from './http-errors.ts';
 import { underAnalysisOf } from './impact.ts';
+import { NoticeAdvisor } from './notice-advisor.ts';
 import { conflictToNotify, overlapClashes } from './notices.ts';
 import {
   checkRevision,
@@ -120,16 +121,19 @@ export class CoordinationService {
   private readonly uow: UnitOfWork;
   private readonly queries: QueryService;
   private readonly reader: ChunkReader;
+  private readonly advisor: NoticeAdvisor;
   private readonly actions = new ActionLog();
 
   constructor(
     @Inject(UnitOfWork) uow: UnitOfWork,
     @Inject(QueryService) queries: QueryService,
     @Inject(ChunkReader) reader: ChunkReader,
+    @Inject(NoticeAdvisor) advisor: NoticeAdvisor,
   ) {
     this.uow = uow;
     this.queries = queries;
     this.reader = reader;
+    this.advisor = advisor;
   }
 
   private async track<T>(
@@ -275,6 +279,13 @@ export class CoordinationService {
           }),
         ),
       ),
+    );
+    await this.advisor.adviseAll(
+      project,
+      proposals.map((proposal) => ({
+        changeId: proposal.changeId,
+        authorId: draft.authorId,
+      })),
     );
     return this.ingestResponse(project, ingested, proposals, resolved);
   }
@@ -498,6 +509,18 @@ export class CoordinationService {
           .join(' + '),
         findings,
         impact: { costDelta, delayDays },
+        diffs: changes.flatMap((change) =>
+          change.diffs.map((diff) => ({
+            label:
+              changes.length > 1
+                ? `${change.element.name} · ${diff.label}`
+                : diff.label,
+            before:
+              diff.before === null ? null : formatValue(diff.before, diff.unit),
+            after:
+              diff.after === null ? null : formatValue(diff.after, diff.unit),
+          })),
+        ),
       });
       const notifiedIds = new Set(notified.map((item) => item.stakeholderId));
       reviewerIds = [

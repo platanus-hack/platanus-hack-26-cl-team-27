@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from '@team27/data-main';
 
 import type {
+  NoticeReasonNote,
   NotificationFilter,
   NotificationRepository,
 } from '../../application/ports/NotificationRepository.ts';
@@ -17,7 +18,9 @@ import {
   type NotificationFinding,
   type NotificationResponse,
   withClashes,
+  withReason,
 } from '../../domain/Notification.ts';
+import { NOTICE_GRACE_MS } from '../../domain/Delivery.ts';
 import type { Channel } from '../../domain/Stakeholder.ts';
 
 type NotificationRow = Prisma.NotificationGetPayload<object>;
@@ -55,6 +58,7 @@ export class PrismaNotificationRepository implements NotificationRepository {
     drafts: readonly NotificationDraft[],
   ): Promise<Notification[]> {
     const now = new Date();
+    const graceUntil = new Date(now.getTime() + NOTICE_GRACE_MS);
     const rows = await this.prisma.$transaction(
       drafts.map((draft) =>
         this.prisma.notification.create({
@@ -74,7 +78,8 @@ export class PrismaNotificationRepository implements NotificationRepository {
                 projectId: this.projectId,
                 channel: draft.channel,
                 recipient: draft.recipient,
-                nextAttemptAt: now,
+                nextAttemptAt:
+                  noticeKindOf(draft.context) === 'change' ? graceUntil : now,
                 createdAt: now,
               },
             },
@@ -186,5 +191,34 @@ export class PrismaNotificationRepository implements NotificationRepository {
       });
     }
     return changeRows.length;
+  }
+
+  async setReasons(
+    changeId: string,
+    reasons: readonly NoticeReasonNote[],
+  ): Promise<number> {
+    const byStakeholder = new Map(
+      reasons.map((reason) => [reason.stakeholderId, reason]),
+    );
+    const rows = await this.prisma.notification.findMany({
+      where: { projectId: this.projectId, changeId },
+    });
+    let updated = 0;
+    for (const row of rows) {
+      const reason = byStakeholder.get(row.stakeholderId);
+      if (!reason || !isChangeNotice(toNotification(row))) continue;
+      await this.prisma.notification.update({
+        where: { id: row.id },
+        data: {
+          context: withReason(
+            row.context as unknown as NoticeContext | null,
+            reason.why,
+            reason.whyBy,
+          ) as unknown as Prisma.InputJsonValue,
+        },
+      });
+      updated += 1;
+    }
+    return updated;
   }
 }

@@ -25,4 +25,14 @@ export interface NotificationRepository {
     changeId: string,
     clashes: readonly NoticeClash[],
   ): Promise<number>;
+  setReasons(
+    changeId: string,
+    reasons: readonly NoticeReasonNote[],
+  ): Promise<number>;
+}
+
+export interface NoticeReasonNote {
+  readonly stakeholderId: string;
+  readonly why: string;
+  readonly whyBy: string;
 }

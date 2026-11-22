@@ -9,7 +9,9 @@ import {
   type NoticeImpact,
   type NoticeKind,
   noticeKindOf,
+  type NoticeDiff,
   type NoticeMemo,
+  type NoticeSuggestion,
 } from './Notice.ts';
 import type { Channel, Stakeholder } from './Stakeholder.ts';
 
@@ -59,6 +61,8 @@ export interface ChangeToNotify {
   readonly title: string;
   readonly findings: readonly AddressedFinding[];
   readonly impact?: NoticeImpact | null;
+  readonly diffs?: readonly NoticeDiff[];
+  readonly suggested?: Readonly<Record<string, NoticeSuggestion>>;
 }
 
 export const detailLink = (projectId: string, changeId: string): string =>
@@ -92,6 +96,12 @@ export const draftNotifications = (
           recipientName: stakeholder.name,
           impact: change.impact ?? null,
           clashes: [],
+          ...(change.diffs && change.diffs.length > 0
+            ? { diffs: change.diffs }
+            : {}),
+          ...(change.suggested?.[stakeholder.id]
+            ? { suggested: change.suggested[stakeholder.id] }
+            : {}),
         },
         recipient: stakeholder.handle.trim() || null,
       },
@@ -205,10 +215,25 @@ export const withClashes = (
   context: NoticeContext | null,
   clashes: readonly NoticeClash[],
 ): NoticeContext => ({
+  ...context,
   role: context?.role ?? '',
   recipientName: context?.recipientName ?? '',
   impact: context?.impact ?? null,
   clashes,
+});
+
+export const withReason = (
+  context: NoticeContext | null,
+  why: string,
+  whyBy: string,
+): NoticeContext => ({
+  ...context,
+  role: context?.role ?? '',
+  recipientName: context?.recipientName ?? '',
+  impact: context?.impact ?? null,
+  clashes: context?.clashes ?? [],
+  why,
+  whyBy,
 });
 
 export const normalizeNote = (

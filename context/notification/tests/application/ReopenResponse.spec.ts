@@ -28,6 +28,7 @@ const repository = () => ({
     .mockResolvedValue(pending),
   markEscalated: vi.fn<NotificationRepository['markEscalated']>(),
   setClashes: vi.fn<NotificationRepository['setClashes']>(),
+  setReasons: vi.fn<NotificationRepository['setReasons']>(),
 });
 
 describe('ReopenResponse', () => {

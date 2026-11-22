@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   AnswerConflictNotice,
   AttachClashes,
+  AttachReasons,
   DEFAULT_FOLLOW_UP,
   DeliverNotifications,
   type FollowUpSettings,
@@ -63,6 +64,7 @@ export const buildNotification = (
       notifications,
     ),
     attachClashes: new AttachClashes(notifications),
+    attachReasons: new AttachReasons(notifications),
     listNotifications: new ListNotifications(notifications),
     listDeliveries: new ListDeliveries(queue),
     getNotification: new GetNotification(notifications),
