@@ -1,6 +1,7 @@
 import { ProviderError } from '../../src/application/errors.ts';
 import {
   emailFromIdToken,
+  GOOGLE_SCOPES,
   GoogleOAuthClient,
   SHEETS_READ_SCOPE,
 } from '../../src/infra/adapters/GoogleOAuthClient.ts';
@@ -40,7 +41,7 @@ describe('GoogleOAuthClient', () => {
       client_id: 'client-1',
       redirect_uri: CONFIG.redirectUri,
       response_type: 'code',
-      scope: `openid email ${SHEETS_READ_SCOPE}`,
+      scope: GOOGLE_SCOPES.join(' '),
       access_type: 'offline',
       prompt: 'consent',
       include_granted_scopes: 'true',

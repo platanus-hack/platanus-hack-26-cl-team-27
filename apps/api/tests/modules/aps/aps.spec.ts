@@ -4,7 +4,7 @@ import type { AuthenticationClient } from '@aps_sdk/authentication';
 import type { ModelDerivativeClient } from '@aps_sdk/model-derivative';
 import type { OssClient } from '@aps_sdk/oss';
 
-import { setupApp } from '../../../src/app.setup.ts';
+import { APP_OPTIONS, setupApp } from '../../../src/app.setup.ts';
 import { ApsAuth, VIEWER_SCOPES } from '../../../src/modules/aps/aps-auth.ts';
 import { ApsController } from '../../../src/modules/aps/aps.controller.ts';
 import {
@@ -241,7 +241,7 @@ describe('ApsController', () => {
       ],
     }).compile();
     const app: INestApplication = setupApp(
-      moduleRef.createNestApplication({ logger: false }),
+      moduleRef.createNestApplication({ ...APP_OPTIONS, logger: false }),
     );
     await app.listen(0);
     return { app, base: `${await app.getUrl()}/api/aps` };

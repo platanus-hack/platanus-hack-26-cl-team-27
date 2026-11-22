@@ -42,6 +42,18 @@ services:
         value: https://hack-team-27.vercel.app/api/integrations/aps/callback
       - key: APS_TOKEN_KEY
         sync: false
+      - key: APS_WEBHOOK_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://hack-team-27.vercel.app/api/integrations/google/callback
+      - key: INTEGRATIONS_ENCRYPTION_KEY
+        generateValue: true
+      - key: GOOGLE_WEBHOOK_URL
+        value: https://vigente-api.onrender.com/api/integrations/google/notifications
 
 databases:
   - name: vigente-db

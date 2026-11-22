@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
-import { setupApp } from '../../../src/app.setup.ts';
+import { APP_OPTIONS, setupApp } from '../../../src/app.setup.ts';
 import { PRISMA_CLIENT } from '../../../src/modules/database/database.module.ts';
 import { HealthController } from '../../../src/modules/health/health.controller.ts';
 
@@ -15,7 +15,9 @@ describe('HealthController', () => {
       controllers: [HealthController],
       providers: [{ provide: PRISMA_CLIENT, useValue: prisma }],
     }).compile();
-    app = setupApp(moduleRef.createNestApplication({ logger: false }));
+    app = setupApp(
+      moduleRef.createNestApplication({ ...APP_OPTIONS, logger: false }),
+    );
     await app.listen(0);
     base = `${await app.getUrl()}/api`;
   });

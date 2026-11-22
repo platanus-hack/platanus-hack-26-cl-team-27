@@ -1,11 +1,17 @@
 import { ProviderError } from '../../application/errors.ts';
 import type { AccountAuthorizer } from '../../application/ports/index.ts';
 import type { AccountGrant } from '../../domain/Connection.ts';
+import { DRIVE_METADATA_SCOPE } from '../../domain/Push.ts';
 
 export const SHEETS_READ_SCOPE =
   'https://www.googleapis.com/auth/spreadsheets.readonly';
 
-export const GOOGLE_SCOPES = ['openid', 'email', SHEETS_READ_SCOPE] as const;
+export const GOOGLE_SCOPES = [
+  'openid',
+  'email',
+  SHEETS_READ_SCOPE,
+  DRIVE_METADATA_SCOPE,
+] as const;
 
 const AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';

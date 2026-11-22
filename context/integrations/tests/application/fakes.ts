@@ -2,6 +2,8 @@ import type {
   AccountAuthorizer,
   ChangeListener,
   ConnectionRepository,
+  EditorLookup,
+  FileWatcher,
   SourceLinkRepository,
   SpreadsheetContent,
   SpreadsheetReader,
@@ -41,7 +43,9 @@ export const SOURCE: SourceLink = {
   contentHash: CONTENT.contentHash,
   checkedAt: new Date('2026-11-21T10:00:00Z'),
   changedAt: null,
+  changedBy: null,
   lastError: null,
+  channel: null,
   createdAt: new Date('2026-11-21T10:00:00Z'),
 };
 
@@ -95,6 +99,7 @@ export const sources = (found: SourceLink | null = SOURCE) => ({
       contentHash: check.contentHash,
       checkedAt: check.at,
       changedAt: check.changed ? check.at : SOURCE.changedAt,
+      changedBy: check.changed ? (check.by ?? null) : SOURCE.changedBy,
     })),
   recordError: vi
     .fn<SourceLinkRepository['recordError']>()
@@ -102,6 +107,12 @@ export const sources = (found: SourceLink | null = SOURCE) => ({
       ...SOURCE,
       lastError: error,
     })),
+  findByChannel: vi
+    .fn<SourceLinkRepository['findByChannel']>()
+    .mockResolvedValue(found),
+  saveChannel: vi
+    .fn<SourceLinkRepository['saveChannel']>()
+    .mockImplementation(async (_id, channel) => ({ ...SOURCE, channel })),
   remove: vi.fn<SourceLinkRepository['remove']>().mockResolvedValue(true),
 });
 
@@ -109,4 +120,17 @@ export const snapshots = () => new InMemorySnapshotCache();
 
 export const listener = () => ({
   changed: vi.fn<ChangeListener['changed']>().mockResolvedValue(undefined),
+});
+
+export const watcher = () => ({
+  watch: vi.fn<FileWatcher['watch']>().mockResolvedValue({
+    id: 'ch-2',
+    resourceId: 'res-1',
+    token: 'secret-2',
+    expiresAt: new Date('2026-11-22T21:00:00Z'),
+  }),
+  stop: vi.fn<FileWatcher['stop']>().mockResolvedValue(undefined),
+  lastEditor: vi
+    .fn<EditorLookup['lastEditor']>()
+    .mockResolvedValue({ name: 'Daniela Soto', email: 'daniela@example.com' }),
 });

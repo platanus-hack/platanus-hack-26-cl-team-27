@@ -4,8 +4,10 @@ import {
   UNCHANGED_MESSAGE,
   WatchSource,
 } from '../../src/application/use-cases/WatchSource.ts';
+import { DRIVE_METADATA_SCOPE } from '../../src/domain/Push.ts';
 import {
   authorizer,
+  CONNECTION,
   CONTENT,
   connections,
   listener,
@@ -13,6 +15,7 @@ import {
   snapshots,
   SOURCE,
   sources,
+  watcher,
 } from './fakes.ts';
 
 const NOW = new Date('2026-11-21T21:05:12Z');
@@ -78,6 +81,7 @@ describe('WatchSource', () => {
       title: CONTENT.title,
       contentHash: CONTENT.contentHash,
       changed: false,
+      by: null,
     });
     expect(heard.changed).not.toHaveBeenCalled();
   });
@@ -106,12 +110,80 @@ describe('WatchSource', () => {
       title: CONTENT.title,
       contentHash: CHANGED.contentHash,
       changed: true,
+      by: null,
     });
     expect(heard.changed).toHaveBeenCalledWith({
       source: expect.objectContaining({ id: 's1', changedAt: NOW }),
       at: NOW,
       cells: [{ locator: 'Partidas!C2', before: 145000, after: 150000 }],
+      by: null,
     });
+  });
+
+  it('con permiso de Drive, dice quién hizo el cambio', async () => {
+    const drive = watcher();
+    const deps = {
+      connections: connections({
+        ...CONNECTION,
+        scopes: [DRIVE_METADATA_SCOPE],
+      }),
+      reader: reader(),
+      sources: sources(),
+      listener: listener(),
+    };
+    const useCase = new WatchSource(
+      deps.connections,
+      authorizer(),
+      deps.reader,
+      deps.sources,
+      snapshots(),
+      deps.listener,
+      () => NOW,
+      drive,
+    );
+    await useCase.execute('s1');
+    expect(drive.lastEditor).not.toHaveBeenCalled();
+    deps.reader.read.mockResolvedValue(CHANGED);
+
+    await useCase.execute('s1');
+
+    expect(drive.lastEditor).toHaveBeenCalledWith(
+      'access-1',
+      SOURCE.externalId,
+    );
+    expect(deps.listener.changed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: { name: 'Daniela Soto', email: 'daniela@example.com' },
+      }),
+    );
+  });
+
+  it('si Google no dice quién editó, igual avisa el cambio', async () => {
+    const drive = watcher();
+    drive.lastEditor.mockRejectedValue(new ProviderError('boom', 500));
+    const deps = {
+      reader: reader(),
+      listener: listener(),
+    };
+    const useCase = new WatchSource(
+      connections({ ...CONNECTION, scopes: [DRIVE_METADATA_SCOPE] }),
+      authorizer(),
+      deps.reader,
+      sources(),
+      snapshots(),
+      deps.listener,
+      () => NOW,
+      drive,
+    );
+    await useCase.execute('s1');
+    deps.reader.read.mockResolvedValue(CHANGED);
+
+    const result = await useCase.execute('s1');
+
+    expect(result.status).toBe('changed');
+    expect(deps.listener.changed).toHaveBeenCalledWith(
+      expect.objectContaining({ by: null }),
+    );
   });
 
   it('si cambia el hash pero ninguna celda tiene otro valor, no avisa', async () => {
