@@ -1,14 +1,16 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import type { Impact } from '@team27/context-impact';
+import { type Impact, SuggestAffected } from '@team27/context-impact';
 import type { OverlapStatus, ProposalStatus } from '@team27/context-lake';
 import type { PrismaClient } from '@team27/data-main';
 
 import { PRISMA_CLIENT } from '../database/database.module.ts';
 import { buildImpact } from '../impact/impact.module.ts';
+import { buildVocabulary } from '../impact/vocabulary.ts';
 import { buildLake } from '../lake/lake.module.ts';
 import { buildNotification } from '../notification/notification.module.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
 import { fail } from './http-errors.ts';
+import { suggestForChange } from './suggestions.ts';
 import {
   areasResponse,
   baselineResponse,
@@ -28,9 +30,14 @@ export type ProposalFilter = ProposalStatus | 'active' | 'replaced';
 @Injectable()
 export class QueryService {
   private readonly prisma: PrismaClient;
+  private readonly suggest: SuggestAffected;
 
-  constructor(@Inject(PRISMA_CLIENT) prisma: PrismaClient) {
+  constructor(
+    @Inject(PRISMA_CLIENT) prisma: PrismaClient,
+    @Inject(SuggestAffected) suggest: SuggestAffected,
+  ) {
     this.prisma = prisma;
+    this.suggest = suggest;
   }
 
   async snapshot(project: ProjectCatalog): Promise<LakeSnapshot> {
@@ -190,5 +197,43 @@ export class QueryService {
         proposal.changeIds.includes(change.id),
       ),
     );
+  }
+
+  async suggestions(project: ProjectCatalog, id: string) {
+    const change = await buildLake(this.prisma, project).getChange.execute(id);
+    if (!change) {
+      throw fail(
+        HttpStatus.NOT_FOUND,
+        'not_found',
+        `No existe el cambio ${id}`,
+      );
+    }
+    const snapshot = await this.snapshot(project);
+    const proposal = snapshot.proposals.find((item) =>
+      item.changeIds.includes(change.id),
+    );
+    const notifiedIds = snapshot.notifications
+      .filter((notification) => notification.changeId === change.id)
+      .map((notification) => notification.stakeholderId);
+    const split = await suggestForChange(this.suggest, {
+      change,
+      vocabulary: buildVocabulary(project),
+      notifiedIds,
+      authorId: proposal?.authorId ?? null,
+    });
+    const withPerson = (item: (typeof split.ask)[number]) => {
+      const member = project.castMember(item.stakeholderId);
+      return {
+        ...item,
+        name: member?.name ?? item.stakeholderId,
+        role: member?.role ?? null,
+      };
+    };
+    return {
+      changeId: change.id,
+      notifiedIds,
+      ask: split.ask.map(withPerson),
+      watch: split.watch.map(withPerson),
+    };
   }
 }

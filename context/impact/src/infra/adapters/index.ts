@@ -11,6 +11,7 @@ export {
   AFFECTED_SYSTEM,
   affectedPrompt,
   ClaudeAffectedEstimator,
+  EstimatesSchema,
 } from './ClaudeAffectedEstimator.ts';
 export {
   CLAIMS_SYSTEM,
@@ -31,12 +32,15 @@ export {
   type ClaimFixture,
   type ScoreFixture,
 } from './Fixtures.ts';
+export { GeminiAffectedEstimator } from './GeminiAffectedEstimator.ts';
+export { GeminiClaimReader } from './GeminiClaimReader.ts';
 export {
   GEMINI_MODEL,
-  GeminiClaimReader,
+  generateStructured,
   geminiParts,
   type GeminiOptions,
-} from './GeminiClaimReader.ts';
+  type GeminiPart,
+} from './geminiRequest.ts';
 export {
   JEV_MODEL,
   JevDependencyScorer,
