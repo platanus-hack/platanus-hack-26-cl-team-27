@@ -4,8 +4,11 @@ import { Button, Card, Field, Input, Notice } from '@team27/ui';
 import { type FormEvent, useState } from 'react';
 
 import { Empty, LoadError, Loading } from '@/components/common/LoadState';
-import { type AdminOrganization, createOrganization } from '@/lib/admin-api';
-import { describeError } from '@/lib/http';
+import {
+  type AdminOrganization,
+  createOrganization,
+  describeAdminError,
+} from '@/lib/admin-api';
 
 const count = (value: number, one: string, many: string) =>
   `${value} ${value === 1 ? one : many}`;
@@ -75,7 +78,7 @@ function CreateOrganizationForm({
       setName('');
       onCreated();
     } catch (error) {
-      setMessage({ tone: 'error', text: describeError(error) });
+      setMessage({ tone: 'error', text: describeAdminError(error) });
     } finally {
       setBusy(false);
     }
@@ -89,7 +92,7 @@ function CreateOrganizationForm({
       <Field label="Nombre de la organización" className="flex-1">
         <Input
           required
-          minLength={2}
+          minLength={1}
           maxLength={120}
           value={name}
           onChange={(event) => setName(event.target.value)}

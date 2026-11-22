@@ -1,5 +1,12 @@
 import type { Role } from './accounts-api';
-import { request } from './http';
+import { ApiError, describeError, request } from './http';
+
+export const ADMIN_HREF = '/admin';
+
+export const describeAdminError = (error: unknown): string =>
+  error instanceof ApiError && error.code === 'organization_name_taken'
+    ? 'Ya existe una organización con ese nombre en Vigente. Elige otro.'
+    : describeError(error);
 
 export interface AdminUser {
   readonly id: string;

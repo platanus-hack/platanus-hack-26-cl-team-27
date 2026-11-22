@@ -709,9 +709,18 @@ describe('superadmin', () => {
     const { service } = setup({ paula: PAULA }, [
       ' Paula.Rojas@Calculo.example ',
     ]);
+    await service.invite('aromos', PAULA.email, 'member');
     const account = await service.authenticate('paula');
     expect(account.superadmin).toBe(true);
     expect(() => service.requireSuperadmin(account)).not.toThrow();
+  });
+
+  it('un superadmin entra sin invitación y sin organizaciones', async () => {
+    const { service, users } = setup({ paula: PAULA }, [PAULA.email]);
+    const account = await service.authenticate('paula');
+    expect(account).toMatchObject({ superadmin: true, memberships: [] });
+    await service.authenticate('paula');
+    expect(users).toHaveLength(1);
   });
 
   it('nadie más lo es, ni siquiera un administrador de una organización', async () => {
@@ -722,21 +731,18 @@ describe('superadmin', () => {
     expect(() => service.requireSuperadmin(account)).toThrow(/superadmin/);
   });
 
-  it('entra sin invitación y sin organizaciones, y queda registrado sin membresías', async () => {
-    const { service, users, memberships } = setup({ paula: PAULA }, [
-      PAULA.email.toUpperCase(),
+  it('sin invitación, quien no es superadmin sigue sin entrar', async () => {
+    const { service, users } = setup({ paula: PAULA }, [
+      'otra@vigente.example',
     ]);
-    const account = await service.authenticate('paula');
-    expect(account).toMatchObject({ superadmin: true, memberships: [] });
-    expect(users).toHaveLength(1);
-    expect(memberships).toHaveLength(0);
-    expect(await service.authenticate('paula')).toMatchObject({
-      superadmin: true,
-      memberships: [],
+    expect(await statusOf(service.authenticate('paula'))).toMatchObject({
+      status: 403,
+      body: { code: 'not_invited' },
     });
+    expect(users).toHaveLength(0);
   });
 
-  it('con un correo sin confirmar tampoco entra', async () => {
+  it('un superadmin con el correo sin confirmar tampoco entra', async () => {
     const { service, users } = setup(
       { paula: { ...PAULA, emailVerified: false } },
       [PAULA.email],
@@ -748,18 +754,7 @@ describe('superadmin', () => {
     expect(users).toHaveLength(0);
   });
 
-  it('quien no es superadmin sigue recibiendo not_invited aunque haya superadmins', async () => {
-    const { service, users } = setup({ paula: PAULA }, [
-      'otra@vigente.example',
-    ]);
-    expect(await statusOf(service.authenticate('paula'))).toMatchObject({
-      status: 403,
-      body: { code: 'not_invited' },
-    });
-    expect(users).toHaveLength(0);
-  });
-
-  it('si ya tiene organizaciones y es superadmin, conserva sus membresías', async () => {
+  it('un superadmin que ya es parte de organizaciones conserva sus membresías', async () => {
     const { service } = setup({ paula: PAULA }, [PAULA.email]);
     await service.invite('aromos', PAULA.email, 'admin');
     expect(await service.authenticate('paula')).toMatchObject({

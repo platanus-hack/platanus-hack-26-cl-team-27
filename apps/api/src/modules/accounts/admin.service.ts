@@ -78,26 +78,30 @@ export class AdminService {
   }
 
   async createOrganization(name: string) {
-    const clean = name.trim().replace(/\s+/g, ' ');
-    const key = nameKey(clean);
-    const all = await this.prisma.organization.findMany({
-      select: { id: true, name: true },
+    const key = nameKey(name);
+    const existing = await this.prisma.organization.findMany({
+      select: { name: true },
     });
-    if (all.some((row) => nameKey(row.name) === key)) {
+    const twin = existing.find((row) => nameKey(row.name) === key);
+    if (twin) {
       throw fail(
         HttpStatus.CONFLICT,
         'organization_name_taken',
-        `Ya existe una organización llamada «${clean}» en Vigente`,
+        `Ya existe una organización llamada «${twin.name}»`,
       );
     }
-    const slug = organizationSlug(clean);
+    const slug = organizationSlug(name);
+    const taken = await this.prisma.organization.findMany({
+      where: { id: { startsWith: slug } },
+      select: { id: true },
+    });
     const row = await this.prisma.organization.create({
       data: {
         id: freeId(
           slug,
-          all.map((item) => item.id),
+          taken.map((item) => item.id),
         ),
-        name: clean,
+        name,
       },
     });
     return {

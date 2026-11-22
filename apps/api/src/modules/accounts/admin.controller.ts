@@ -10,12 +10,9 @@ import {
 import { z } from 'zod';
 
 import { AccountGuard, CurrentAccount } from './account.guard.ts';
+import { organizationBody } from './accounts.controller.ts';
 import { type Account, AccountsService, ROLES } from './accounts.service.ts';
 import { AdminService } from './admin.service.ts';
-
-const organizationBody = z.object({
-  name: z.string().trim().min(2).max(120),
-});
 
 const invitationBody = z.object({
   email: z.string().trim().email().max(254),

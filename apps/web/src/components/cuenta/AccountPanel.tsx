@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { buttonLink, textLink } from '@/components/common/link-styles';
 import { Empty, LoadError, Loading } from '@/components/common/LoadState';
 import { useResource } from '@/hooks/use-resource';
+import { ADMIN_HREF } from '@/lib/admin-api';
 import {
   canCreateOrganization,
   deleteOrganization,
@@ -62,25 +63,20 @@ export function AccountPanel() {
       title="Administración de Vigente"
       description="Eres superadmin: ves a todos los usuarios, creas organizaciones e invitas a sus equipos."
     >
-      <Link href="/admin" className={buttonLink('primary', 'sm')}>
+      <Link href={ADMIN_HREF as Route} className={buttonLink('primary', 'sm')}>
         Abrir la administración
       </Link>
     </Card>
   );
-  if (organizations.length === 0) {
-    return (
-      <div className="flex flex-col gap-6">
-        {admin}
-        <Empty>
-          Todavía no eres parte de ninguna organización. Pídele a un
-          administrador que invite tu correo y vuelve a entrar.
-        </Empty>
-      </div>
-    );
-  }
   return (
     <div className="flex flex-col gap-6">
       {admin}
+      {organizations.length === 0 && (
+        <Empty>
+          Como superadmin entras sin organización. Invita a quien quieras desde
+          la administración.
+        </Empty>
+      )}
       {canCreateOrganization(me) && (
         <div className="flex justify-end">
           <Link

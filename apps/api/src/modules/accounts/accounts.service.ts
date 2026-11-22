@@ -363,6 +363,10 @@ export class AccountsService {
     );
   }
 
+  private isSuperadmin(email: string): boolean {
+    return this.superadmins.has(email.trim().toLowerCase());
+  }
+
   private notInvited() {
     return fail(
       HttpStatus.FORBIDDEN,
@@ -388,9 +392,7 @@ export class AccountsService {
     const invited = await this.prisma.invitation.findFirst({
       where: { email: profile.email, acceptedAt: null },
     });
-    if (!invited && !this.superadmins.has(profile.email.toLowerCase())) {
-      throw this.notInvited();
-    }
+    if (!invited && !this.isSuperadmin(profile.email)) throw this.notInvited();
     return this.prisma.user.upsert({
       where: { authSubject: subject },
       create: {
@@ -446,7 +448,7 @@ export class AccountsService {
       id: user.id,
       email: user.email,
       name: user.name,
-      superadmin: this.superadmins.has(user.email.toLowerCase()),
+      superadmin: this.isSuperadmin(user.email),
       memberships: user.memberships.flatMap((item) =>
         isRole(item.role)
           ? [

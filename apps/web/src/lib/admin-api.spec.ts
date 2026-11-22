@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { type AdminUsers, filterAdminUsers } from './admin-api';
+import {
+  type AdminUsers,
+  describeAdminError,
+  filterAdminUsers,
+} from './admin-api';
 import { ApiError, describeError } from './http';
 
 const data: AdminUsers = {
@@ -64,13 +68,18 @@ describe('describeError de administración', () => {
       403,
       'Solo un superadmin de Vigente puede administrar la plataforma.',
     ],
-    [
-      'organization_name_taken',
-      409,
-      'Ya hay una organización con ese nombre. Elige otro.',
-    ],
     ['organization_not_found', 404, 'Esa organización no existe.'],
   ])('%s', (code, status, text) => {
     expect(describeError(new ApiError(status, code, 'x'))).toBe(text);
+  });
+
+  it('un nombre tomado se explica para toda la plataforma, no para tus organizaciones', () => {
+    const taken = new ApiError(409, 'organization_name_taken', 'x');
+    expect(describeAdminError(taken)).toBe(
+      'Ya existe una organización con ese nombre en Vigente. Elige otro.',
+    );
+    expect(
+      describeAdminError(new ApiError(404, 'organization_not_found', 'x')),
+    ).toBe(describeError(new ApiError(404, 'organization_not_found', 'x')));
   });
 });

@@ -3,7 +3,6 @@ import type { PrismaClient } from '@team27/data-main';
 
 import { AccountsService } from '../../../src/modules/accounts/accounts.service.ts';
 import { AdminService } from '../../../src/modules/accounts/admin.service.ts';
-import { organizationSlug } from '../../../src/modules/accounts/project-id.ts';
 
 interface OrganizationRow {
   id: string;
@@ -94,6 +93,17 @@ const fakeDb = () => {
                 : item,
             ),
         ),
+      findFirst: ({
+        where,
+      }: {
+        where: { name: { equals: string; mode: 'insensitive' } };
+      }) =>
+        Promise.resolve(
+          organizations.find(
+            (item) =>
+              item.name.toLowerCase() === where.name.equals.toLowerCase(),
+          ) ?? null,
+        ),
       findUnique: ({ where }: { where: { id: string } }) =>
         Promise.resolve(organizationOf(where.id) ?? null),
       create: ({ data }: { data: { id: string; name: string } }) => {
@@ -163,16 +173,6 @@ const errorOf = async (promise: Promise<unknown>) => {
   }
 };
 
-describe('organizationSlug', () => {
-  it.each([
-    ['Constructora Ñuñoa & Cía.', 'constructora-nunoa-cia'],
-    ['  Inmobiliaria   Los Aromos ', 'inmobiliaria-los-aromos'],
-    ['¡¿?!', 'organizacion'],
-  ])('%s → %s', (name, slug) => {
-    expect(organizationSlug(name)).toBe(slug);
-  });
-});
-
 describe('AdminService.users', () => {
   it('lista a todos los usuarios con sus organizaciones y las invitaciones pendientes', async () => {
     const { admin } = setup();
@@ -201,7 +201,7 @@ describe('AdminService.users', () => {
 describe('AdminService.createOrganization', () => {
   it('crea la organización con un id legible y sin miembros', async () => {
     const { admin } = setup();
-    const created = await admin.createOrganization('  Constructora   Andes ');
+    const created = await admin.createOrganization('Constructora Andes');
     expect(created).toMatchObject({
       id: 'constructora-andes',
       name: 'Constructora Andes',
@@ -215,14 +215,18 @@ describe('AdminService.createOrganization', () => {
     ]);
   });
 
-  it('no repite un nombre, aunque cambien las mayúsculas', async () => {
+  it('no repite el nombre de ninguna organización, sin contar mayúsculas, tildes ni espacios de más', async () => {
+    const { admin, organizations } = setup();
+    expect(
+      await errorOf(admin.createOrganization('  inmobiliaria  los Áromos ')),
+    ).toMatchObject({ status: 409, body: { code: 'organization_name_taken' } });
+    expect(organizations).toHaveLength(1);
+  });
+
+  it('el id de la organización nueva sale del nombre', async () => {
     const { admin } = setup();
-    expect(
-      await errorOf(admin.createOrganization('inmobiliaria los aromos')),
-    ).toMatchObject({ status: 409, body: { code: 'organization_name_taken' } });
-    expect(
-      await errorOf(admin.createOrganization(' Inmobiliária  LOS  Aromos ')),
-    ).toMatchObject({ status: 409, body: { code: 'organization_name_taken' } });
+    const created = await admin.createOrganization('Constructora Ñuñoa & Cía.');
+    expect(created.id).toBe('constructora-nunoa-cia');
   });
 
   it('si el id ya está tomado, le agrega un número', async () => {

@@ -5,8 +5,11 @@ import { type FormEvent, useState } from 'react';
 
 import { Empty } from '@/components/common/LoadState';
 import { ROLE_LABELS, type Role } from '@/lib/accounts-api';
-import { type AdminOrganization, inviteToOrganization } from '@/lib/admin-api';
-import { describeError } from '@/lib/http';
+import {
+  type AdminOrganization,
+  describeAdminError,
+  inviteToOrganization,
+} from '@/lib/admin-api';
 
 export function InviteCard({
   organizations,
@@ -42,7 +45,7 @@ export function InviteCard({
       setEmail('');
       onInvited();
     } catch (error) {
-      setMessage({ tone: 'error', text: describeError(error) });
+      setMessage({ tone: 'error', text: describeAdminError(error) });
     } finally {
       setBusy(false);
     }

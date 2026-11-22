@@ -69,7 +69,7 @@ describe('describeError de cuentas', () => {
     [
       'organization_name_taken',
       409,
-      'Ya hay una organización con ese nombre. Elige otro.',
+      'Ya eres parte de una organización con ese nombre. Elige otro.',
     ],
     [
       'organization_has_projects',
