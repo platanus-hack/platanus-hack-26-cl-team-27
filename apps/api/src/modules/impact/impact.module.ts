@@ -13,13 +13,9 @@ import type { PrismaClient } from '@team27/data-main';
 
 import { provideUseCase } from '../../common/provide-use-case.ts';
 import type { Env } from '../../config/index.ts';
-import { PRISMA_CLIENT } from '../database/database.module.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
-import { PROJECT_CATALOG } from '../project/project.module.ts';
 import { chooseClaimReader } from './claim-reader.ts';
 
-export const PROJECT_GRAPH = 'PROJECT_GRAPH';
-export const IMPACT_REPOSITORY = 'IMPACT_REPOSITORY';
 export const CLAIM_READER = 'CLAIM_READER';
 
 export const buildImpact = (db: PrismaClient, project: ProjectCatalog) => {
@@ -34,28 +30,14 @@ export const buildImpact = (db: PrismaClient, project: ProjectCatalog) => {
 @Module({
   providers: [
     {
-      provide: PROJECT_GRAPH,
-      inject: [PROJECT_CATALOG],
-      useFactory: (project: ProjectCatalog) =>
-        new InMemoryProjectGraph(project.graph),
-    },
-    {
-      provide: IMPACT_REPOSITORY,
-      inject: [PRISMA_CLIENT, PROJECT_CATALOG],
-      useFactory: (prisma: PrismaClient, project: ProjectCatalog) =>
-        new PrismaImpactRepository(prisma, project.id),
-    },
-    {
       provide: CLAIM_READER,
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) =>
         chooseClaimReader(config.get('ANTHROPIC_API_KEY', { infer: true }))
           .reader,
     },
-    provideUseCase(AnalyzeChange, [PROJECT_GRAPH, IMPACT_REPOSITORY]),
-    provideUseCase(GetImpacts, [IMPACT_REPOSITORY]),
     provideUseCase(ExtractClaims, [CLAIM_READER]),
   ],
-  exports: [AnalyzeChange, GetImpacts, ExtractClaims],
+  exports: [ExtractClaims],
 })
 export class ImpactModule {}

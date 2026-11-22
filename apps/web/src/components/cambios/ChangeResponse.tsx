@@ -1,36 +1,26 @@
 'use client';
 
-import { Notice } from '@team27/ui';
-import Link from 'next/link';
-
-import { VoteForm } from '@/components/asiento/VoteForm';
 import { StateMark } from '@/components/common/StateMark';
-import { useHeldSeats } from '@/hooks/use-held-seats';
 import type { ChangeDetail } from '@/lib/changes-api';
 import { isActive } from '@/lib/proposals-api';
 
+import { VoteForm } from './VoteForm';
+
 export function ChangeResponse({
   change,
-  forStakeholder,
+  userId,
   onDone,
 }: {
   readonly change: ChangeDetail;
-  readonly forStakeholder: string | null;
+  readonly userId: string | null;
   readonly onDone: () => void;
 }) {
-  const seats = useHeldSeats();
   const proposal = change.proposal;
-  if (!proposal || !seats.ready) return null;
+  if (!proposal || userId === null) return null;
 
   const mine = change.notifications.find(
-    (notification) =>
-      seats.ids.includes(notification.stakeholderId) &&
-      (!forStakeholder || notification.stakeholderId === forStakeholder),
+    (notification) => notification.stakeholderId === userId,
   );
-  const wrongSeat =
-    forStakeholder !== null &&
-    !seats.ids.includes(forStakeholder) &&
-    proposal.reviewers.some((r) => r.stakeholderId === forStakeholder);
 
   if (mine?.response)
     return (
@@ -54,23 +44,8 @@ export function ChangeResponse({
     return (
       <section className="border-t border-hairline pt-5">
         <h3 className="mb-3 text-sm font-semibold text-ink">Tu respuesta</h3>
-        <VoteForm
-          notificationId={mine.id}
-          seatToken={seats.tokenFor(mine.stakeholderId)}
-          onDone={onDone}
-        />
+        <VoteForm notificationId={mine.id} onDone={onDone} />
       </section>
-    );
-
-  if (wrongSeat)
-    return (
-      <Notice>
-        Este aviso es de otro asiento. Puedes leerlo, pero para responder{' '}
-        <Link className="underline" href="/">
-          toma tu asiento
-        </Link>
-        .
-      </Notice>
     );
 
   return null;

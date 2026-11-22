@@ -11,11 +11,9 @@ services:
     buildFilter:
       ignoredPaths:
         - apps/web/**
-        - apps/etl/**
         - apps/aps/**
         - packages/**
         - docs/**
-        - tool-use-case/**
         - '**/*.md'
         - platanus-hack-project.jsonc
         - project-logo.png
@@ -28,8 +26,6 @@ services:
         fromDatabase:
           name: vigente-db
           property: connectionString
-      - key: PRESENTER_KEY
-        generateValue: true
       - key: CORS_ALLOW_ORIGINS
         sync: false
       - key: APS_CLIENT_ID

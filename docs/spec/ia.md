@@ -10,46 +10,41 @@ No se negocian. Si una tarea parece pedir romper una, detente y pregunta.
 2. **Capas hexagonales.** En `context/<ctx>/src/`, `domain/` importa solo `domain/`; `application/` importa `domain/` y `application/`; `infra/adapters/` implementa puertos y sale por el subpath `/adapters`; `index.ts` nunca exporta infra. Un contexto nunca importa a otro: compone la API. ESLint lo exige.
 3. **Sintaxis borrable** en `context/*` y `data/main`: sin `enum`, sin parameter properties, sin `namespace`, con `import type`. Imports relativos con `.ts`.
 4. **Las cifras salen de reglas.** Un modelo de lenguaje solo lee texto libre y escribe razones; nunca calcula costo, plazo ni probabilidad.
-5. **La API no sabe que existe una demo.** Nada de lógica de guion en `apps/api`. Lo simulado vive en `apps/etl` y en las maquetas de canal de `apps/web`.
-6. **Toda escritura corre en `UnitOfWork.run`** (transacción con `pg_advisory_xact_lock`), y sus eventos de sala se insertan en la misma transacción con `CoordinationService.track`.
+5. **Sin datos inventados en el producto.** Nada de proyectos, personas ni guiones ficticios en `apps/api` ni en `apps/web`. Un proyecto de ejemplo completo vive solo en los tests (`apps/api/tests/fixtures/los-aromos.ts`).
+6. **Toda escritura corre en `UnitOfWork.run`** (transacción con `pg_advisory_xact_lock`), y sus eventos se insertan en `project_events` en la misma transacción con `CoordinationService.track`.
 7. **El código no lleva comentarios.** Los textos de UI van en español de Chile, con tuteo; los identificadores, en inglés y con los nombres del [glosario](../negocio.md#glosario).
 8. **Cierre de una tarea:** tests, el doc del área al día en el mismo cambio y `pnpm check` en verde. Trabaja en una rama, nunca en `main`.
 
 ## Mapa del código
 
-| Ruta                                          | Qué hay                                                                                                                                                                                                                                                                                                                                                                                  |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `context/lake/src/domain/`                    | `classifyClaims`, `buildProposalDraft`, `decideProposal`, `reopenFor`, `detectOverlaps`, `computeStaleness`, `buildProvenance`, `diffSnapshots`, `consensusIndex`                                                                                                                                                                                                                        |
-| `context/lake/src/application/use-cases/`     | `IngestRevision`, `DetectChanges`, `OpenProposal`, `RecordReview`, `ReopenProposal`, `WithdrawProposal`, `OpenOverlaps`, `SettleOverlaps`, `VoteOverlap`, `SeedLake` y las lecturas                                                                                                                                                                                                      |
-| `context/impact/src/domain/`                  | `analyzeChange` (afectados, costo y plazo), `quantities.ts`, `schedule.ts` (`criticalPath`), `ProjectGraph`, `Vocabulary`, probabilidad                                                                                                                                                                                                                                                  |
-| `context/impact/src/application/use-cases/`   | `AnalyzeChange`, `ExtractClaims` (texto libre), `SuggestAffected` (sin conectar), `GetImpacts`                                                                                                                                                                                                                                                                                           |
-| `context/impact/src/infra/adapters/`          | `InMemoryProjectGraph`, `PrismaImpactRepository`, `ClaudeClaimReader`, `ClaudeAffectedEstimator`, `JevDependencyScorer`, fixtures y caché                                                                                                                                                                                                                                                |
-| `context/notification/src/domain/`            | `Stakeholder` con `CHANNELS = ['email', 'whatsapp', 'slack']`; `Notification` con `RESPONSE_KINDS = ['reviewed', 'issue']` y `draftNotifications`                                                                                                                                                                                                                                        |
-| `context/notification/src/infra/adapters/`    | `InMemoryStakeholderDirectory`, `PrismaNotificationRepository`                                                                                                                                                                                                                                                                                                                           |
-| `context/integrations/`                       | El conector de Google Sheets: conectar la cuenta, vincular planillas y escuchar sus cambios (`WatchSource`, `diffSnapshots`), con los adapters de Google, Prisma y cifrado. Los cambios en Autodesk: el catálogo de webhooks, la firma, `ReceiveAutodeskEvent` (repetidos en `autodesk_events`) y el diff de AEC Data Model hacia la minuta. La API lo compone en `modules/integrations` |
-| `apps/api/src/modules/coordination/`          | `coordination.service.ts` (la cadena), `query.service.ts` (vistas), `revision-body.ts`, `revit-minute.ts`, `chunk-reader.ts`, `action-log.ts` (idempotencia en memoria, 500 entradas)                                                                                                                                                                                                    |
-| `apps/api/src/modules/room/`                  | Asientos con token hasheado, eventos con `seq`, época y reinicio                                                                                                                                                                                                                                                                                                                         |
-| `apps/api/src/modules/database/`              | `PRISMA_CLIENT` y `unit-of-work.ts`                                                                                                                                                                                                                                                                                                                                                      |
-| `apps/api/src/modules/project/`               | `ProjectCatalog` y `project-schema.ts`: al arrancar cargan de la base un proyecto (`PROJECT_ID`, o el más antiguo) con su elenco, grafo, espacios, documentos, sujetos, atributos y áreas                                                                                                                                                                                                |
-| `data/main/project/` y `data/main/seed/`      | `definition.ts` y `store.ts` leen y escriben el proyecto en la base; `seed/los-aromos.ts` es el proyecto Los Aromos que siembra `pnpm db:seed`                                                                                                                                                                                                                                           |
-| `apps/api/src/modules/accounts/`              | `AccountGuard` (token Bearer de Auth0), `AccountsService` (usuarios, organizaciones, invitaciones, roles `admin` y `member`, proyectos) y `/api/me`, `/api/projects`, `/api/organizations`                                                                                                                                                                                               |
-| `apps/api/src/modules/integrations/`          | Los conectores: `connectors.controller.ts` (Google Sheets), `autodesk-webhooks.controller.ts` (los webhooks de Autodesk, con `APS_WEBHOOK_SECRET`) y `aps/` (OAuth de tres patas con Autodesk por organización: `TokenVault`, `TokenCipher` AES-256-GCM, tabla `aps_connections`)                                                                                                        |
-| `apps/api/src/scenario/`                      | `caso-p12.ts`: el caso del pitch (P-12 y la bandeja E-B-03)                                                                                                                                                                                                                                                                                                                              |
-| `apps/api/src/common/provide-use-case.ts`     | El único punto de unión entre un caso de uso y Nest                                                                                                                                                                                                                                                                                                                                      |
-| `apps/api/tests/`                             | Vitest sin base de datos. No hay tests de `CoordinationService` ni contra Postgres                                                                                                                                                                                                                                                                                                       |
-| `apps/web/src/app/`                           | Route groups `(site)`, `(sala)`, `(asiento)` y `(caso)`. En `(site)`, `/cuenta` y `/proyectos` piden cuenta (`components/cuenta/SessionGate.tsx`). No hay `error.tsx` ni `loading.tsx`                                                                                                                                                                                                   |
-| `apps/web/src/components/asiento/Channel.tsx` | El look de cada canal simulado                                                                                                                                                                                                                                                                                                                                                           |
-| `apps/web/src/lib/`                           | Un cliente tipado por tema; `http.ts` pone `x-seat-token`, `x-presenter-key` y `x-action-id` (`crypto.randomUUID`)                                                                                                                                                                                                                                                                       |
-| `apps/etl/src/transform/`                     | Un parser determinista por tipo: `plano`, `eett`, `presupuesto`, `gantt`, `cotizacion`, `acta`, `whatsapp`, `libro`                                                                                                                                                                                                                                                                      |
-| `apps/etl/tests/golden.spec.ts`               | Test de oro: cada archivo del lago produce los hechos esperados                                                                                                                                                                                                                                                                                                                          |
-| `data/main/prisma/schema.prisma`              | 37 modelos. `Notification.channel` es `String`: agregar un canal no exige migración                                                                                                                                                                                                                                                                                                      |
-| `tool-use-case/revit/`                        | Add-in C# fuera de Nx; contrato en `contract/`, que también parsea `apps/api/tests/modules/coordination/revit-minute.spec.ts`                                                                                                                                                                                                                                                            |
+| Ruta                                                     | Qué hay                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `context/lake/src/domain/`                               | `classifyClaims`, `buildProposalDraft`, `decideProposal`, `reopenFor`, `detectOverlaps`, `computeStaleness`, `buildProvenance`, `diffSnapshots`, `consensusIndex`                                                                                                                                                                                                                                                                                |
+| `context/lake/src/application/use-cases/`                | `IngestRevision`, `DetectChanges`, `OpenProposal`, `RecordReview`, `ReopenProposal`, `WithdrawProposal`, `OpenOverlaps`, `SettleOverlaps`, `VoteOverlap`, `SeedLake` y las lecturas                                                                                                                                                                                                                                                              |
+| `context/impact/src/domain/`                             | `analyzeChange` (afectados, costo y plazo), `quantities.ts`, `schedule.ts` (`criticalPath`), `ProjectGraph`, `Vocabulary`, probabilidad                                                                                                                                                                                                                                                                                                          |
+| `context/impact/src/application/use-cases/`              | `AnalyzeChange`, `ExtractClaims` (texto libre), `SuggestAffected` (sin conectar), `GetImpacts`                                                                                                                                                                                                                                                                                                                                                   |
+| `context/impact/src/infra/adapters/`                     | `InMemoryProjectGraph`, `PrismaImpactRepository`, `ClaudeClaimReader`, `ClaudeAffectedEstimator`, `JevDependencyScorer`, fixtures (para tests) y caché                                                                                                                                                                                                                                                                                           |
+| `context/notification/src/domain/`                       | `Stakeholder` con `CHANNELS = ['email', 'whatsapp', 'slack']`; `Notification` con `RESPONSE_KINDS = ['reviewed', 'issue']` y `draftNotifications`                                                                                                                                                                                                                                                                                                |
+| `context/notification/src/infra/adapters/`               | `InMemoryStakeholderDirectory`, `PrismaNotificationRepository`                                                                                                                                                                                                                                                                                                                                                                                   |
+| `context/integrations/`                                  | El conector de Google Sheets: conectar la cuenta, vincular planillas y escuchar sus cambios (`WatchSource`, `diffSnapshots`), con los adapters de Google, Prisma y cifrado. Los cambios en Autodesk: el catálogo de webhooks, la firma, `ReceiveAutodeskEvent` (repetidos en `autodesk_events`) y el diff de AEC Data Model (`toElementChanges` y `toMinuteChanges`), que todavía no llega a la API. La API lo compone en `modules/integrations` |
+| `apps/api/src/modules/coordination/`                     | `coordination.controller.ts` (las rutas `/api/projects/:projectId/...`), `coordination.service.ts` (la cadena), `query.service.ts` (vistas), `events.ts` y `events.service.ts` (eventos con `seq`), `revision-body.ts`, `chunk-reader.ts`, `action-log.ts` (idempotencia en memoria, 500 entradas)                                                                                                                                               |
+| `apps/api/src/modules/lake/`, `impact/`, `notification/` | `buildLake`, `buildImpact` y `buildNotification`: arman cada contexto por proyecto. `ImpactModule` provee `ExtractClaims` con el `ClaimReader` de `claim-reader.ts`                                                                                                                                                                                                                                                                              |
+| `apps/api/src/modules/database/`                         | `PRISMA_CLIENT` y `unit-of-work.ts`                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `apps/api/src/modules/project/`                          | `ProjectCatalogs.load(projectId)`, `ProjectCatalog` y `project-schema.ts`: en cada pedido cargan de la base el proyecto con su equipo, grafo, espacios, documentos, sujetos, atributos y áreas                                                                                                                                                                                                                                                   |
+| `data/main/project/` y `data/main/seed/`                 | `definition.ts` y `store.ts` leen el proyecto de la base y guardan organizaciones e invitaciones; `seed/` crea Constructora Cordillera con sus invitaciones (`pnpm db:seed`)                                                                                                                                                                                                                                                                     |
+| `apps/api/src/modules/accounts/`                         | `AccountGuard` (token Bearer de Auth0), `AccountsService` (usuarios, organizaciones, invitaciones, roles `admin` y `member`, proyectos) y `/api/me`, `/api/projects`, `/api/organizations`                                                                                                                                                                                                                                                       |
+| `apps/api/src/modules/integrations/`                     | Los conectores: `connectors.controller.ts` (Google Sheets), `autodesk-webhooks.controller.ts` (los webhooks de Autodesk, con `APS_WEBHOOK_SECRET`) y `aps/` (OAuth de tres patas con Autodesk por organización: `TokenVault`, `TokenCipher` AES-256-GCM, tabla `aps_connections`)                                                                                                                                                                |
+| `apps/api/src/common/provide-use-case.ts`                | El único punto de unión entre un caso de uso y Nest                                                                                                                                                                                                                                                                                                                                                                                              |
+| `apps/api/tests/`                                        | Vitest sin base de datos. No hay tests de `CoordinationService` ni contra Postgres. `fixtures/los-aromos.ts` es el proyecto de ejemplo de los tests                                                                                                                                                                                                                                                                                              |
+| `apps/web/src/app/`                                      | Un route group, `(site)`. `/cuenta`, `/conectores`, `/admin` y todo `/proyectos` piden cuenta (`components/cuenta/SessionGate.tsx`); las pantallas de un proyecto reciben su id por `ProjectProvider`. No hay `error.tsx` ni `loading.tsx`                                                                                                                                                                                                       |
+| `apps/web/src/lib/`                                      | Un cliente tipado por tema; `project-paths.ts` arma las rutas de un proyecto; `http.ts` pone `x-action-id` (`crypto.randomUUID`)                                                                                                                                                                                                                                                                                                                 |
+| `data/main/prisma/schema.prisma`                         | 35 modelos. `Notification.channel` es `String`: agregar un canal no exige migración                                                                                                                                                                                                                                                                                                                                                              |
 
 ## La cadena de una revisión
 
-Lo que hace `POST /api/revisions` (y `POST /api/integrations/revit/minutes`, por el mismo camino):
+Lo que hace `POST /api/projects/:projectId/revisions`:
 
-1. `revision-body.ts` valida con zod; el actor es el dueño del documento (token de asiento o `x-presenter-key` + `x-act-as`).
+1. `AccountGuard` valida la cuenta, `ProjectCatalogs.load` carga el proyecto y el actor tiene que ser del equipo (`403 not_on_team`) y dueño del documento. `revision-body.ts` valida con zod.
 2. Fuera de la transacción, `ChunkReader` lee con `ExtractClaims` los fragmentos de texto libre. Bajo 0,7 de confianza, el hecho queda rechazado y visible.
 3. Dentro de `UnitOfWork.run`:
    1. `IngestRevision` clasifica cada hecho contra lo vigente: igual, corrobora, cambio (fuente con autoridad), discrepancia (sin autoridad) o desfase (hecho «usa»).
@@ -58,8 +53,8 @@ Lo que hace `POST /api/revisions` (y `POST /api/integrations/revit/minutes`, por
    4. `NotifyStakeholders` una vez: un aviso por afectado con sus hallazgos de todos los hunks.
    5. `OpenProposal`: revisores = unión de afectados; reemplaza la propuesta abierta del mismo documento.
    6. `ResolveOverlaps`, `OpenOverlaps` y `SettleOverlaps`: detecta solapamientos y fusiona lo que quedó listo.
-   7. `track` inserta los eventos de sala.
-4. Un voto (`POST /api/notifications/:id/response`) pasa por `RecordReview`, `RespondToNotification` y `SettleOverlaps`. Fusiona cuando todos aprueban y no hay solapamientos vivos.
+   7. `track` inserta los eventos en `project_events`.
+4. Un voto (`POST /api/projects/:projectId/notifications/:id/response`) pasa por `RecordReview`, `RespondToNotification` y `SettleOverlaps`. Fusiona cuando todos aprueban y no hay solapamientos vivos.
 
 ## Las 26 tareas
 
@@ -75,18 +70,17 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 
 **2 · Modelo de datos** · `parcial`
 
-- Hay: Prisma 7, `data/main/prisma/schema.prisma` y quince migraciones. El proyecto vive en la base: `projects` con su organización, y `project_id` en las tablas del proyecto, el lago, los avisos y la sala. `pnpm db:seed` siembra Los Aromos.
-- Falta: servir más de un proyecto. La API carga uno al arrancar (`apps/api/src/modules/project/project.module.ts`) y los adapters `InMemoryProjectGraph` e `InMemoryStakeholderDirectory` se arman con él. Ver la receta [el proyecto en la base](#el-proyecto-en-la-base).
+- Hay: Prisma 7, `data/main/prisma/schema.prisma` y sus migraciones. El proyecto vive en la base: `projects` con su organización, y `project_id` en las tablas del proyecto, el lago, los avisos y los eventos. La API carga el proyecto de cada pedido (`ProjectCatalogs.load` en `apps/api/src/modules/project/project.module.ts`) y arma con él `InMemoryProjectGraph` e `InMemoryStakeholderDirectory`.
+- Falta: cargar la definición de un proyecto creado desde la web. Ver la receta [el proyecto en la base](#el-proyecto-en-la-base).
 
 **3 · Autenticación** · `distinto`
 
 - Hay: Auth0 para la identidad (`apps/web/src/lib/auth0.ts` en la web; `accounts.service.ts` valida el token en la API) y, en Postgres, `organizations`, `users`, `memberships` e `invitations`, con los roles `admin` y `member` (`AccountGuard`, `requireAdmin`). Es opcional: sin las variables `AUTH0_*` la API arranca, las rutas con cuenta no funcionan y la web avisa que las cuentas no están configuradas.
-- La sala y el caso no usan la cuenta: siguen con el token de asiento hasheado con SHA-256 (`apps/api/src/modules/room/seats.service.ts`) y `PRESENTER_KEY` (`credentials.ts`), sin usuarios, a propósito ([muestra](../muestra.md#espacio-controlado)).
-- Falta: nada que la muestra pida.
+- El motor también va con la cuenta: el actor es el usuario, que es su id en el equipo del proyecto. Los superadmins vienen de `SUPERADMIN_EMAILS` y entran sin invitación.
 
 **4 · Infraestructura y despliegue** · `parcial`
 
-- Hay: `docker-compose.yml`, `render.yaml` (API Docker y Postgres administrado; `PRESENTER_KEY` generada), `apps/web/vercel.json`, `apps/api/Dockerfile`. Ver [despliegue](../despliegue.md).
+- Hay: `docker-compose.yml`, `render.yaml` (API Docker y Postgres administrado), `apps/web/vercel.json`, `apps/api/Dockerfile`. Ver [despliegue](../despliegue.md).
 - Falta: un ambiente de staging (segundo servicio y base en Render, preview en Vercel).
 
 ### Integración con Autodesk
@@ -103,19 +97,17 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 
 **7 · Spike de AEC Data Model** · `distinto`
 
-- Hay: el cambio por elemento. El add-in compara cada guardado con el anterior (`tool-use-case/revit/src/Team27.Minuta.Revit/ChangeTracker.cs`) y `DetectChanges` lo convierte en `Change`.
+- Hay: el cambio por elemento. `diffSnapshots` compara dos versiones del modelo y `DetectChanges` lo convierte en `Change`, pero ningún conector le entrega versiones.
 - Spike hecho: [aec-data-model.md](aec-data-model.md). ACC lo entrega con `diffElementGroupByVersionWithLatest`, por versión sincronizada o publicada y no por guardado, y solo con el modelo en un hub de ACC con AEC Data Model activado.
-- Falta: comprobarlo con un hub real (la lista está al final del spike) y, si sirve, un conector que arme la misma minuta y la mande a `POST /api/integrations/revit/minutes`.
+- Falta: comprobarlo con un hub real (la lista está al final del spike) y, si sirve, un conector que arme el diff de cada versión y lo mande como revisión a `POST /api/projects/:projectId/revisions`.
 
-**8 · Parser de Presto o S10** · `distinto`
+**8 · Parser de Presto o S10** · `falta`
 
-- Hay: `apps/etl/src/transform/presupuesto.ts`, sobre un CSV ficticio.
+- Hay: el conector de Google Sheets, que conecta y escucha las planillas, pero no las lee: ver [integraciones](integraciones.md).
 - Falta: el formato real (Presto exporta FIEBDC-3, `.bc3`). Ver la receta [agregar un conector o un parser](#agregar-un-conector-o-un-parser).
-- El conector de Google Sheets ya conecta y escucha las planillas, pero no las lee: ver [integraciones](integraciones.md).
 
-**9 · Parser de P6 o MS Project** · `distinto`
+**9 · Parser de P6 o MS Project** · `falta`
 
-- Hay: `apps/etl/src/transform/gantt.ts`, sobre un CSV ficticio.
 - Falta: los formatos reales (XER de P6, XML de MS Project). Misma receta.
 
 ### Núcleo
@@ -131,8 +123,8 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 
 **12 · Resolvedor de dependencias** · `hecho`
 
-- `context/impact/src/domain/analyzeChange.ts` sobre `ProjectGraph.dependencies` (`watches`, `measures`). El grafo se lee de la base al arrancar: `InMemoryProjectGraph` desde `ProjectCatalog`.
-- Pendiente aparte: conectar `SuggestAffected` a la API (segmento 7 de la [muestra](../muestra.md#segmentos)).
+- `context/impact/src/domain/analyzeChange.ts` sobre `ProjectGraph.dependencies` (`watches`, `measures`). El grafo se lee de la base en cada pedido: `InMemoryProjectGraph` desde `ProjectCatalog`.
+- Pendiente aparte: conectar `SuggestAffected` a la API.
 
 **13 · Detector de conflictos** · `hecho`
 
@@ -144,48 +136,50 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 
 **15 · Redactor de avisos** · `parcial`
 
-- Hay: `draftNotifications` en `context/notification/src/domain/Notification.ts` (un aviso por afectado, hallazgos con `summary`, `details` y `action`). El canal solo cambia el look en `apps/web/src/components/asiento/Channel.tsx`.
+- Hay: `draftNotifications` en `context/notification/src/domain/Notification.ts` (un aviso por afectado, hallazgos con `summary`, `details` y `action`), guardado con su canal.
 - Falta: una función pura de dominio que rinda el texto por canal y rol (asunto y cuerpo de correo, plantilla de WhatsApp, tarjeta de Teams), con tests.
 
 **16 · Seguimiento** · `parcial`
 
-- Hay: el autor ve quién aprobó, disputó o falta (`GET /api/proposals`, `/presentador`, «Tus propuestas»); `ReopenProposal` y `WithdrawProposal`.
-- Falta: «No me afecta» (receta [un tipo de respuesta](#un-tipo-de-respuesta)), recordatorios y escalamiento (receta [una tarea diferida](#una-tarea-diferida)).
+- Hay: la API dice quién aprobó, disputó o falta (`GET /api/projects/:projectId/proposals` y la bandeja `GET /api/projects/:projectId/inbox`, con «tus propuestas»); `ReopenProposal` y `WithdrawProposal`.
+- Falta: la vista del autor en la web, «No me afecta» (receta [un tipo de respuesta](#un-tipo-de-respuesta)), recordatorios y escalamiento (receta [una tarea diferida](#una-tarea-diferida)).
 
 ### Canales
 
 **17 · Correo con Resend** · `falta` · **18 · WhatsApp** · `falta` · **19 · Teams** · `falta` · **20 · ACC Issues** · `falta`
 
-- Hay: canales simulados. Un aviso guardado es un aviso entregado, y la web lo muestra con el look de su canal.
+- Hay: el aviso se guarda con su canal y el afectado lo responde en el detalle del cambio, en la web; nada sale por un canal.
 - Falta: ver la receta [un canal real](#un-canal-real). Teams y ACC Issues además suman un valor a `CHANNELS`. WhatsApp necesita un webhook de entrada que convierta la respuesta en voto.
-- Slack y Teams reales son nice to have: van después del correo y WhatsApp. En la muestra, Slack sigue simulado.
+- Slack y Teams reales son nice to have: van después del correo y WhatsApp.
 
 ### Web
 
 **21 · Onboarding del administrador** · `parcial`
 
 - Hay: crear un proyecto desde la web (`/proyectos/nuevo`, `components/proyectos/NewProjectForm.tsx`; `POST /api/projects` y `GET /api/projects` en `accounts.controller.ts`), que lo deja en la organización de quien lo crea, con esa persona como único miembro. `/proyectos/[projectId]` lo muestra.
-- Falta: espacios, documentos, equipo y mapa de dependencias del proyecto nuevo, y conectar ACC. Un proyecto nuevo no tiene grilla ni documentos, así que no se carga en la sala. Depende de que algo use los tokens de la tarea 5.
+- Falta: espacios, documentos, sujetos, modelo, equipo y mapa de dependencias del proyecto nuevo, y conectar ACC. Sin eso, el motor no tiene nada que procesar en el proyecto ([motor](../motor.md#por-proyecto-y-con-tu-cuenta)).
 
 **22 · Editor del mapa de dependencias** · `falta`
 
-- Hay: el grafo en la base (`project_dependencies`, `budget_items`, `schedule_tasks`), sembrado desde `data/main/seed/los-aromos.ts`.
+- Hay: el grafo en la base (`project_dependencies`, `budget_items`, `schedule_tasks`), sin forma de cargarlo desde la web.
 - Falta: el editor.
 
-**23 · Detalle y respuesta del aviso** · `hecho`
+**23 · Detalle y respuesta del aviso** · `parcial`
 
-- `apps/web/src/app/(site)/cambios/`, `components/cambios/ChangeDetailBody.tsx` y `ChangeResponse.tsx`; `components/asiento/VoteForm.tsx`; `POST /api/notifications/:id/response`.
+- Hay: `apps/web/src/app/(site)/proyectos/[projectId]/cambios/`, `components/cambios/ChangeDetailBody.tsx`, `ChangeResponse.tsx` y `VoteForm.tsx`; `POST /api/projects/:projectId/notifications/:id/response`, con la cuenta.
+- Falta: la bandeja de cada persona en la web (`GET /api/projects/:projectId/inbox` ya existe).
 
-**24 · Vista de estado** · `hecho`
+**24 · Vista de estado** · `falta`
 
-- `/sala` (`components/sala/`), `/presentador` (`components/presentador/`), «Tus propuestas» (`components/asiento/AuthorActions.tsx`).
+- Hay: las lecturas de la API por proyecto (propuestas, solapamientos, lo vigente, consenso y cambios).
+- Falta: la vista en la web, y las acciones del autor (reabrir, retirar), descartar una discrepancia, confirmar sin cambio y votar un solapamiento, que hoy solo existen en la API.
 
 ### Piloto
 
-**25 · Proyecto de prueba y punta a punta** · `distinto`
+**25 · Proyecto de prueba y punta a punta** · `parcial`
 
-- Hay: Los Aromos y el guion del ETL; `apps/etl/tests/golden.spec.ts`; `pnpm etl auto --velocidad 4` llega a «Obra consensuada».
-- Falta: tests contra Postgres (votos simultáneos, asientos, reinicio), probar el add-in dentro de Revit y, para el producto, un proyecto en ACC.
+- Hay: un proyecto completo de ejemplo en los tests de la API (`apps/api/tests/fixtures/los-aromos.ts`).
+- Falta: tests contra Postgres (votos simultáneos, la cadena completa) y un proyecto en ACC.
 
 **26 · Métricas del piloto** · `falta`
 
@@ -201,7 +195,7 @@ Estado de cada tarea del plan original frente al código, con su evidencia y lo 
 3. Un adapter por proveedor en `infra/adapters/`, exportado por `/adapters`, con su test usando un cliente falso.
 4. El envío no corre dentro de la cadena: `NotifyStakeholders` escribe en la outbox ([una tarea diferida](#una-tarea-diferida)) y el worker llama al `ChannelSender`.
 5. En `apps/api/src/modules/notification/`, registra el adapter por token; elige el adapter por canal según variables de entorno opcionales en `config/env.ts`. Sin la variable, el canal queda simulado, como hoy.
-6. Si el canal es nuevo, agrégalo a `CHANNELS` y su look en `apps/web/src/components/asiento/Channel.tsx`.
+6. Si el canal es nuevo, agrégalo a `CHANNELS` y a su tipo en `apps/web/src/lib/proposals-api.ts`.
 7. Actualiza `context/notification/README.md`, [arquitectura](../arquitectura.md#coordinación-de-un-cambio) y `.env.example`.
 
 ### Un tipo de respuesta
@@ -212,7 +206,7 @@ Para «No me afecta» (`not_affected`):
 2. Decide en `lake` qué significa para la propuesta. Opción mínima: el revisor sale de la propuesta como filtrado, con su nota como razón, y la propuesta se decide con el resto. Es una función nueva de dominio en `Proposal.ts`, con tests; no cambies `decideProposal`.
 3. En `coordination.service.ts`, traduce la respuesta a la operación del lago, dentro de la misma transacción.
 4. En la web, el botón en `VoteForm.tsx` y `ChangeResponse.tsx`, y el tipo en `apps/web/src/lib/votes-api.ts`.
-5. Actualiza [multijugador](../multijugador.md#propuesta-y-consenso) y el README de la API.
+5. Actualiza [motor](../motor.md#propuesta-y-consenso) y el README de la API.
 
 ### Una tarea diferida
 
@@ -222,24 +216,22 @@ Para envíos, reintentos, recordatorios y escalamiento:
 2. Quien produce el trabajo inserta la fila con el cliente de la transacción de `UnitOfWork.run`: si la acción falla, no queda nada por enviar.
 3. Un worker de Nest en la API toma filas con `SELECT … FOR UPDATE SKIP LOCKED`, ejecuta y reprograma con backoff. pg-boss es la alternativa, sobre el mismo Postgres.
 4. Los recordatorios son filas con `available_at` futuro, que se descartan si el aviso ya tiene respuesta al ejecutarse.
-5. `POST /api/room/reset` también vacía la outbox.
 
 ### Agregar un conector o un parser
 
-- La extracción de lo estructurado ocurre en el conector, no en la API: el parser produce fragmentos (`Chunk`) con sus hechos (`subject`, `attribute`, `value`, `unit`, `role`) y los entrega por `POST /api/revisions`.
-- El parser es una función pura con un test de oro sobre un archivo de ejemplo, como `apps/etl/src/transform/` y `apps/etl/tests/golden.spec.ts`.
-- `apps/etl` es la simulación de la muestra: un conector real no va ahí. Va en el módulo de la API que recibe esa fuente (por ejemplo `integrations/aps`) o en una herramienta de `tool-use-case/`, como el add-in de Revit.
+- La extracción de lo estructurado ocurre en el conector, no en la API: el parser produce fragmentos (`Chunk`) con sus hechos (`subject`, `attribute`, `value`, `unit`, `role`) y los entrega por `POST /api/projects/:projectId/revisions`.
+- El parser es una función pura con un test de oro sobre un archivo de ejemplo.
+- Un conector va en el módulo de la API que recibe esa fuente (por ejemplo `integrations/aps`).
 - Los sujetos y atributos tienen que existir en el proyecto (`project_subjects` y `project_attributes`); si no, la API responde `422 invalid_claims`.
 
 ### El proyecto en la base
 
-Lo hecho: las tablas `projects`, `project_members`, `project_spaces`, `project_documents`, `project_subjects`, `project_attributes`, `budget_items`, `schedule_tasks`, `project_dependencies`, `project_levels` y `project_systems`, con `project_id` también en las tablas del lago, los avisos y la sala; `data/main/project/` las lee y escribe, y `apps/api/src/modules/project/` arma el `ProjectCatalog` al arrancar.
+Lo hecho: las tablas `projects`, `project_members`, `project_spaces`, `project_documents`, `project_subjects`, `project_attributes`, `budget_items`, `schedule_tasks`, `project_dependencies`, `project_levels` y `project_systems`, con `project_id` también en las tablas del lago, los avisos y los eventos; `data/main/project/` las lee, y `apps/api/src/modules/project/` arma el `ProjectCatalog` del proyecto de cada pedido.
 
 Lo que falta:
 
-1. Que la API sirva más de un proyecto. Hoy el catálogo es uno por proceso (`PROJECT_ID` o el más antiguo) y los adapters en memoria se arman con él.
-2. Que un proyecto creado desde la web tenga grilla, elenco y documentos para poder cargarse en la sala.
-3. Es la base de las tareas 21 y 22.
+1. Que un proyecto creado desde la web pueda cargar su grilla, su equipo, sus espacios, sus documentos, sus sujetos y su modelo. Hoy solo trae a quien lo creó.
+2. Es la base de las tareas 21 y 22.
 
 ## Verificación
 
@@ -247,7 +239,5 @@ Lo que falta:
 pnpm nx run @team27/context-<ctx>:test     # el contexto que tocaste
 pnpm nx run @team27/api:test
 pnpm check                                  # lint, test, typecheck y build de todo
-pnpm db:up && pnpm db:migrate && pnpm dev   # y en otra terminal: pnpm etl auto --velocidad 4
+pnpm db:up && pnpm db:migrate && pnpm db:seed && pnpm dev
 ```
-
-Con `pnpm etl auto --velocidad 4`, el guion tiene que llegar a «Obra consensuada» con las cifras de la [muestra](../muestra.md#el-guion): +$5.634.500 y +1 día. Si cambian, rompiste una regla.

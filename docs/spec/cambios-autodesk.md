@@ -11,7 +11,7 @@ Autodesk avisa en dos niveles, y Vigente necesita los dos:
 1. **El aviso** (qué pasó y dónde): un webhook de APS dice que hay una versión nueva, que alguien bloqueó un archivo, que se movió una carpeta o que cambió una incidencia. Llega solo, pero no dice qué cambió dentro del modelo.
 2. **El detalle** (qué elementos y qué valores): para un modelo, AEC Data Model compara la versión nueva con la última que procesamos y entrega cada elemento agregado, modificado o quitado, con el valor anterior y el nuevo de cada propiedad.
 
-`parseAutodeskWebhook` hace la primera capa y marca con `needsElementDiff` los avisos que piden la segunda. `toElementChanges` y `toMinuteChanges` hacen la segunda y terminan en la misma minuta que manda el add-in de Revit, así que la cadena de la obra no cambia.
+`parseAutodeskWebhook` hace la primera capa y marca con `needsElementDiff` los avisos que piden la segunda. `toElementChanges` y `toMinuteChanges` hacen la segunda y arman una minuta: los cambios de cada valor que sigue la obra, con sus elementos. La API todavía no la recibe ([lo que falta](#lo-que-falta)).
 
 ## El catálogo
 
@@ -72,7 +72,7 @@ Los eventos de Cost Management se agrupan por su sistema o por el prefijo (`budg
 | `MODIFICATION` | `modified` | Valor anterior y nuevo                                 |
 | `REMOVAL`      | `removed`  | El valor nuevo es `null` (la API lo deja en `ignored`) |
 
-Las propiedades que siguen la obra son las del add-in: «Thickness», «Default Thickness», «Espesor», «Grosor» y «Grosor por defecto» van a `espesor_cm`; «Width», «Ancho» y «Anchura» a `ancho_cm`; «Height», «Alto» y «Altura» a `alto_cm`; y «Distancia eje A», «Distancia al eje A», «Posición» y «Posicion» a `posicion_m`. `cantidad` sale de contar los elementos de cada clave en las dos versiones (`countBySubject`), porque el diff solo trae lo que cambió.
+Las propiedades que siguen la obra son estas: «Thickness», «Default Thickness», «Espesor», «Grosor» y «Grosor por defecto» van a `espesor_cm`; «Width», «Ancho» y «Anchura» a `ancho_cm`; «Height», «Alto» y «Altura» a `alto_cm`; y «Distancia eje A», «Distancia al eje A», «Posición» y «Posicion» a `posicion_m`. `cantidad` sale de contar los elementos de cada clave en las dos versiones (`countBySubject`), porque el diff solo trae lo que cambió.
 
 ## Cómo se traduce
 
@@ -81,7 +81,7 @@ Las propiedades que siguen la obra son las del add-in: «Thickness», «Default 
 - **La firma.** Autodesk firma el cuerpo con el secreto que se registra al crear el webhook: `x-adsk-signature: sha1hash=<HMAC-SHA1 del cuerpo crudo>`. `verifyApsWebhook(cuerpo, cabecera, secreto)` lo compara en tiempo constante. Se verifica el cuerpo crudo, tal como llegó, no el JSON que arma Nest.
 - **El detalle.** `toElementChanges(diferencias)` lee cada `ElementDifference` de AEC Data Model con su clave (el parámetro «Clave obra»), su categoría, su nivel y sus propiedades cambiadas. `toMinuteChanges(cambios, conteos?)` arma los cambios de la minuta: convierte metros, centímetros, milímetros, pies y pulgadas (también desde el texto, como «150 mm»), redondea como la API (cm con un decimal, m con dos), y si los elementos de una clave no coinciden vale el valor que más se repite.
 - **Lo que no entra** vuelve en `ignored` con su motivo: `no_subject` (el elemento no está vinculado a la obra), `untracked_attribute` (cambió algo que la obra no sigue), `unknown_unit` (la unidad no se reconoce) y `no_revit_id` (el elemento no trae su id de Revit).
-- **La minuta.** Va a `POST /api/integrations/revit/minutes` con `trigger: "sync"`, `model.saveNumber: null` y la versión en `model.versionGuid`. `minuteIdFor(modelo, desde, hasta)` da un UUID estable para el modelo y las dos versiones: reintentar no duplica la revisión.
+- **La minuta.** Lleva `trigger: "sync"`, `model.saveNumber: null` y la versión en `model.versionGuid`. `minuteIdFor(modelo, desde, hasta)` da un UUID estable para el modelo y las dos versiones, para que reintentar no duplique la revisión. Hoy no tiene a dónde ir: la API no recibe minutas, y la puerta de la obra es `POST /api/projects/:projectId/revisions`.
 
 ## El receptor
 
@@ -106,4 +106,5 @@ Las propiedades que siguen la obra son las del add-in: «Thickness», «Default 
 1. **Registrar los webhooks** en Autodesk para cada carpeta de proyecto vinculada (`POST /webhooks/v1/systems/{sistema}/events/{evento}/hooks`, con la carpeta en `scope`), con la cuenta de Autodesk de la organización ([PH-25](https://linear.app/ph-team-27/issue/PH-25/conexion-oauth-con-autodesk-aps)) y la URL `https://vigente-api.onrender.com/api/integrations/autodesk/webhooks`.
 2. **Encolar el diff.** Un `AutodeskChangeListener` que, para los cambios con `needsElementDiff`, encole la consulta a AEC Data Model. Hoy la llave se guarda antes de avisar al listener: si el listener falla, la API responde 500 y el reintento de Autodesk llega como repetido. El encolado tiene que quedar en la misma transacción que la llave (la outbox de la tarea 10).
 3. **La consulta a AEC Data Model** para los cambios con `needsElementDiff`: esperar `elementGroupExtractionStatus` en `SUCCESS` y pedir `diffElementGroupByVersionWithLatest` desde la última versión procesada, con todas las páginas ([el spike de PH-28](aec-data-model.md)).
-4. **Probar con un hub real.** La cuenta de Autodesk de la UC de Carter tiene licencias: si trae un hub de ACC con AEC Data Model, ahí se confirman los nombres de las propiedades, las unidades y los eventos de ACC.
+4. **Entregar la minuta a la obra.** Convertir cada cambio en un fragmento `parametro` con su hecho y mandarlo como revisión del documento del modelo a `POST /api/projects/:projectId/revisions`, o volver a tener en la API una ruta que reciba minutas.
+5. **Probar con un hub real.** La cuenta de Autodesk de la UC de Carter tiene licencias: si trae un hub de ACC con AEC Data Model, ahí se confirman los nombres de las propiedades, las unidades y los eventos de ACC.

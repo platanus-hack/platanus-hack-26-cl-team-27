@@ -18,18 +18,17 @@
     "views": [
       {
         "id": "runtime",
-        "label": "Runtime de la muestra",
+        "label": "Runtime",
         "focus": [
           "devices",
           "web",
-          "etl",
-          "room",
+          "accounts",
           "coordination",
           "contexts",
-          "scenario",
+          "catalog",
           "postgres"
         ],
-        "note": "La web y el ETL hablan con la API por HTTP; la API compone los contextos y guarda en Postgres."
+        "note": "La web habla con la API por HTTP, con la cuenta de quien entra; la API carga el proyecto de cada pedido, compone los contextos y guarda en Postgres."
       },
       {
         "id": "devops",
@@ -41,7 +40,7 @@
           "deploy",
           "compose"
         ],
-        "note": "CI con pnpm check en cada push y PR; el deploy sigue pendiente."
+        "note": "CI con pnpm check en cada push y PR; el deploy sale del espejo a Vercel y Render."
       }
     ]
   },
@@ -49,8 +48,8 @@
     {
       "id": "devices",
       "type": "external",
-      "label": "Celulares y proyector",
-      "sublabel": "/asiento · /sala · /presentador",
+      "label": "Navegador",
+      "sublabel": "con tu cuenta de Auth0",
       "pos": [
         40,
         230
@@ -81,30 +80,10 @@
       ]
     },
     {
-      "id": "etl",
-      "type": "external",
-      "label": "apps/etl",
-      "sublabel": "lago · parsers · jugadores",
-      "pos": [
-        270,
-        440
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "tag": "pnpm etl",
-      "sources": [
-        {
-          "path": "apps/etl/README.md"
-        }
-      ]
-    },
-    {
-      "id": "room",
+      "id": "accounts",
       "type": "backend",
-      "label": "modules/room",
-      "sublabel": "asientos · eventos",
+      "label": "modules/accounts",
+      "sublabel": "cuentas · organizaciones",
       "pos": [
         510,
         120
@@ -112,13 +91,18 @@
       "size": [
         180,
         64
+      ],
+      "sources": [
+        {
+          "path": "apps/api/src/modules/accounts/accounts.service.ts"
+        }
       ]
     },
     {
       "id": "coordination",
       "type": "backend",
       "label": "modules/coordination",
-      "sublabel": "orquesta la cadena",
+      "sublabel": "la cadena por proyecto",
       "pos": [
         510,
         340
@@ -153,10 +137,10 @@
       ]
     },
     {
-      "id": "scenario",
+      "id": "catalog",
       "type": "backend",
-      "label": "Proyecto Los Aromos",
-      "sublabel": "elenco · grafo · documentos",
+      "label": "ProjectCatalog",
+      "sublabel": "el proyecto de cada pedido",
       "pos": [
         770,
         500
@@ -167,10 +151,7 @@
       ],
       "sources": [
         {
-          "path": "apps/api/src/scenario/los-aromos.ts"
-        },
-        {
-          "path": "apps/api/src/scenario/documents.ts"
+          "path": "apps/api/src/modules/project/project.module.ts"
         }
       ]
     },
@@ -260,7 +241,6 @@
         180,
         64
       ],
-      "tag": "pendiente",
       "sources": [
         {
           "path": "docs/despliegue.md"
@@ -290,14 +270,13 @@
   "boundaries": [
     {
       "kind": "region",
-      "label": "Runtime de la muestra (hoy, local)",
+      "label": "Runtime (local o desplegado)",
       "wraps": [
         "web",
-        "etl",
-        "room",
+        "accounts",
         "coordination",
         "contexts",
-        "scenario",
+        "catalog",
         "postgres",
         "compose"
       ],
@@ -307,10 +286,10 @@
       "kind": "security-group",
       "label": "Proceso apps/api · NestJS 12 · :3001/api",
       "wraps": [
-        "room",
+        "accounts",
         "coordination",
         "contexts",
-        "scenario"
+        "catalog"
       ],
       "pad": 18
     },
@@ -335,25 +314,19 @@
     },
     {
       "from": "web",
-      "to": "room",
-      "label": "GET /api/events"
+      "to": "accounts",
+      "label": "/api/me · /api/projects"
     },
     {
       "from": "web",
       "to": "coordination",
-      "label": "votos · reabrir",
-      "variant": "emphasis"
-    },
-    {
-      "from": "etl",
-      "to": "coordination",
-      "label": "POST /api/revisions",
+      "label": "/api/projects/:id/…",
       "variant": "emphasis"
     },
     {
       "from": "coordination",
-      "to": "room",
-      "label": "eventos en la tx",
+      "to": "accounts",
+      "label": "valida la cuenta",
       "labelAt": [
         600,
         262
@@ -366,7 +339,7 @@
       "variant": "emphasis"
     },
     {
-      "from": "scenario",
+      "from": "catalog",
       "to": "contexts",
       "label": "adapters en memoria",
       "variant": "dashed"
@@ -378,9 +351,9 @@
       "variant": "emphasis"
     },
     {
-      "from": "room",
+      "from": "accounts",
       "to": "postgres",
-      "label": "asientos · eventos"
+      "label": "usuarios · organizaciones"
     },
     {
       "from": "compose",
@@ -410,9 +383,9 @@
       "dot": "cyan",
       "title": "Runtime",
       "items": [
-        "El navegador habla solo con la web; next.config.ts reenvía /api/* a API_URL, sin CORS",
-        "La API no conoce la demo: el ETL lee el lago de archivos, carga las revisiones y juega los asientos vacíos",
-        "Lo que cambia en la muestra vive en Postgres; la definición del proyecto, en memoria"
+        "El navegador habla solo con la web; next.config.ts reenvía /api/* a API_URL con el token de la cuenta, sin CORS",
+        "Cada ruta del motor carga su proyecto de la base: equipo, grafo, documentos y áreas",
+        "Revisiones, propuestas, avisos y eventos viven en Postgres, con su project_id"
       ]
     },
     {
@@ -421,16 +394,15 @@
       "items": [
         "CI en cada push a main y PR: install --frozen-lockfile y pnpm check",
         "pnpm check = Nx lint, test, typecheck y build; la CI no necesita base",
-        "Postgres local con pnpm db:up y migraciones con pnpm db:migrate"
+        "Deploy desde el espejo: la web en Vercel, la API y Postgres en Render"
       ]
     },
     {
       "dot": "amber",
       "title": "Pendiente",
       "items": [
-        "deploy-url todavía apunta al repo de GitHub",
-        "Plan: espejo a un repo personal y deploy en Vercel o Render",
-        "En el deploy, API_URL va antes del build y la base es un Postgres gestionado"
+        "Cargar la definición de un proyecto creado desde la web",
+        "Staging y canales reales para los avisos"
       ]
     }
   ]

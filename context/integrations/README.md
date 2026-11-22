@@ -34,7 +34,7 @@ Lo que Vigente entiende de los cambios en Autodesk, sin red, y cómo recibe sus 
 - **Dominio** (`src/domain/autodesk/`)
   - `AutodeskEvent.ts`: el catálogo `AUTODESK_EVENTS` de los eventos de webhook de APS (Data Management, Model Derivative, Revit en la nube y las incidencias de ACC) y `defineAutodeskEvent(evento, sistema)`, que agrupa Cost Management y deja lo nuevo como `unknown`.
   - `AutodeskChange.ts`: `parseAutodeskWebhook(cuerpo)` da un `AutodeskChange` con `kind`, recurso, hora (solo la del payload; si no viene, `null`), autor, `needsElementDiff` y `dedupeKey`: el hook, el evento, el linaje o urn y el momento, que es la versión en los eventos que nombra una versión, la versión junto a la hora del cambio en los demás y, si no hay ninguna de las dos, una huella del cuerpo.
-  - `ElementDiff.ts`: `toElementChanges` lee el diff de AEC Data Model y `toMinuteChanges` lo convierte en los cambios de la minuta del add-in, con lo que no entra en `ignored`; `countBySubject` cuenta los elementos por clave para `cantidad`.
+  - `ElementDiff.ts`: `toElementChanges` lee el diff de AEC Data Model y `toMinuteChanges` lo convierte en los cambios de una minuta, con lo que no entra en `ignored` (la API todavía no la recibe); `countBySubject` cuenta los elementos por clave para `cantidad`.
   - `MinuteId.ts`: `minuteIdFor(modelo, desde, hasta)`, un UUID estable para no duplicar la revisión.
 - **Aplicación**
   - Puertos: `AutodeskEventRepository` (`recordIfNew(cambio, recibido)` guarda la `dedupeKey` y dice si era nueva) y `AutodeskChangeListener` (a quién se le avisa un cambio nuevo).

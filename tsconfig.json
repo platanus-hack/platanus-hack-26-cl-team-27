@@ -25,9 +25,6 @@
       "path": "./context/lake"
     },
     {
-      "path": "./apps/etl"
-    },
-    {
       "path": "./apps/aps"
     },
     {

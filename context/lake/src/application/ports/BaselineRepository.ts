@@ -9,5 +9,4 @@ export interface BaselineRepository {
   upsert(entry: BaselineEntry): Promise<void>;
   history(subject: string, attribute: string): Promise<BaselineHistoryItem[]>;
   clear(): Promise<void>;
-  deleteBySubjectPrefix(prefix: string): Promise<void>;
 }

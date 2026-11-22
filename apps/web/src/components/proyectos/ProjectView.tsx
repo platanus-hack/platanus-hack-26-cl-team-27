@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, Notice, PageHeader } from '@team27/ui';
+import type { Route } from 'next';
 import Link from 'next/link';
 
 import { buttonLink } from '@/components/common/link-styles';
@@ -8,6 +9,7 @@ import { LoadError, Loading } from '@/components/common/LoadState';
 import { useResource } from '@/hooks/use-resource';
 import { getProject } from '@/lib/accounts-api';
 import { formatDate } from '@/lib/format';
+import { projectPage } from '@/lib/project-paths';
 
 export function ProjectView({ projectId }: { readonly projectId: string }) {
   const project = useResource(
@@ -31,9 +33,17 @@ export function ProjectView({ projectId }: { readonly projectId: string }) {
         title={name}
         description={organizationName}
         actions={
-          <Link href="/cuenta" className={buttonLink('secondary', 'sm')}>
-            Tus proyectos
-          </Link>
+          <>
+            <Link
+              href={projectPage(projectId, '/espacios') as Route}
+              className={buttonLink('primary', 'sm')}
+            >
+              Espacios
+            </Link>
+            <Link href="/cuenta" className={buttonLink('secondary', 'sm')}>
+              Tus proyectos
+            </Link>
+          </>
         }
       />
       <div className="flex flex-col gap-4">
@@ -51,8 +61,8 @@ export function ProjectView({ projectId }: { readonly projectId: string }) {
         </Card>
         <Notice>
           Este proyecto todavía no tiene documentos, equipo ni mapa de
-          dependencias. La sala y los espacios siguen mostrando el proyecto de
-          la muestra.
+          dependencias: cuando los tenga, sus cambios se van a avisar a quien
+          afecten.
         </Notice>
       </div>
     </>

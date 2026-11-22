@@ -1,6 +1,9 @@
 import { request } from './http';
 import type { FactValue } from './format';
-import type { SpaceKind } from './room-api';
+import { projectApi } from './project-paths';
+
+export type SpaceKind =
+  'drive' | 'sharepoint' | 'email' | 'whatsapp' | 'libro_obra';
 
 export type ClaimOutcome =
   'same' | 'corroborates' | 'change' | 'discrepancy' | 'stale' | 'new';
@@ -64,8 +67,11 @@ export interface SpacesResponse {
   readonly spaces: readonly SpaceView[];
 }
 
-export const getSpaces = (signal?: AbortSignal): Promise<SpacesResponse> =>
-  request<SpacesResponse>('/api/spaces', { signal });
+export const getSpaces = (
+  projectId: string,
+  signal?: AbortSignal,
+): Promise<SpacesResponse> =>
+  request<SpacesResponse>(projectApi(projectId, '/spaces'), { signal });
 
 export interface PlacedDocument extends DocumentView {
   readonly spaceId: string;

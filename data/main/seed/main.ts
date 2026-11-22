@@ -1,11 +1,6 @@
 import { createPrismaClient } from '../index.ts';
-import {
-  inviteToOrganization,
-  listProjectIds,
-  saveOrganization,
-  saveProjectDefinition,
-} from '../project/store.ts';
-import { LOS_AROMOS, LOS_AROMOS_ORGANIZATION } from './los-aromos.ts';
+import { inviteToOrganization, saveOrganization } from '../project/store.ts';
+import { CORDILLERA, emailOf, PEOPLE } from './cordillera.ts';
 
 const url = process.env['DATABASE_URL'];
 if (!url) {
@@ -14,31 +9,33 @@ if (!url) {
 }
 
 const onlyIfEmpty = process.argv.includes('--si-no-hay');
-const adminEmail = process.env['SEED_ADMIN_EMAIL']?.trim();
+const base = process.env['SEED_EMAIL']?.trim() || undefined;
 
 const prisma = createPrismaClient(url);
 try {
-  const existing = await listProjectIds(prisma);
-  if (onlyIfEmpty && existing.length > 0) {
-    console.log(
-      `La base ya tiene ${existing.length === 1 ? 'un proyecto' : `${existing.length} proyectos`}: no siembro.`,
-    );
+  if (onlyIfEmpty) {
+    const organizations = await prisma.organization.count();
+    if (organizations > 0) {
+      console.log(
+        `La base ya tiene ${organizations === 1 ? 'una organización' : `${organizations} organizaciones`}: no siembro.`,
+      );
+    } else {
+      await saveOrganization(prisma, CORDILLERA);
+      console.log(`Creé ${CORDILLERA.name}, sin proyectos ni personas.`);
+    }
   } else {
-    await saveOrganization(prisma, LOS_AROMOS_ORGANIZATION);
-    await saveProjectDefinition(prisma, LOS_AROMOS);
-    console.log(
-      `Sembré el proyecto ${LOS_AROMOS.name} (${LOS_AROMOS.id}) en ${LOS_AROMOS_ORGANIZATION.name}.`,
-    );
-  }
-  if (adminEmail) {
-    await inviteToOrganization(prisma, {
-      organizationId: LOS_AROMOS_ORGANIZATION.id,
-      email: adminEmail,
-      role: 'admin',
-    });
-    console.log(
-      `Invité a ${adminEmail} como administrador de ${LOS_AROMOS_ORGANIZATION.name}.`,
-    );
+    await saveOrganization(prisma, CORDILLERA);
+    for (const person of PEOPLE) {
+      await inviteToOrganization(prisma, {
+        organizationId: CORDILLERA.id,
+        email: emailOf(person, base),
+        role: person.role,
+      });
+    }
+    console.log(`Sembré ${CORDILLERA.name} con estas invitaciones:`);
+    for (const person of PEOPLE) {
+      console.log(`  ${person.role.padEnd(6)}  ${emailOf(person, base)}`);
+    }
   }
 } finally {
   await prisma.$disconnect();

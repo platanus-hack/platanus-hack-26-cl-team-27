@@ -1,4 +1,4 @@
-import { DEV_PRESENTER_KEY, envSchema } from '../../src/config/env.ts';
+import { envSchema } from '../../src/config/env.ts';
 
 describe('envSchema', () => {
   it('aplica los defaults de desarrollo', () => {
@@ -7,7 +7,6 @@ describe('envSchema', () => {
       API_PORT: 3001,
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5427/team27',
       CORS_ALLOW_ORIGINS: ['http://localhost:3000'],
-      PRESENTER_KEY: DEV_PRESENTER_KEY,
       GOOGLE_REDIRECT_URI:
         'http://localhost:3000/api/integrations/google/callback',
       INTEGRATIONS_POLL_SECONDS: 60,
@@ -162,21 +161,11 @@ describe('envSchema', () => {
     expect(result.error?.issues[0]?.path).toEqual(['CORS_ALLOW_ORIGINS']);
   });
 
-  it('exige la clave del presentador en producción', () => {
-    const result = envSchema.safeParse({
-      NODE_ENV: 'production',
-      CORS_ALLOW_ORIGINS: 'https://team27.example',
-    });
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.path).toEqual(['PRESENTER_KEY']);
-  });
-
-  it('toma la clave del entorno', () => {
+  it('en producción arranca con los orígenes de la web y sin más claves', () => {
     const env = envSchema.parse({
       NODE_ENV: 'production',
       CORS_ALLOW_ORIGINS: 'https://team27.example',
-      PRESENTER_KEY: 'clave-secreta',
     });
-    expect(env.PRESENTER_KEY).toBe('clave-secreta');
+    expect(env.CORS_ALLOW_ORIGINS).toEqual(['https://team27.example']);
   });
 });

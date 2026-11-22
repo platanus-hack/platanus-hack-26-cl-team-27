@@ -34,13 +34,13 @@ describe('needsAccountToken', () => {
   });
 
   it.each([
-    '/api/room',
-    '/api/events',
+    '/api/health',
+    '/api/aps/models',
     '/api/members',
     '/api/meta',
-    '/api/integrations/revit/minutes',
+    '/api/integrations/otra',
     '/api/administration',
-    '/sala',
+    '/modelos',
   ])('%s no', (path) => {
     expect(needsAccountToken(path)).toBe(false);
   });

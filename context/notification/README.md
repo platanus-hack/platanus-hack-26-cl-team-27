@@ -1,6 +1,6 @@
 # @team27/context-notification
 
-Lleva el impacto a cada afectado. `NotifyStakeholders` junta los hallazgos de cada persona en un solo aviso (`Notification`) por cambio, en el canal de esa persona, con el enlace al detalle (`/cambios/<cambio>?para=<afectado>`). `RespondToNotification` guarda lo que contesta.
+Lleva el impacto a cada afectado. `NotifyStakeholders` junta los hallazgos de cada persona en un solo aviso (`Notification`) por cambio, en el canal de esa persona, con el enlace al detalle del cambio en su proyecto (`/proyectos/<proyecto>/cambios/<cambio>`). `RespondToNotification` guarda lo que contesta.
 
 ## Dominio
 
@@ -19,7 +19,7 @@ Lleva el impacto a cada afectado. `NotifyStakeholders` junta los hallazgos de ca
 | `GetNotification`       | Un aviso por id, o `null`                                   |
 | `ListStakeholders`      | El directorio                                               |
 
-- `InMemoryStakeholderDirectory`: el elenco del guion de la muestra.
+- `InMemoryStakeholderDirectory`: el equipo de un proyecto, que la API le pasa al armarlo (todos menos el autor).
 - `PrismaNotificationRepository`: la tabla `notifications`, con los hallazgos en JSON.
 
-Un aviso guardado es un aviso entregado: los canales de la muestra son simulados ([espacio controlado](../../docs/muestra.md#espacio-controlado)).
+Un aviso guardado es un aviso entregado: todavía no sale ningún correo ni mensaje. El aviso queda en la base, con el canal de su afectado, y se ve en la web, en el detalle de su cambio.

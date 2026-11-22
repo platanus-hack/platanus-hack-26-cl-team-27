@@ -1,13 +1,12 @@
 # Marca
 
-El producto se llama **Vigente**: lo que vale hoy en la obra. El nombre responde la pregunta que nadie sabe contestar en un proyecto, qué versión vale, y sirve tanto para el aviso como para el consenso de la [sala](multijugador.md).
+El producto se llama **Vigente**: lo que vale hoy en la obra. El nombre responde la pregunta que nadie sabe contestar en un proyecto, qué versión vale, y sirve tanto para el aviso como para lo vigente que consensúa el [motor](motor.md).
 
 ## Nombre
 
 - En el texto se escribe «Vigente»; en el logotipo, «vigente», en minúsculas.
-- Es el `project-name` de la página de votación ([`platanus-hack-project.jsonc`](../platanus-hack-project.jsonc)) y el `APP_NAME` de la web ([`apps/web/src/lib/brand.ts`](../apps/web/src/lib/brand.ts)), que cierra el título de cada pestaña: «La sala · Vigente».
-- «La sala» es el nombre de la pantalla multijugador, no del producto.
-- Frase: «Lo que vale hoy en tu obra».
+- Es el `project-name` de la página de votación ([`platanus-hack-project.jsonc`](../platanus-hack-project.jsonc)) y el `APP_NAME` de la web ([`apps/web/src/lib/brand.ts`](../apps/web/src/lib/brand.ts)), que cierra el título de cada pestaña: «Espacios · Vigente».
+- Frase: «Lo que vale hoy en tu obra». Es el `APP_TAGLINE` de la web, junto al logotipo en el encabezado.
 - El nombre no está revisado en el registro de marcas de INAPI.
 
 ## Isotipo
@@ -43,4 +42,4 @@ Para regenerar el PNG, exporta `docs/marca/ficha.svg` a 1000 × 1000 con cualqui
 
 ## En la web
 
-El encabezado del sitio y la cabecera de la sala muestran el isotipo en `text-accent-text` y el logotipo en `text-ink`. La sala es lo que se proyecta en el pitch.
+El encabezado del sitio muestra el isotipo en `text-accent-text`, el logotipo en `text-ink` y la frase al lado.

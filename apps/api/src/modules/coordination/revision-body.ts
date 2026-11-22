@@ -69,23 +69,7 @@ export const revisionBody = z
     path: ['chunks'],
   });
 
-export const seedBody = z.object({
-  revisions: z
-    .array(
-      z.object({
-        ...baseFields,
-        authorId: z.string().min(1).max(64),
-        chunks: chunks.optional(),
-        claims: claims.optional(),
-      }),
-    )
-    .min(1)
-    .max(200),
-});
-
 export type RevisionInput = z.output<typeof revisionBody>;
-
-export type SeedInput = z.output<typeof seedBody>;
 
 export const knownDocument = (
   project: ProjectCatalog,
@@ -170,17 +154,4 @@ export const checkRevision = (
     );
   }
   return chunks;
-};
-
-export const checkAuthor = (
-  project: ProjectCatalog,
-  authorId: string,
-): void => {
-  if (!project.castMember(authorId)) {
-    throw fail(
-      HttpStatus.UNPROCESSABLE_ENTITY,
-      'invalid_author',
-      `No existe el asiento ${authorId}`,
-    );
-  }
 };

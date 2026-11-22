@@ -19,8 +19,8 @@ export async function SessionGate({
       <>
         <PageHeader title={title} />
         <Notice>
-          Las cuentas no están configuradas en este ambiente. La sala y el caso
-          funcionan igual, sin cuenta.
+          Las cuentas no están configuradas en este ambiente: faltan las
+          variables de Auth0 de la web.
         </Notice>
       </>
     );

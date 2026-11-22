@@ -1,8 +1,8 @@
 # Auditoría de la idea
 
-Un debate adversarial puso a prueba la idea del proyecto: detractores contra defensores, con foco en romper los esquemas actuales de la industria y en lo multijugador, sin cambiar el problema. Este doc resume qué sobrevivió, cómo funciona la idea purificada y cuánto la soporta el producto. El problema y la propuesta vigentes están en [negocio](negocio.md), la sala en [multijugador](multijugador.md) y la muestra en [muestra](muestra.md).
+Un debate adversarial puso a prueba la idea del proyecto: detractores contra defensores, con foco en romper los esquemas actuales de la industria y en lo multijugador, sin cambiar el problema. Este doc resume qué sobrevivió, cómo funciona la idea purificada y cuánto la soporta el producto. El problema y la propuesta vigentes están en [negocio](negocio.md), y el motor, en [motor](motor.md).
 
-Se auditó el commit `4cd493b` (2026-11-21). Es una evaluación de documentos y código, sin entrevistas ni pruebas con usuarios: las horas son estimaciones y los puntajes son juicios, no mediciones. Las citas `ruta:línea` se verificaron contra ese commit.
+Se auditó el commit `4cd493b` (2026-11-21). Es una evaluación de documentos y código, sin entrevistas ni pruebas con usuarios: las horas son estimaciones y los puntajes son juicios, no mediciones. Las citas `ruta:línea` se verificaron contra ese commit. Evalúa la muestra del pitch de ese commit (el proyecto Los Aromos, la sala con asientos y bots, y el ETL), que no está en el código actual: las rutas que citan esas piezas solo existen en ese commit.
 
 ## Veredicto
 
@@ -176,11 +176,11 @@ Los tests unitarios pasan todos. Ninguno corre contra Postgres: el único test d
 ### Docs desalineados
 
 - `README.md` y `project-description.md` venden «detectar, calcular y avisar» y no mencionan la sala ni el consenso.
-- `docs/multijugador.md` describe el consenso de los afectados avisados, no del elenco completo: «unánime» se refiere a los revisores de cada propuesta.
+- El doc del motor ([motor](motor.md)) describe el consenso de los afectados avisados, no del equipo completo: «unánime» se refiere a los revisores de cada propuesta.
 
 ## Plan
 
-Los segmentos llevan el prefijo M para no chocar con los de [muestra](muestra.md#segmentos) ni los de [multijugador](multijugador.md#segmentos-de-construcción).
+Los segmentos llevan el prefijo M.
 
 | Segmento            | Alcance                                                                                                                                                                   | Horas | Aceptación                                                                                          |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------- |
@@ -195,7 +195,7 @@ Suma 23 h. Quedan fuera desde ya la vista previa en seco, el impacto apilado de 
 
 ## Decisiones para el equipo
 
-1. **¿Se adopta Mano alzada?** Si sí, se alinean [negocio](negocio.md), [muestra](muestra.md), [multijugador](multijugador.md), `README.md` y `project-description.md`.
+1. **¿Se adopta Mano alzada?** Si sí, se alinean [negocio](negocio.md), [motor](motor.md), `README.md` y `project-description.md`.
 2. **¿Quién valida una declaración?** En el lago, el dueño de un valor es quien escribió la revisión que lo respalda: Fernanda, para la losa. El guion usa a Paula, que es la calculista.
 3. **La regla del declarante.** Aprobar la de [Reglas](#reglas) antes de construir.
 4. **Plan B de la ronda 2.** Propuesta nueva que reemplaza a la anterior, o cortar.

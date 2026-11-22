@@ -26,8 +26,8 @@ import {
 } from '@team27/context-lake';
 import type { Notification } from '@team27/context-notification';
 
-import type { CastMember, ProjectCatalog } from '../project/project-catalog.ts';
-import { authorName, revisionTitle } from './lookup.ts';
+import type { ProjectCatalog } from '../project/project-catalog.ts';
+import { revisionTitle } from './lookup.ts';
 
 export interface LakeSnapshot {
   readonly project: ProjectCatalog;
@@ -533,10 +533,7 @@ export const provenanceResponse = (
             },
             author: {
               id: input.revision.authorId,
-              name: authorName(
-                (id) => project.castName(id),
-                input.revision.authorId,
-              ),
+              name: project.castName(input.revision.authorId),
             },
             proposal: proposalRef(input.proposal),
             reviews: reviewsOf(input.proposal),
@@ -550,9 +547,7 @@ export const provenanceResponse = (
         ? revisionTitle(revision)
         : discrepancy.documentId,
       spaceName: revision ? project.spaceName(revision.spaceId) : '',
-      authorName: revision
-        ? authorName((id) => project.castName(id), revision.authorId)
-        : '',
+      authorName: revision ? project.castName(revision.authorId) : '',
       weakValue: discrepancy.value,
     }));
   const primaryClaimId = provenance.claim?.id ?? null;
@@ -730,115 +725,6 @@ export const spacesResponse = (snapshot: LakeSnapshot) => {
   };
 };
 
-export const sealOf = (snapshot: LakeSnapshot) => {
-  if (!snapshot.consensus.index.sealed) return null;
-  const { project } = snapshot;
-  const merged = mergedProposals(snapshot);
-  const lastAt = merged
-    .map((proposal) => proposal.resolvedAt)
-    .filter((at): at is Date => at !== null)
-    .sort((a, b) => b.getTime() - a.getTime())[0];
-  return {
-    version: projectVersion(snapshot),
-    sealedAt: lastAt ?? null,
-    lines: merged.map((proposal) => {
-      const approvals = proposal.reviews.filter(
-        (review) => review.decision === 'approve',
-      ).length;
-      return `${project.castName(proposal.authorId)} propuso ${proposalTitle(project, proposal)} y lo aprobaron ${approvals} de ${proposal.reviews.length}.`;
-    }),
-  };
-};
-
-export interface RoomExtras {
-  readonly epoch: number;
-  readonly cursor: number;
-  readonly present: ReadonlySet<string>;
-}
-
-const CHANNEL_PREVIEW = {
-  email: 'Recibes los avisos en tu correo.',
-  whatsapp: 'Recibes los avisos en tu chat.',
-  slack: 'Recibes los avisos en tu canal de equipo.',
-} as const;
-
-const previewOf = (project: ProjectCatalog, member: CastMember): string =>
-  member.id === project.author.id
-    ? 'Presentas la muestra y firmas los cambios del proyecto.'
-    : `${member.role}. ${CHANNEL_PREVIEW[member.channel]}`;
-
-export const occupantOf = (
-  project: ProjectCatalog,
-  castId: string,
-  present: ReadonlySet<string>,
-): 'human' | 'bot' | 'presenter' =>
-  castId === project.author.id
-    ? 'presenter'
-    : present.has(castId)
-      ? 'human'
-      : 'bot';
-
-export const castView = (
-  project: ProjectCatalog,
-  member: CastMember,
-  present: ReadonlySet<string>,
-) => {
-  const occupant = occupantOf(project, member.id, present);
-  return {
-    id: member.id,
-    name: member.name,
-    role: member.role,
-    channel: member.id === project.author.id ? null : member.channel,
-    handle: member.id === project.author.id ? null : member.handle,
-    presenter: member.id === project.author.id,
-    preview: previewOf(project, member),
-    occupant,
-    occupied: occupant === 'human',
-    present: occupant === 'human',
-    bot: occupant === 'bot',
-  };
-};
-
-export const roomResponse = (snapshot: LakeSnapshot, extras: RoomExtras) => {
-  const { project } = snapshot;
-  const { index } = snapshot.consensus;
-  return {
-    epoch: extras.epoch,
-    cursor: extras.cursor,
-    lake: { empty: snapshot.revisions.length === 0 },
-    projectVersion: projectVersion(snapshot),
-    project: project.info,
-    totals: totalsOf(snapshot),
-    consensus: index,
-    cast: project.cast.map((member) =>
-      castView(project, member, extras.present),
-    ),
-    spaces: project.spaces.map((space) => ({
-      id: space.id,
-      name: space.name,
-      kind: space.kind,
-      ownerId: space.ownerId,
-      ownerName: project.castName(space.ownerId),
-      members: [] as { id: string; name: string }[],
-      documents: project.documents.filter(
-        (document) => document.spaceId === space.id,
-      ).length,
-      revisions: snapshot.revisions.filter(
-        (revision) => project.spaceOf(revision.spaceId)?.id === space.id,
-      ).length,
-    })),
-    counters: {
-      documents: index.total,
-      upToDate: index.upToDate,
-      openProposals: index.openProposals,
-      openDiscrepancies: index.openDiscrepancies,
-      openOverlaps: index.openOverlaps,
-      stale: index.staleDocuments,
-    },
-    seal: sealOf(snapshot),
-  };
-};
-
 export const inboxResponse = (snapshot: LakeSnapshot, castId: string) => {
   const { project } = snapshot;
   const revisionById = new Map(
@@ -896,9 +782,7 @@ export const inboxResponse = (snapshot: LakeSnapshot, castId: string) => {
           ? revisionTitle(revision)
           : discrepancy.documentId,
         spaceName: revision ? project.spaceName(revision.spaceId) : '',
-        authorName: revision
-          ? authorName((id) => project.castName(id), revision.authorId)
-          : '',
+        authorName: revision ? project.castName(revision.authorId) : '',
         at: discrepancy.createdAt,
       };
     });
