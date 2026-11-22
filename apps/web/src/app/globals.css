@@ -3,7 +3,149 @@
 
 @source '../../../../packages/ui/src';
 
+@theme {
+  --font-mono:
+    var(--font-plex-mono), ui-monospace, 'SFMono-Regular', Consolas, monospace;
+
+  --animate-rise: rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-pop: pop 520ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
+  --animate-draw: draw 600ms cubic-bezier(0.6, 0, 0.2, 1) both;
+  --animate-wave: wave 1200ms ease-out 1 both;
+  --animate-grow: grow 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-ping-soft: ping-soft 2400ms ease-out infinite;
+  --animate-shimmer: shimmer 1400ms linear infinite;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.4) rotate(-12deg);
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes draw {
+    from {
+      stroke-dashoffset: var(--draw-length, 100);
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes wave {
+    0% {
+      box-shadow: 0 0 0 0 rgb(95 224 240 / 0.7);
+    }
+    100% {
+      box-shadow: 0 0 0 14px rgb(95 224 240 / 0);
+    }
+  }
+
+  @keyframes grow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes ping-soft {
+    0% {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+    70%,
+    100% {
+      transform: scale(2.4);
+      opacity: 0;
+    }
+  }
+
+  @keyframes shimmer {
+    from {
+      background-position: -200% 0;
+    }
+    to {
+      background-position: 200% 0;
+    }
+  }
+}
+
 body {
   background-color: var(--color-plane);
   color: var(--color-ink);
+}
+
+.stagger > * {
+  animation: var(--animate-rise);
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+.stagger > *:nth-child(1) {
+  --i: 0;
+}
+.stagger > *:nth-child(2) {
+  --i: 1;
+}
+.stagger > *:nth-child(3) {
+  --i: 2;
+}
+.stagger > *:nth-child(4) {
+  --i: 3;
+}
+.stagger > *:nth-child(5) {
+  --i: 4;
+}
+.stagger > *:nth-child(6) {
+  --i: 5;
+}
+.stagger > *:nth-child(7) {
+  --i: 6;
+}
+.stagger > *:nth-child(n + 8) {
+  --i: 7;
+}
+
+.blueprint-grid {
+  background-color: var(--color-blueprint);
+  background-image:
+    linear-gradient(rgb(185 200 230 / 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(185 200 230 / 0.13) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-2) 25%,
+    var(--color-grid) 50%,
+    var(--color-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }

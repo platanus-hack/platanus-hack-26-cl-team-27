@@ -23,6 +23,10 @@
   --color-critical: var(--t27-critical);
   --color-good-text: var(--t27-good-text);
   --color-critical-text: var(--t27-critical-text);
+  --color-blueprint: #0f2a5c;
+  --color-blueprint-deep: #081a3d;
+  --color-plan-line: #b9c8e6;
+  --color-change: #5fe0f0;
 }
 
 :root {

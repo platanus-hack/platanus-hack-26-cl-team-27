@@ -5,6 +5,7 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
 
+import { Icon } from '@/components/common/Icon';
 import { buttonLink } from '@/components/common/link-styles';
 import { LoadError, Loading } from '@/components/common/LoadState';
 import { useResource } from '@/hooks/use-resource';
@@ -19,6 +20,8 @@ import { describeError } from '@/lib/http';
 import { projectPage } from '@/lib/project-paths';
 
 import { TeamCard } from './TeamCard';
+
+const dataLabel = 'flex items-center gap-1.5 text-sm text-ink-2';
 
 const TEXTAREA =
   'min-h-24 w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent';
@@ -58,15 +61,18 @@ export function ProjectView({ projectId }: { readonly projectId: string }) {
               href={projectPage(projectId, '/archivos') as Route}
               className={buttonLink('primary', 'sm')}
             >
+              <Icon name="sheet" />
               Archivos
             </Link>
             <Link
               href={projectPage(projectId, '/espacios') as Route}
               className={buttonLink('secondary', 'sm')}
             >
+              <Icon name="layers" />
               Espacios
             </Link>
             <Link href="/cuenta" className={buttonLink('secondary', 'sm')}>
+              <Icon name="project" />
               Tus proyectos
             </Link>
           </div>
@@ -118,19 +124,29 @@ function ProjectData({
       actions={
         onEdit && (
           <Button variant="secondary" size="sm" onClick={onEdit}>
+            <Icon name="pencil" />
             Editar
           </Button>
         )
       }
     >
       <dl className="grid gap-3 sm:grid-cols-[10rem_1fr]">
-        <dt className="text-sm text-ink-2">Lugar</dt>
+        <dt className={dataLabel}>
+          <Icon name="mapPin" className="text-accent-text" />
+          Lugar
+        </dt>
         <dd className="text-ink">{project.location || 'Sin lugar todavía'}</dd>
-        <dt className="text-sm text-ink-2">Descripción</dt>
+        <dt className={dataLabel}>
+          <Icon name="file" className="text-accent-text" />
+          Descripción
+        </dt>
         <dd className="text-ink">
           {project.description || 'Sin descripción todavía'}
         </dd>
-        <dt className="text-sm text-ink-2">Creado</dt>
+        <dt className={dataLabel}>
+          <Icon name="calendar" className="text-accent-text" />
+          Creado
+        </dt>
         <dd className="text-ink">{formatDate(project.createdAt)}</dd>
       </dl>
     </Card>

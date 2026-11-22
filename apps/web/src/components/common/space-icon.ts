@@ -6,6 +6,6 @@ export const SPACE_ICON: Record<SpaceKind, IconName> = {
   drive: 'folder',
   sharepoint: 'folder',
   email: 'mail',
-  whatsapp: 'chat',
+  whatsapp: 'whatsapp',
   libro_obra: 'book',
 };

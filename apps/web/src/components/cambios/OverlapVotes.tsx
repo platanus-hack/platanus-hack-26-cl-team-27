@@ -3,6 +3,7 @@
 import { Button, Notice } from '@team27/ui';
 import { useState } from 'react';
 
+import { Icon } from '@/components/common/Icon';
 import { describeError } from '@/lib/http';
 import type { OverlapView } from '@/lib/proposals-api';
 import { castOverlapVote, type OverlapVoteKind } from '@/lib/votes-api';
@@ -61,7 +62,10 @@ function OverlapItem({
 
   return (
     <li className="flex flex-col gap-2 rounded-lg border border-hairline p-4">
-      <p className="font-medium text-ink">{overlap.title}</p>
+      <p className="flex items-center gap-2 font-medium text-ink">
+        <Icon name="layers" className="text-accent-text" />
+        {overlap.title}
+      </p>
       <p className="text-ink-2">{STATUS_TEXT[overlap.status]}</p>
       {overlap.votes.length > 0 && (
         <ul className="flex flex-col gap-1">
@@ -85,12 +89,14 @@ function OverlapItem({
             onClick={() => void send('se_tocan')}
             disabled={busy !== null}
           >
+            <Icon name="conflict" />
             {busy === 'se_tocan' ? 'Enviando…' : 'Se tocan'}
           </Button>
           <Button
             onClick={() => void send('no_se_tocan')}
             disabled={busy !== null}
           >
+            <Icon name="check" />
             {busy === 'no_se_tocan' ? 'Enviando…' : 'No se tocan'}
           </Button>
         </div>

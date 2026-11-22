@@ -1,5 +1,7 @@
 import { cx } from '@team27/ui';
 
+import { Avatar } from '@/components/common/Avatar';
+import { Icon, type IconName } from '@/components/common/Icon';
 import { RelativeTime } from '@/components/common/RelativeTime';
 import type {
   FollowUp,
@@ -29,6 +31,40 @@ export const deliveryText = (delivery: NoticeDelivery | null): string => {
   }
   return `Notificador: en cola para salir por ${channel}.`;
 };
+
+export const deliveryIcon = (
+  delivery: NoticeDelivery | null,
+): { readonly icon: IconName; readonly className: string } => {
+  if (!delivery) return { icon: 'minus', className: 'text-ink-3' };
+  if (delivery.status === 'sent')
+    return { icon: 'send', className: 'text-good' };
+  if (delivery.status === 'failed')
+    return { icon: 'alert', className: 'text-critical' };
+  if (delivery.status === 'skipped')
+    return { icon: 'ban', className: 'text-ink-3' };
+  return { icon: 'hourglass', className: 'text-warning' };
+};
+
+const ANSWER_ICON: Record<FollowUpAnswer, IconName> = {
+  reviewed: 'userCheck',
+  issue: 'alert',
+  not_affected: 'ban',
+  se_tocan: 'conflict',
+  no_se_tocan: 'check',
+};
+
+const iconOf = (person: FollowUpPerson): IconName =>
+  person.answer
+    ? ANSWER_ICON[person.answer]
+    : person.awaiting
+      ? 'hourglass'
+      : 'minus';
+
+const NOTICE_ICON = {
+  answer: 'chat',
+  escalation: 'flag',
+  closing: 'handshake',
+} as const satisfies Record<string, IconName>;
 
 const ANSWER_TEXT: Record<FollowUpAnswer, string> = {
   reviewed: 'Confirmó',
@@ -66,47 +102,67 @@ const NOTICE_KIND = {
 export function ChangeFollowUp({ followUp }: { readonly followUp: FollowUp }) {
   return (
     <div className="flex flex-col gap-5 text-sm">
-      <ul className="flex flex-col">
+      <ul className="stagger flex flex-col">
         {followUp.people.map((person) => (
           <li
             key={`${person.about}/${person.stakeholderId}`}
-            className="flex flex-col gap-0.5 border-b border-hairline py-2.5 last:border-0"
+            className="flex gap-3 border-b border-hairline py-2.5 last:border-0"
           >
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-              <p className="font-medium text-ink">
-                {person.name}{' '}
-                <span className="font-normal text-ink-2">
-                  · {person.role}
-                  {person.about === 'conflict' ? ' · valida el choque' : ''}
-                </span>
+            <Avatar
+              name={person.name}
+              size="sm"
+              decision={
+                person.answer === 'reviewed' || person.answer === 'no_se_tocan'
+                  ? 'approve'
+                  : person.answer === 'issue' || person.answer === 'se_tocan'
+                    ? 'dispute'
+                    : person.awaiting
+                      ? null
+                      : undefined
+              }
+            />
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                <p className="font-medium text-ink">
+                  {person.name}{' '}
+                  <span className="font-normal text-ink-2">
+                    · {person.role}
+                    {person.about === 'conflict' ? ' · valida el choque' : ''}
+                  </span>
+                </p>
+                <RelativeTime
+                  at={person.answeredAt}
+                  className="text-xs text-ink-2"
+                />
+              </div>
+              <p className={cx('flex items-center gap-1.5', toneOf(person))}>
+                <Icon name={iconOf(person)} />
+                {stateOf(person)}
               </p>
-              <RelativeTime
-                at={person.answeredAt}
-                className="text-xs text-ink-2"
-              />
+              {person.note && person.note !== DEFAULT_NOTE && (
+                <p className="text-ink">«{person.note}»</p>
+              )}
+              {person.reminders > 0 && (
+                <p className="flex flex-wrap items-center gap-x-1.5 text-ink-2">
+                  <Icon name="bellRing" className="text-warning" />
+                  {person.reminders === 1
+                    ? 'Le recordamos 1 vez'
+                    : `Le recordamos ${person.reminders} veces`}
+                  {person.lastReminderAt && (
+                    <>
+                      , la última <RelativeTime at={person.lastReminderAt} />
+                    </>
+                  )}
+                  .
+                </p>
+              )}
+              {person.escalatedAt && (
+                <p className="flex items-center gap-1.5 text-critical-text">
+                  <Icon name="flag" />
+                  Escalado al autor y a la administración del proyecto.
+                </p>
+              )}
             </div>
-            <p className={cx(toneOf(person))}>{stateOf(person)}</p>
-            {person.note && person.note !== DEFAULT_NOTE && (
-              <p className="text-ink">«{person.note}»</p>
-            )}
-            {person.reminders > 0 && (
-              <p className="text-ink-2">
-                {person.reminders === 1
-                  ? 'Le recordamos 1 vez'
-                  : `Le recordamos ${person.reminders} veces`}
-                {person.lastReminderAt && (
-                  <>
-                    , la última <RelativeTime at={person.lastReminderAt} />
-                  </>
-                )}
-                .
-              </p>
-            )}
-            {person.escalatedAt && (
-              <p className="text-critical-text">
-                Escalado al autor y a la administración del proyecto.
-              </p>
-            )}
           </li>
         ))}
       </ul>
@@ -124,7 +180,11 @@ export function ChangeFollowUp({ followUp }: { readonly followUp: FollowUp }) {
                 key={notice.id}
                 className="rounded-lg border border-hairline p-4"
               >
-                <p className="font-medium text-ink">
+                <p className="flex flex-wrap items-center gap-x-1.5 font-medium text-ink">
+                  <Icon
+                    name={NOTICE_ICON[notice.kind]}
+                    className="text-accent-text"
+                  />
                   {notice.subject}{' '}
                   <span className="font-normal text-ink-2">
                     · {NOTICE_KIND[notice.kind]} para{' '}
@@ -136,7 +196,14 @@ export function ChangeFollowUp({ followUp }: { readonly followUp: FollowUp }) {
                     {line}
                   </p>
                 ))}
-                <p className="mt-2 border-t border-hairline pt-2 text-ink-2">
+                <p className="mt-2 flex items-start gap-1.5 border-t border-hairline pt-2 text-ink-2">
+                  <Icon
+                    name={deliveryIcon(notice.delivery).icon}
+                    className={cx(
+                      'mt-0.5',
+                      deliveryIcon(notice.delivery).className,
+                    )}
+                  />
                   {deliveryText(notice.delivery)}
                 </p>
               </li>

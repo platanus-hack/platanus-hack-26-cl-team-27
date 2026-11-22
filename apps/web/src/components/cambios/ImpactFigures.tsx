@@ -1,6 +1,7 @@
 import { cx } from '@team27/ui';
 
 import { costText } from '@/components/common/CostDelay';
+import { Icon } from '@/components/common/Icon';
 import type { CostLine, TaskImpact } from '@/lib/changes-api';
 import {
   formatCLP,
@@ -11,6 +12,12 @@ import {
 } from '@/lib/format';
 
 export const td = 'py-2 pr-3 align-top text-sm text-ink';
+
+const figure =
+  'rounded-lg border border-hairline bg-surface p-3 transition-transform hover:-translate-y-0.5';
+const figureLabel = 'flex items-center gap-1.5 text-xs text-ink-2';
+const figureValue =
+  'mt-1 font-mono text-base font-semibold tabular-nums text-ink sm:text-lg';
 
 const signed = (value: number): string =>
   value === 0
@@ -34,22 +41,27 @@ export function ImpactFigures({ impact }: { readonly impact: ImpactNumbers }) {
 
   return (
     <>
-      <dl className="grid grid-cols-3 gap-3">
-        <div>
-          <dt className="text-xs text-ink-2">Costo</dt>
-          <dd className="text-base font-semibold tabular-nums text-ink sm:text-lg">
-            {costText(impact.costDelta)}
-          </dd>
+      <dl className="stagger grid grid-cols-3 gap-3">
+        <div className={figure}>
+          <dt className={figureLabel}>
+            <Icon name="coins" className="text-accent-text" />
+            Costo
+          </dt>
+          <dd className={figureValue}>{costText(impact.costDelta)}</dd>
         </div>
-        <div>
-          <dt className="text-xs text-ink-2">Plazo</dt>
-          <dd className="text-base font-semibold tabular-nums text-ink sm:text-lg">
-            {formatSignedDays(impact.delayDays)}
-          </dd>
+        <div className={figure}>
+          <dt className={figureLabel}>
+            <Icon name="calendar" className="text-accent-text" />
+            Plazo
+          </dt>
+          <dd className={figureValue}>{formatSignedDays(impact.delayDays)}</dd>
         </div>
-        <div>
-          <dt className="text-xs text-ink-2">Entrega</dt>
-          <dd className="text-base font-semibold tabular-nums text-ink sm:text-lg">
+        <div className={figure}>
+          <dt className={figureLabel}>
+            <Icon name="flag" className="text-accent-text" />
+            Entrega
+          </dt>
+          <dd className={figureValue}>
             {impact.projectDaysBefore === impact.projectDaysAfter
               ? formatDays(impact.projectDaysAfter)
               : `${impact.projectDaysBefore} → ${formatDays(impact.projectDaysAfter)}`}
@@ -128,9 +140,17 @@ export function ImpactFigures({ impact }: { readonly impact: ImpactNumbers }) {
                   {formatDays(task.daysBefore)} → {formatDays(task.daysAfter)}
                 </td>
                 <td className={cx(td, 'pr-0 text-right text-ink-2')}>
-                  {task.critical
-                    ? 'En la ruta crítica'
-                    : `Holgura de ${formatDays(task.floatDays)}`}
+                  {task.critical ? (
+                    <span className="inline-flex items-center gap-1 font-medium text-critical-text">
+                      <Icon name="route" />
+                      En la ruta crítica
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <Icon name="clock" className="text-ink-3" />
+                      Holgura de {formatDays(task.floatDays)}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

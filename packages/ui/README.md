@@ -26,6 +26,7 @@ En `next.config.ts`, agrega `'@team27/ui'` a `transpilePackages`.
 | `accent`, `accent-strong`, `accent-soft`, `accent-text`, `on-accent` | Botones, foco, navegación activa y enlaces; contraste AA en los dos modos |
 | `series-1` a `series-3` | Colores categóricos de gráficos (azul, naranjo, aqua), validados para daltonismo en ambos modos. El aqua claro queda bajo 3:1 sobre la superficie: siempre va con etiquetas visibles |
 | `good`, `warning`, `serious`, `critical` | Estados. Siempre con ícono y texto, nunca solo color |
+| `blueprint`, `blueprint-deep`, `plan-line`, `change` | Los del brand book (azul tinta, tinta profunda, azul plano y cian cambio), iguales en los dos modos. El cian marca solo lo que cambió y va siempre sobre `blueprint`, nunca sobre papel |
 
 ## Componentes
 

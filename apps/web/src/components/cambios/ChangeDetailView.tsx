@@ -4,6 +4,8 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import { useCallback } from 'react';
 
+import { Icon } from '@/components/common/Icon';
+import { PlanMark } from '@/components/common/IconBadge';
 import { Loading, LoadError } from '@/components/common/LoadState';
 import { textLink } from '@/components/common/link-styles';
 import { useProjectId } from '@/components/proyectos/ProjectContext';
@@ -40,17 +42,29 @@ export function ChangeDetailView({ changeId }: { readonly changeId: string }) {
   const userId = me.data?.user.id ?? null;
 
   return (
-    <article className="mx-auto flex max-w-3xl flex-col gap-5">
+    <article className="stagger mx-auto flex max-w-3xl flex-col gap-5">
       <nav className="text-sm">
-        <Link href={projectPage(projectId) as Route} className={textLink}>
-          ← Volver al proyecto
+        <Link
+          href={projectPage(projectId) as Route}
+          className={`${textLink} group`}
+        >
+          <Icon
+            name="back"
+            className="transition-transform group-hover:-translate-x-0.5"
+          />
+          Volver al proyecto
         </Link>
       </nav>
-      <header>
-        <p className="text-sm text-ink-2">Propuesta de cambio</p>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">
-          {changeTitle(data)}
-        </h1>
+      <header className="flex items-center gap-4">
+        <PlanMark className="size-16 sm:size-20" />
+        <div className="min-w-0">
+          <p className="font-mono text-xs tracking-wider text-ink-2 uppercase">
+            Propuesta de cambio
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">
+            {changeTitle(data)}
+          </h1>
+        </div>
       </header>
       {data.proposal && <ChangeCoordinated proposal={data.proposal} />}
       <ChangeDetailBody
