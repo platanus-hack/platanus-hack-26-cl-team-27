@@ -126,6 +126,9 @@ export class RoomService {
       ...(request.signal ? { signal: request.signal } : {}),
     });
     if (outcome.kind === 'aborted') return this.answer(base, after, []);
+    if (outcome.kind === 'full') {
+      return this.answer({ ...base, longPoll: false }, after, []);
+    }
     const beat =
       outcome.kind === 'reset' || Date.now() - started >= HEARTBEAT_MIN_MS
         ? await this.seats.heartbeat(request.token)

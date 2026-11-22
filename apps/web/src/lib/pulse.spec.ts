@@ -179,6 +179,13 @@ describe('espera larga', () => {
     expect(nextPulseDelay(700, 0, false, () => 0)).toBe(550);
   });
 
+  it('si la API llena responde longPoll false, el cliente espera el intervalo normal', () => {
+    const full = supportsLongPoll(reply(false));
+
+    expect(waitSecondsFor(full, true)).toBe(0);
+    expect(nextPulseDelay(1000, 0, full, () => 0.5)).toBe(1000);
+  });
+
   it('con errores retrocede aunque haya soporte', () => {
     expect(nextPulseDelay(700, 2, true, () => 0.5)).toBe(2800);
     expect(nextPulseDelay(700, 9, true, () => 0.5)).toBe(BACKOFF_CAP_MS);
