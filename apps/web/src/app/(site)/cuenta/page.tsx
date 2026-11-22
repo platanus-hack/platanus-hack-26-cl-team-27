@@ -5,12 +5,27 @@ import { AccountPanel } from '@/components/cuenta/AccountPanel';
 import { buttonLink } from '@/components/common/link-styles';
 import { LOGOUT_HREF, loginHref } from '@/lib/account-routes';
 import { auth0 } from '@/lib/auth0';
+import { callbackNotice } from '@/lib/autodesk-api';
 
 export const metadata: Metadata = { title: 'Cuenta' };
 
 export const dynamic = 'force-dynamic';
 
-export default async function AccountPage() {
+const single = (value: string | string[] | undefined): string =>
+  (Array.isArray(value) ? value[0] : value) ?? '';
+
+export default async function AccountPage({
+  searchParams,
+}: {
+  readonly searchParams: Promise<{
+    autodesk?: string | string[];
+    motivo?: string | string[];
+  }>;
+}) {
+  const { autodesk, motivo } = await searchParams;
+  const notice = callbackNotice(
+    new URLSearchParams({ autodesk: single(autodesk), motivo: single(motivo) }),
+  );
   if (!auth0) {
     return (
       <>
@@ -47,6 +62,11 @@ export default async function AccountPage() {
           </a>
         }
       />
+      {notice && (
+        <Notice tone={notice.tone} className="mb-6">
+          {notice.text}
+        </Notice>
+      )}
       <AccountPanel />
     </>
   );

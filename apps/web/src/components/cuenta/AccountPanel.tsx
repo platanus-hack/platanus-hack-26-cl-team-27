@@ -11,6 +11,7 @@ import {
   ROLE_LABELS,
 } from '@/lib/accounts-api';
 
+import { AutodeskCard } from './AutodeskCard';
 import { MembersCard } from './MembersCard';
 
 export function AccountPanel() {
@@ -57,6 +58,10 @@ export function AccountPanel() {
               </ul>
             )}
           </Card>
+          <AutodeskCard
+            organizationId={organization.id}
+            canManage={organization.role === 'admin'}
+          />
           <MembersCard
             organizationId={organization.id}
             canInvite={organization.role === 'admin'}

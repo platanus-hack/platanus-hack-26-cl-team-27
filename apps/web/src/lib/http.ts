@@ -119,6 +119,8 @@ export const describeError = (error: unknown): string => {
         return 'No eres parte de esa organización.';
       case 'already_member':
         return 'Esa persona ya es parte de la organización.';
+      case 'aps_oauth_not_configured':
+        return 'La conexión con Autodesk no está configurada en la API.';
       default:
     }
     if (error.status === 401) return 'Tu asiento o tu clave ya no son válidos.';

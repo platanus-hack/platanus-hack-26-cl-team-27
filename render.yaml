@@ -37,7 +37,11 @@ services:
       - key: APS_CLIENT_SECRET
         sync: false
       - key: APS_BUCKET_KEY
-        value: vigente-956d852fc0a3c635
+        value: vigente-8b87f1a2b6424d31
+      - key: APS_CALLBACK_URL
+        value: https://hack-team-27.vercel.app/api/integrations/aps/callback
+      - key: APS_TOKEN_KEY
+        sync: false
 
 databases:
   - name: vigente-db

@@ -34,6 +34,26 @@ describe('envSchema', () => {
     ).toBe('vigente-b');
   });
 
+  it('el callback de APS es una URL y la clave de los tokens son 64 hexadecimales', () => {
+    expect(
+      envSchema.parse({ APS_TOKEN_KEY: '' }).APS_TOKEN_KEY,
+    ).toBeUndefined();
+    expect(
+      envSchema.parse({ APS_TOKEN_KEY: ` ${'ab'.repeat(32)} ` }).APS_TOKEN_KEY,
+    ).toBe('ab'.repeat(32));
+    expect(() => envSchema.parse({ APS_TOKEN_KEY: 'corta' })).toThrow();
+    expect(() => envSchema.parse({ APS_TOKEN_KEY: 'g'.repeat(64) })).toThrow();
+    expect(
+      envSchema.parse({
+        APS_CALLBACK_URL: 'http://localhost:3000/api/integrations/aps/callback',
+      }).APS_CALLBACK_URL,
+    ).toBe('http://localhost:3000/api/integrations/aps/callback');
+    expect(
+      envSchema.parse({ APS_CALLBACK_URL: '' }).APS_CALLBACK_URL,
+    ).toBeUndefined();
+    expect(() => envSchema.parse({ APS_CALLBACK_URL: 'no-es-url' })).toThrow();
+  });
+
   it('convierte el puerto a número y separa los orígenes', () => {
     const env = envSchema.parse({
       API_PORT: '4000',

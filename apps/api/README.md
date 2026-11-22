@@ -48,6 +48,10 @@ Todas cuelgan de `/api`. Los POST responden 201, salvo los que dicen 204. Los er
 | `GET /projects` | Con token. `{ projects: { id, organizationId, name, location, description }[] }`: solo los de sus organizaciones |
 | `GET /organizations/:id/members` | Con token y siendo parte de la organización (403 `not_a_member`). `{ members: { userId, email, name, role }[], invitations: { id, email, role, createdAt }[] }` (las pendientes) |
 | `POST /organizations/:id/invitations` | Con token y rol `admin` (403 `admin_required`). `{ email, role: 'admin' \| 'member' }`. Crea o actualiza la invitación; 409 `already_member` si ya es parte. Se acepta sola cuando esa persona entra |
+| `GET /organizations/:id/integrations/aps` | Con token y siendo parte (403 `not_a_member`). `{ configured, connection }`: `configured` es `false` sin `APS_CLIENT_ID`, `APS_CLIENT_SECRET`, `APS_CALLBACK_URL` o `APS_TOKEN_KEY`; `connection` es `null` sin conexión, o `{ status: 'active' \| 'reconnect_required', autodeskUser: { id, email, name }, scopes, connectedById, connectedAt, refreshedAt }`. Nunca trae tokens. `Cache-Control: no-store` |
+| `POST /organizations/:id/integrations/aps/authorize` | 200 con token y rol `admin` (403 `admin_required`). `{ url }`: la página de consentimiento de Autodesk (`/authentication/v2/authorize`) con el `state` sellado. Deja la cookie `vigente_aps_oauth` (HttpOnly, SameSite=Lax, 10 minutos, en la ruta del callback). 503 `aps_oauth_not_configured` sin configurar |
+| `DELETE /organizations/:id/integrations/aps` | 204 con token y rol `admin`. Revoca el refresh token en Autodesk (si falla, sigue) y borra la conexión |
+| `GET /integrations/aps/callback?code&state&error` | A donde vuelve Autodesk. Sin token: lo que vale es el `state` y la cookie. Canjea el código, guarda la conexión y redirige (302) a `/cuenta?autodesk=conectada`, o a `/cuenta?autodesk=error&motivo=<invalid_state \| access_denied \| code_rejected \| aps_unavailable>`. Borra la cookie en ambos casos |
 
 Cabeceras:
 
@@ -123,7 +127,8 @@ src/
     ├── coordination/             orquesta la cadena y expone las rutas de datos; `revision-body.ts` valida la ingesta genérica y la carga inicial, `chunk-reader.ts` lee los fragmentos de texto libre, `revit-minute.ts` valida la minuta de Revit y la convierte en hechos, y `integrations.controller.ts` la recibe
     ├── flow/                     el flujo de 4 pasos del caso P-12: flow-engine (estado en memoria, transiciones, idempotencia, dueñas y textos), controller, service y módulo
     ├── room/                     asientos, eventos, reinicio (módulo de la API, no un contexto)
-    └── aps/                      Autodesk Platform Services (módulo de la API, no un contexto): ApsAuth (token 2-legged cacheado por scopes), ModelsCatalog (los modelos traducidos del bucket) y las rutas del visor
+    ├── aps/                      Autodesk Platform Services (módulo de la API, no un contexto): ApsAuth (token 2-legged cacheado por scopes), ModelsCatalog (los modelos traducidos del bucket) y las rutas del visor
+    └── integrations/aps/         la conexión de una organización con su cuenta de Autodesk (OAuth de tres patas): TokenCipher, el estado sellado, los puertos TokenVault y ApsOAuthClient con sus adapters, ApsConnectionService, el controller y el módulo
 tests/                            replica src/: Vitest, sin base de datos
 ```
 
@@ -155,5 +160,16 @@ Los modelos de Revit se ven con el visor de Autodesk Platform Services. Las cred
 La API no guarda un catálogo. `ModelsCatalog` lista los objetos del bucket en OSS (todas las páginas, con un token de `data:read`), pide el manifiesto de cada uno a Model Derivative y entrega los que están traducidos, con la URN y la disciplina que sale del nombre del archivo (`caso-estructura` queda en `structural` y `caso-electrico` en `electrical`). Un manifiesto que no existe es un modelo sin traducir. La lista se guarda en memoria 5 minutos, dos pedidos a la par comparten la misma consulta y un error de APS no se guarda.
 
 Un bucket es de la app de APS que lo creó: la API corre con las mismas credenciales con que se subieron los modelos ([despliegue](../../docs/despliegue.md)). Quien sube y traduce es la CLI [`apps/aps`](../aps/README.md) (`pnpm aps:models`).
+
+## Conexión con Autodesk
+
+Para leer los proyectos de Autodesk Construction Cloud, un administrador de la organización conecta una vez su cuenta de Autodesk. La conexión es de la organización (una por organización, tabla `aps_connections`) y guarda quién la hizo. Es un módulo de la API, `modules/integrations/aps`, no un contexto: sus puertos y adapters viven ahí.
+
+- **Configuración.** Usa la misma app de APS que el visor (`APS_CLIENT_ID`, `APS_CLIENT_SECRET`), más `APS_CALLBACK_URL` y `APS_TOKEN_KEY`. Si falta alguna, la API arranca igual: el estado responde `configured: false` y conectar, 503 `aps_oauth_not_configured`.
+- **El flujo.** `POST …/authorize` arma la URL de `/authentication/v2/authorize` (`response_type=code`, scopes `data:read account:read user-profile:read`) con un `state` que es `{ organizationId, userId, nonce, expiresAt }` cifrado con `APS_TOKEN_KEY` (10 minutos), y deja el `nonce` en una cookie HttpOnly. El callback abre el `state`, lo compara con la cookie en tiempo constante (así un enlace de callback ajeno no conecta nada: CSRF), canjea el código en `/authentication/v2/token` como cliente privado, pide el perfil (`/userinfo`) y guarda la conexión. El callback y la cookie pasan por la web, así que `APS_CALLBACK_URL` apunta a `<web>/api/integrations/aps/callback`, y al terminar se redirige a `/cuenta` del mismo origen. Que la persona sea administradora se revisa al pedir la URL.
+- **Refresh token.** APS v2 entrega un refresh token con el código, sin un scope extra, que vale 15 días y se rota en cada renovación: el nuevo reemplaza al anterior (si APS no manda otro, se queda el que había).
+- **Cifrado.** `TokenCipher` usa AES-256-GCM de `node:crypto` con un IV aleatorio de 12 bytes y el tag de 16; el texto queda como `v1.<iv>.<tag>.<cifrado>` en base64url. El access y el refresh token van en columnas separadas, cada uno con su contexto (`aps:<organización>:access_token`) como datos asociados, así que un texto copiado a otra fila o a otra columna no se descifra. Si `APS_TOKEN_KEY` cambia, las conexiones guardadas quedan en `reconnect_required`.
+- **Renovación sola.** `ApsConnectionService.getValidAccessToken(organizationId)` es lo que usan las lecturas a Autodesk: entrega el access token guardado si le quedan más de 5 minutos, y si no, lo renueva con el refresh token y guarda los dos tokens nuevos. Dos pedidos a la par renuevan una sola vez (la API corre en un proceso). Si Autodesk rechaza la renovación (400, 401 o 403), la conexión queda en `reconnect_required` y no se reintenta hasta reconectar; si APS no responde, sigue activa. Además, cada 6 horas renueva las conexiones activas que llevan una semana sin renovarse, para que el refresh token no venza sin uso.
+- **Errores** de `ApsConnectionError`: `not_connected`, `reconnect_required`, `aps_unavailable`, y en el callback `invalid_state`, `access_denied` y `code_rejected`.
 
 Variables, cómo se compone un contexto y por qué Node ejecuta los paquetes del workspace como TypeScript: [arquitectura](../../docs/arquitectura.md).
