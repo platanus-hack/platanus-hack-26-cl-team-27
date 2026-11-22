@@ -4,7 +4,12 @@ import type { PrismaClient } from '@team27/data-main';
 import { fail } from '../coordination/http-errors.ts';
 import { PRISMA_CLIENT } from '../database/database.module.ts';
 import { type Identity, InvalidTokenError } from './identity.ts';
-import { freeProjectId, projectNameKey, projectSlug } from './project-id.ts';
+import {
+  freeId,
+  nameKey,
+  organizationSlug,
+  projectSlug,
+} from './project-id.ts';
 
 export const IDENTITY = 'IDENTITY';
 
@@ -71,7 +76,9 @@ export class AccountsService {
     });
     const user = known ?? (await this.register(identity, token, subject));
     await this.acceptInvitations(user.id, user.email);
-    return this.account(user.id);
+    const account = await this.account(user.id);
+    if (account.memberships.length === 0) throw this.notInvited();
+    return account;
   }
 
   requireMember(account: Account, organizationId: string): AccountMembership {
@@ -96,6 +103,75 @@ export class AccountsService {
         'Solo un administrador de la organización puede hacerlo',
       );
     }
+  }
+
+  async createOrganization(
+    account: Account,
+    name: string,
+  ): Promise<AccountMembership> {
+    if (!account.memberships.some((item) => item.role === 'admin')) {
+      throw fail(
+        HttpStatus.FORBIDDEN,
+        'admin_required',
+        'Solo un administrador puede crear organizaciones',
+      );
+    }
+    const key = nameKey(name);
+    if (
+      account.memberships.some((item) => nameKey(item.organizationName) === key)
+    ) {
+      throw fail(
+        HttpStatus.CONFLICT,
+        'organization_name_taken',
+        `Ya eres parte de una organización llamada «${name}»`,
+      );
+    }
+    const slug = organizationSlug(name);
+    const taken = await this.prisma.organization.findMany({
+      where: { id: { startsWith: slug } },
+      select: { id: true },
+    });
+    const organization = await this.prisma.organization.create({
+      data: {
+        id: freeId(
+          slug,
+          taken.map((row) => row.id),
+        ),
+        name,
+        memberships: { create: { userId: account.id, role: 'admin' } },
+      },
+      select: { id: true, name: true },
+    });
+    return {
+      organizationId: organization.id,
+      organizationName: organization.name,
+      role: 'admin',
+    };
+  }
+
+  async deleteOrganization(
+    account: Account,
+    organizationId: string,
+  ): Promise<void> {
+    this.requireAdmin(account, organizationId);
+    if (account.memberships.length === 1) {
+      throw fail(
+        HttpStatus.CONFLICT,
+        'last_organization',
+        'Es tu única organización: si la eliminas, te quedas sin acceso',
+      );
+    }
+    const projects = await this.prisma.project.count({
+      where: { organizationId },
+    });
+    if (projects > 0) {
+      throw fail(
+        HttpStatus.CONFLICT,
+        'organization_has_projects',
+        'La organización tiene proyectos: no se puede eliminar',
+      );
+    }
+    await this.prisma.organization.delete({ where: { id: organizationId } });
   }
 
   async projects(account: Account) {
@@ -142,8 +218,8 @@ export class AccountsService {
       where: { organizationId: { in: [input.organizationId] } },
       select: { name: true },
     });
-    const key = projectNameKey(input.name);
-    if (siblings.some((sibling) => projectNameKey(sibling.name) === key)) {
+    const key = nameKey(input.name);
+    if (siblings.some((sibling) => nameKey(sibling.name) === key)) {
       throw fail(
         HttpStatus.CONFLICT,
         'project_name_taken',
@@ -155,7 +231,7 @@ export class AccountsService {
       where: { id: { startsWith: slug } },
       select: { id: true },
     });
-    const id = freeProjectId(
+    const id = freeId(
       slug,
       taken.map((row) => row.id),
     );
@@ -267,6 +343,14 @@ export class AccountsService {
     );
   }
 
+  private notInvited() {
+    return fail(
+      HttpStatus.FORBIDDEN,
+      'not_invited',
+      'Tu correo no tiene una invitación. Pídele a un administrador de tu organización que te invite',
+    );
+  }
+
   private async register(identity: Identity, token: string, subject: string) {
     let profile;
     try {
@@ -281,6 +365,10 @@ export class AccountsService {
         'Confirma tu correo antes de entrar',
       );
     }
+    const invited = await this.prisma.invitation.findFirst({
+      where: { email: profile.email, acceptedAt: null },
+    });
+    if (!invited) throw this.notInvited();
     return this.prisma.user.upsert({
       where: { authSubject: subject },
       create: {

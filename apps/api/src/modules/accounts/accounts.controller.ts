@@ -1,8 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
+  HttpCode,
+  HttpStatus,
   Inject,
   Param,
   Post,
@@ -22,6 +25,10 @@ export const projectBody = z.object({
   name: z.string().trim().min(1).max(120),
   location: z.string().trim().max(200).default(''),
   description: z.string().trim().max(1000).default(''),
+});
+
+export const organizationBody = z.object({
+  name: z.string().trim().min(1).max(120),
 });
 
 const invitationBody = z.object({
@@ -71,6 +78,28 @@ export class AccountsController {
     @Param('projectId', { schema: projectId }) id: string,
   ) {
     return this.accounts.project(account, id);
+  }
+
+  @Post('organizations')
+  async createOrganization(
+    @CurrentAccount() account: Account,
+    @Body({ schema: organizationBody }) body: z.output<typeof organizationBody>,
+  ) {
+    const created = await this.accounts.createOrganization(account, body.name);
+    return {
+      id: created.organizationId,
+      name: created.organizationName,
+      role: created.role,
+    };
+  }
+
+  @Delete('organizations/:organizationId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteOrganization(
+    @CurrentAccount() account: Account,
+    @Param('organizationId', { schema: organizationId }) id: string,
+  ): Promise<void> {
+    await this.accounts.deleteOrganization(account, id);
   }
 
   @Get('organizations/:organizationId/members')
