@@ -5,7 +5,10 @@ import {
   Inject,
   Logger,
   ServiceUnavailableException,
+  UseGuards,
 } from '@nestjs/common';
+
+import { AccountGuard } from '../accounts/account.guard.ts';
 
 import {
   ApsAuth,
@@ -17,6 +20,7 @@ import { APS_AUTH, MODELS_CATALOG } from './aps.tokens.ts';
 import type { ModelsCatalog, ViewerModel } from './models-catalog.ts';
 
 @Controller('aps')
+@UseGuards(AccountGuard)
 export class ApsController {
   private readonly logger = new Logger(ApsController.name);
   private readonly auth: ApsAuth | null;

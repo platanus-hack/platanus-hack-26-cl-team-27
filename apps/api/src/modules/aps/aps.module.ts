@@ -2,12 +2,14 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '../../config/index.ts';
+import { AccountsModule } from '../accounts/accounts.module.ts';
 import { ApsAuth } from './aps-auth.ts';
 import { ApsController } from './aps.controller.ts';
 import { APS_AUTH, MODELS_CATALOG } from './aps.tokens.ts';
 import { createModelsCatalog } from './models-catalog.ts';
 
 @Module({
+  imports: [AccountsModule],
   controllers: [ApsController],
   providers: [
     {

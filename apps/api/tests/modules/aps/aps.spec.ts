@@ -5,6 +5,9 @@ import type { ModelDerivativeClient } from '@aps_sdk/model-derivative';
 import type { OssClient } from '@aps_sdk/oss';
 
 import { APP_OPTIONS, setupApp } from '../../../src/app.setup.ts';
+import { AccountGuard } from '../../../src/modules/accounts/account.guard.ts';
+import { AccountsService } from '../../../src/modules/accounts/accounts.service.ts';
+import { fail } from '../../../src/modules/coordination/http-errors.ts';
 import { ApsAuth, VIEWER_SCOPES } from '../../../src/modules/aps/aps-auth.ts';
 import { ApsController } from '../../../src/modules/aps/aps.controller.ts';
 import {
@@ -233,9 +236,25 @@ describe('ApsController', () => {
     auth: ApsAuth | null,
     catalog: Pick<ModelsCatalog, 'list'> | null,
   ) => {
+    const accounts = {
+      authenticate: vi.fn(async (token: string) => {
+        if (token !== 'token-ana') {
+          throw fail(401, 'invalid_token', 'x');
+        }
+        return {
+          id: 'u1',
+          email: 'ana@example.com',
+          name: 'Ana',
+          superadmin: false,
+          memberships: [],
+        };
+      }),
+    };
     const moduleRef = await Test.createTestingModule({
       controllers: [ApsController],
       providers: [
+        AccountGuard,
+        { provide: AccountsService, useValue: accounts },
         { provide: APS_AUTH, useValue: auth },
         { provide: MODELS_CATALOG, useValue: catalog },
       ],
@@ -244,24 +263,41 @@ describe('ApsController', () => {
       moduleRef.createNestApplication({ ...APP_OPTIONS, logger: false }),
     );
     await app.listen(0);
-    return { app, base: `${await app.getUrl()}/api/aps` };
+    const root = `${await app.getUrl()}/api/aps`;
+    const call = (path: string, token = 'token-ana') =>
+      fetch(`${root}/${path}`, {
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+      });
+    return { app, call };
   };
+
+  it('pide entrar con la cuenta', async () => {
+    const { app, call } = await start(null, null);
+    try {
+      for (const path of ['viewer-token', 'models']) {
+        expect((await call(path, '')).status).toBe(401);
+        expect((await call(path, 'otro')).status).toBe(401);
+      }
+    } finally {
+      await app.close();
+    }
+  });
 
   it('entrega un token de solo lectura del visor y los modelos traducidos', async () => {
     const { client, getTwoLeggedToken } = fakeClient();
-    const { app, base } = await start(
+    const { app, call } = await start(
       new ApsAuth({ clientId: 'id', clientSecret: 's' }, { client }),
       { list: async () => models },
     );
     try {
-      const token = await fetch(`${base}/viewer-token`);
+      const token = await call('viewer-token');
       expect(token.status).toBe(200);
       expect(token.headers.get('cache-control')).toBe('no-store');
       expect(await token.json()).toMatchObject({ access_token: 'tok' });
       expect(getTwoLeggedToken).toHaveBeenCalledWith('id', 's', [
         'viewables:read',
       ]);
-      const response = await fetch(`${base}/models`);
+      const response = await call('models');
       expect(await response.json()).toEqual({ models });
     } finally {
       await app.close();
@@ -269,10 +305,10 @@ describe('ApsController', () => {
   });
 
   it('responde 503 aps_not_configured sin credenciales ni bucket', async () => {
-    const { app, base } = await start(null, null);
+    const { app, call } = await start(null, null);
     try {
       for (const path of ['viewer-token', 'models']) {
-        const response = await fetch(`${base}/${path}`);
+        const response = await call(path);
         expect(response.status).toBe(503);
         expect(await response.json()).toMatchObject({
           code: 'aps_not_configured',
@@ -284,11 +320,11 @@ describe('ApsController', () => {
   });
 
   it('responde 503 aps_unavailable si APS no entrega la lista', async () => {
-    const { app, base } = await start(null, {
+    const { app, call } = await start(null, {
       list: () => Promise.reject(new Error('APS caído')),
     });
     try {
-      const response = await fetch(`${base}/models`);
+      const response = await call('models');
       expect(response.status).toBe(503);
       expect(await response.json()).toMatchObject({ code: 'aps_unavailable' });
     } finally {

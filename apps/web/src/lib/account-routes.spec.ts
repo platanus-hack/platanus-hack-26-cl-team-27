@@ -29,13 +29,14 @@ describe('needsAccountToken', () => {
     '/api/integrations/google/authorize',
     '/api/admin/users',
     '/api/admin/invitations',
+    '/api/aps/models',
+    '/api/aps/viewer-token',
   ])('%s lleva el token de la cuenta', (path) => {
     expect(needsAccountToken(path)).toBe(true);
   });
 
   it.each([
     '/api/health',
-    '/api/aps/models',
     '/api/members',
     '/api/meta',
     '/api/integrations/otra',
