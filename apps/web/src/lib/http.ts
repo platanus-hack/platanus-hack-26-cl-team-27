@@ -189,6 +189,8 @@ export const describeError = (error: unknown): string => {
         return 'Tu sesión venció. Vuelve a entrar.';
       case 'email_not_verified':
         return 'Confirma tu correo antes de entrar.';
+      case 'not_invited':
+        return 'Tu correo no tiene una invitación. Pídele a un administrador de tu organización que te invite y vuelve a entrar.';
       case 'auth_not_configured':
         return 'Las cuentas no están configuradas en la API.';
       case 'admin_required':
@@ -197,6 +199,12 @@ export const describeError = (error: unknown): string => {
         return 'No eres parte de esa organización.';
       case 'already_member':
         return 'Esa persona ya es parte de la organización.';
+      case 'organization_name_taken':
+        return 'Ya eres parte de una organización con ese nombre. Elige otro.';
+      case 'organization_has_projects':
+        return 'La organización tiene proyectos, así que no se puede eliminar.';
+      case 'last_organization':
+        return 'Es tu única organización: si la eliminas, te quedas sin acceso.';
       case 'project_name_taken':
         return 'Ya hay un proyecto con ese nombre en la organización. Elige otro.';
       case 'aps_oauth_not_configured':

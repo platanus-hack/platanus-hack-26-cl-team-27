@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 
 import { buttonLink } from '@/components/common/link-styles';
-import { Empty, LoadError, Loading } from '@/components/common/LoadState';
+import { LoadError, Loading } from '@/components/common/LoadState';
 import { useResource } from '@/hooks/use-resource';
 import {
   createProject,
@@ -29,14 +29,6 @@ export function NewProjectForm({
   const me = useResource((signal) => getMe(signal), 'me');
   if (me.error) return <LoadError message={me.error} />;
   if (!me.data) return <Loading />;
-  if (me.data.organizations.length === 0) {
-    return (
-      <Empty>
-        Para crear un proyecto tienes que ser parte de una organización. Pídele
-        a un administrador que invite tu correo y vuelve a entrar.
-      </Empty>
-    );
-  }
   return (
     <ProjectForm
       me={me.data}
