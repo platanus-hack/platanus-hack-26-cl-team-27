@@ -131,3 +131,44 @@ export const escalationMemo = (
   ],
   ask: 'Mira el seguimiento',
 });
+
+export const CONFLICT_OUTCOMES = ['descartado', 'resuelto'] as const;
+
+export type ConflictOutcome = (typeof CONFLICT_OUTCOMES)[number];
+
+export interface ClosingToTell {
+  readonly about: string;
+  readonly version: number;
+  readonly confirmed: readonly string[];
+  readonly notAffected: readonly string[];
+  readonly conflicts: readonly {
+    readonly with: string;
+    readonly outcome: ConflictOutcome;
+  }[];
+  readonly moves: boolean;
+}
+
+const CONFLICT_END: Readonly<Record<ConflictOutcome, string>> = {
+  descartado: 'se descartó: no se tocan',
+  resuelto: 'quedó resuelto',
+};
+
+export const closingMemo = (closing: ClosingToTell): NoticeMemo => ({
+  subject: `Cambio coordinado: ${closing.about}`,
+  why: 'Te avisamos porque este cambio ya está vigente.',
+  lines: [
+    `Es la versión ${closing.version} del proyecto.`,
+    ...(closing.confirmed.length > 0
+      ? [`Confirmaron: ${closing.confirmed.join(', ')}.`]
+      : []),
+    ...(closing.notAffected.length > 0
+      ? [`Sin efecto para: ${closing.notAffected.join(', ')}.`]
+      : []),
+    ...closing.conflicts.map(
+      (conflict) =>
+        `El choque con ${conflict.with} ${CONFLICT_END[conflict.outcome]}.`,
+    ),
+    ...(closing.moves ? [] : ['No mueve el costo ni el plazo.']),
+  ],
+  ask: 'Mira el cambio coordinado',
+});

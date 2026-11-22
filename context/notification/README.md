@@ -1,6 +1,6 @@
 # @team27/context-notification
 
-Lleva el impacto a cada afectado. Los avisos que piden una respuesta son dos (`NoticeKind`): el **aviso de cambio** (`change`), solo a los afectados, y el **aviso de conflicto** (`conflict`), a los dos autores y a los afectados de los dos cambios que chocan. Los del seguimiento solo informan: `answer` le cuenta al autor cada respuesta y `escalation` le dice al autor y a la administración quién no responde. `NotifyStakeholders` junta los hallazgos de cada persona en un solo aviso (`Notification`) por cambio, en el canal de esa persona, con el enlace al detalle del cambio en su proyecto (`/proyectos/<proyecto>/cambios/<cambio>`). `NotifyConflict` guarda un aviso por persona y solapamiento. `RespondToNotification` guarda lo que contesta.
+Lleva el impacto a cada afectado. Los avisos que piden una respuesta son dos (`NoticeKind`): el **aviso de cambio** (`change`), solo a los afectados, y el **aviso de conflicto** (`conflict`), a los dos autores y a los afectados de los dos cambios que chocan. Los demás solo informan: `answer` le cuenta al autor cada respuesta, `escalation` le dice al autor y a la administración quién no responde, y `closing` avisa a todos que el cambio quedó coordinado. `NotifyStakeholders` junta los hallazgos de cada persona en un solo aviso (`Notification`) por cambio, en el canal de esa persona, con el enlace al detalle del cambio en su proyecto (`/proyectos/<proyecto>/cambios/<cambio>`). `NotifyConflict` guarda un aviso por persona y solapamiento. `RespondToNotification` guarda lo que contesta.
 
 ## Dominio
 
@@ -29,7 +29,7 @@ Lleva el impacto a cada afectado. Los avisos que piden una respuesta son dos (`N
 | `ReopenResponse`        | `ReopenResponse(notificationId)` limpia la respuesta; `null` si el aviso no existe |
 | `GetNotification`       | Un aviso por id, o `null`                                   |
 | `ListStakeholders`      | El directorio                                               |
-| `NotifyMemo`            | Guarda un aviso informativo (`answer` o `escalation`) para cada destinatario del directorio |
+| `NotifyMemo`            | Guarda un aviso informativo (`answer`, `escalation` o `closing`) para cada destinatario del directorio |
 | `AnswerConflictNotice`  | `{ stakeholderId, overlapId, kind, note? }`: deja en el aviso de conflicto de esa persona su voto (`se_tocan` o `no_se_tocan`) como respuesta |
 | `FollowUpNotices`       | `(avisos que esperan respuesta, ahora)`: encola el recordatorio de los que cumplen el plazo y marca como escalados los que ya agotaron los recordatorios; devuelve qué hizo con cada uno |
 | `DeliverNotifications`  | Una vuelta de envío: toma de la cola los avisos pendientes y manda cada uno por el sender de su canal |
@@ -49,6 +49,8 @@ El seguimiento son tres cosas, todas con texto fijo y sin modelo:
 - **Avisa al autor.** `answerMemo` escribe el aviso de cada respuesta: quién, qué respondió (`AnswerKind`: `reviewed`, `issue`, `not_affected`, `se_tocan` o `no_se_tocan`), su nota, cómo van las confirmaciones y qué hacer. Una objeción parte con «Objeción:».
 - **Recuerda.** `followUpStep(estado, ahora, ajustes)` es pura: mientras no pase el plazo desde el último contacto (el aviso o su último recordatorio) responde `wait`; pasado el plazo, `remind` hasta agotar los recordatorios y después `escalate`, una sola vez. Un recordatorio es otra entrega del mismo aviso (`kind: 'reminder'` en la cola) que nace cuando toca, no una fila a futuro: así no la alcanza el descarte de entregas de más de un día. Sale con «Recordatorio: todavía falta tu respuesta.» (`asReminder`), y si la persona respondió antes de que saliera, queda `skipped` con «Ya respondió».
 - **Escala.** `escalationMemo` nombra a quien no responde y cuántas veces se le recordó. El aviso que escaló guarda `context.escalatedAt`.
+
+- **Cierra.** `closingMemo` escribe el aviso de «Cambio coordinado»: la versión del proyecto, quién confirmó, a quién no le afecta y cómo terminó cada choque (descartado o resuelto). El costo y el plazo finales van en la línea de impacto del aviso; si el cambio no mueve ninguno, lo dice.
 
 `expectsAnswer` dice qué avisos esperan respuesta: los de cambio y los de conflicto de quien valida. Quién sigue pendiente de verdad (la propuesta sigue activa, el solapamiento sigue vivo) lo decide la API con `lake`. Los ajustes (`FollowUpSettings`) son el plazo y cuántos recordatorios van antes de escalar; por defecto, un día y dos.
 

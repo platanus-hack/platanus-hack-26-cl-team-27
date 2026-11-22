@@ -3,6 +3,7 @@ import type { Notification } from '@team27/context-notification';
 
 import {
   awaitingNotices,
+  closingOf,
   escalationsOf,
 } from '../../../src/modules/coordination/follow-up.ts';
 import { project } from '../../project.ts';
@@ -157,6 +158,45 @@ describe('a quién se escala', () => {
       changeId: 'c1',
       authorId: 'fernanda-lagos',
       pending: [{ id: 'paula-rojas', name: 'Paula Rojas', reminders: 2 }],
+    });
+  });
+});
+
+describe('qué dice el cierre de un cambio', () => {
+  it('quién confirmó, a quién no le afecta y cómo terminó cada choque de la propuesta', () => {
+    const merged = proposal({
+      status: 'merged',
+      reviews: [
+        { reviewerId: 'paula-rojas', decision: 'approve', note: null, at },
+        { reviewerId: 'javier-munoz', decision: 'approve', note: null, at },
+      ],
+      filtered: [
+        { id: 'camila-vera', reason: 'x', notAffected: true },
+        { id: 'tomas-reyes', reason: 'No le toca' },
+      ],
+    });
+
+    expect(
+      closingOf(
+        project,
+        merged,
+        [
+          overlap({ status: 'descartado' }),
+          overlap({ id: 'o2', status: 'abierto' }),
+          overlap({ id: 'o3', proposalId: 'otra', status: 'resuelto' }),
+        ],
+        3,
+        false,
+      ),
+    ).toEqual({
+      about: expect.any(String),
+      version: 3,
+      confirmed: ['Paula Rojas', 'Javier Muñoz'],
+      notAffected: ['Camila Vera'],
+      conflicts: [
+        { with: project.subjectName('colector-b2'), outcome: 'descartado' },
+      ],
+      moves: false,
     });
   });
 });

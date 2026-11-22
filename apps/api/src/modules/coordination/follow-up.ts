@@ -6,6 +6,7 @@ import {
 } from '@team27/context-lake';
 import {
   type AnswerKind,
+  type ClosingToTell,
   expectsAnswer,
   type FollowedNotice,
   followUpStateOf,
@@ -111,6 +112,45 @@ export const escalationsOf = (
     };
   });
 };
+
+export const closingOf = (
+  project: ProjectCatalog,
+  proposal: Proposal,
+  overlaps: readonly Overlap[],
+  version: number,
+  moves: boolean,
+): ClosingToTell => ({
+  about: proposalTitle(project, proposal),
+  version,
+  confirmed: proposal.reviews
+    .filter((review) => review.decision === 'approve')
+    .map((review) => project.castName(review.reviewerId)),
+  notAffected: proposal.filtered
+    .filter((person) => person.notAffected)
+    .map((person) => project.castName(person.id)),
+  conflicts: overlaps.flatMap((overlap) => {
+    const involved =
+      overlap.proposalId === proposal.id ||
+      overlap.otherProposalId === proposal.id;
+    if (
+      !involved ||
+      (overlap.status !== 'descartado' && overlap.status !== 'resuelto')
+    ) {
+      return [];
+    }
+    return [
+      {
+        with: project.subjectName(
+          overlap.proposalId === proposal.id
+            ? overlap.otherSubjectId
+            : overlap.subjectId,
+        ),
+        outcome: overlap.status,
+      },
+    ];
+  }),
+  moves,
+});
 
 const DECISION_ANSWER = { approve: 'reviewed', dispute: 'issue' } as const;
 

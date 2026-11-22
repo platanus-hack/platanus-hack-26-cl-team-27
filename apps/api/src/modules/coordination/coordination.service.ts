@@ -4,7 +4,9 @@ import {
   type AnswerKind,
   answerMemo,
   type AnswerProgress,
+  closingMemo,
   conflictTitle,
+  expectsAnswer,
   isChangeNotice,
   type ResponseKind,
 } from '@team27/context-notification';
@@ -31,6 +33,7 @@ import { ActionLog } from './action-log.ts';
 import { ChunkReader } from './chunk-reader.ts';
 import { elementsFromBaseline } from './elements-from-baseline.ts';
 import { diffEvents, type EventDraft, emitEvents, observe } from './events.ts';
+import { closingOf } from './follow-up.ts';
 import { fail } from './http-errors.ts';
 import { underAnalysisOf } from './impact.ts';
 import { conflictToNotify, overlapClashes } from './notices.ts';
@@ -137,11 +140,76 @@ export class CoordinationService {
     const before = await observe(db, project);
     const { value, events } = await work();
     const after = await observe(db, project);
+    await this.closeMerged(
+      db,
+      project,
+      [...after.proposals.entries()]
+        .filter(([id, now]) => {
+          const was = before.proposals.get(id)?.status ?? 'open';
+          return now.status === 'merged' && was !== 'merged';
+        })
+        .map(([id]) => id),
+      after.version,
+    );
     await emitEvents(db, project.id, [
       ...events,
       ...diffEvents(project, before, after),
     ]);
     return value;
+  }
+
+  private async closeMerged(
+    db: Db,
+    project: ProjectCatalog,
+    proposalIds: readonly string[],
+    version: number,
+  ): Promise<void> {
+    if (proposalIds.length === 0) return;
+    const lake = buildLake(db, project);
+    const notification = buildNotification(db, project);
+    const [proposals, overlaps] = await Promise.all([
+      lake.ports.proposals.list(),
+      lake.ports.overlaps.list(),
+    ]);
+    for (const proposal of proposals) {
+      if (!proposalIds.includes(proposal.id) || proposal.changeId === null) {
+        continue;
+      }
+      const notified = (
+        await notification.listNotifications.execute({
+          changeIds: proposal.changeIds,
+        })
+      )
+        .filter(
+          (notice) =>
+            expectsAnswer(notice) || notice.context?.kind === 'conflict',
+        )
+        .map((notice) => notice.stakeholderId);
+      if (notified.length === 0) continue;
+      const impacts = await buildImpact(db, project).getImpacts.execute(
+        proposal.changeIds,
+      );
+      const impact = {
+        costDelta: impacts.reduce((sum, item) => sum + item.costDelta, 0),
+        delayDays: impacts.reduce((sum, item) => sum + item.delayDays, 0),
+      };
+      await notification.notifyMemo.execute({
+        projectId: project.id,
+        changeId: proposal.changeId,
+        kind: 'closing',
+        memo: closingMemo(
+          closingOf(
+            project,
+            proposal,
+            overlaps,
+            version,
+            impact.costDelta !== 0 || impact.delayDays !== 0,
+          ),
+        ),
+        impact,
+        recipientIds: [proposal.authorId, ...notified],
+      });
+    }
   }
 
   ingest(input: {

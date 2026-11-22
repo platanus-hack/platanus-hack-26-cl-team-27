@@ -1,6 +1,7 @@
 import {
   answerMemo,
   asReminder,
+  closingMemo,
   escalationMemo,
   followUpStep,
 } from '../../src/domain/FollowUp.ts';
@@ -241,5 +242,60 @@ describe('draftMemoNotices y expectsAnswer', () => {
         },
       }),
     ).toBe(false);
+  });
+});
+
+describe('closingMemo', () => {
+  it('dice que el cambio está vigente, quién confirmó y cómo terminó el choque', () => {
+    const memo = closingMemo({
+      about: 'Shaft S1 · 6 m → 9 m',
+      version: 3,
+      confirmed: ['Paula Rojas', 'Javier Muñoz'],
+      notAffected: ['Camila Vera'],
+      conflicts: [{ with: 'Colector B2', outcome: 'descartado' }],
+      moves: false,
+    });
+
+    expect(memo.subject).toBe('Cambio coordinado: Shaft S1 · 6 m → 9 m');
+    expect(memo.lines).toEqual([
+      'Es la versión 3 del proyecto.',
+      'Confirmaron: Paula Rojas, Javier Muñoz.',
+      'Sin efecto para: Camila Vera.',
+      'El choque con Colector B2 se descartó: no se tocan.',
+      'No mueve el costo ni el plazo.',
+    ]);
+  });
+
+  it('si mueve el costo o el plazo no lo niega, y la cifra la pone el aviso', () => {
+    const memo = closingMemo({
+      about: 'Losa nivel 3',
+      version: 2,
+      confirmed: [],
+      notAffected: [],
+      conflicts: [{ with: 'Shaft S1', outcome: 'resuelto' }],
+      moves: true,
+    });
+    const rendered = renderNotice(
+      {
+        title: memo.subject,
+        findings: [],
+        url: 'https://vigente.example/c1',
+        impact: { costDelta: 3_636_500, delayDays: 1 },
+        memo,
+      },
+      'costos',
+      'email',
+    );
+
+    expect(memo.lines).toEqual([
+      'Es la versión 2 del proyecto.',
+      'El choque con Shaft S1 quedó resuelto.',
+    ]);
+    expect(rendered.text).toContain(
+      'Impacto del cambio: costo +$3.636.500 · plazo +1 día',
+    );
+    expect(rendered.text).toContain(
+      'Mira el cambio coordinado: https://vigente.example/c1',
+    );
   });
 });

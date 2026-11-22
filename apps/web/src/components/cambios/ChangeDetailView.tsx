@@ -15,6 +15,7 @@ import { projectPage } from '@/lib/project-paths';
 import { DEFAULT_INTERVAL_MS } from '@/lib/pulse';
 
 import { ChangeAnalysis } from './ChangeAnalysis';
+import { ChangeCoordinated } from './ChangeCoordinated';
 import { ChangeDetailBody, changeTitle } from './ChangeDetailBody';
 import { ChangeResponse } from './ChangeResponse';
 
@@ -51,6 +52,7 @@ export function ChangeDetailView({ changeId }: { readonly changeId: string }) {
           {changeTitle(data)}
         </h1>
       </header>
+      {data.proposal && <ChangeCoordinated proposal={data.proposal} />}
       <ChangeDetailBody
         change={data}
         forStakeholder={userId}
