@@ -7,8 +7,16 @@ export interface SourceView {
   readonly pointer: string;
   readonly checkedAt: string | null;
   readonly changedAt: string | null;
+  readonly changedBy: {
+    readonly name: string | null;
+    readonly email: string | null;
+  } | null;
   readonly createdAt: string;
   readonly lastError: { readonly at: string; readonly message: string } | null;
+  readonly push: {
+    readonly active: boolean;
+    readonly expiresAt: string | null;
+  };
 }
 
 export interface ConnectorsOverview {
@@ -19,6 +27,11 @@ export interface ConnectorsOverview {
       readonly connectedAt: string;
     } | null;
     readonly pollSeconds: number;
+    readonly push: {
+      readonly enabled: boolean;
+      readonly reason: string | null;
+      readonly fallbackSeconds: number | null;
+    };
   };
   readonly sources: readonly SourceView[];
 }

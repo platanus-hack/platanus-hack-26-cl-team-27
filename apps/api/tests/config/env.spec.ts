@@ -11,8 +11,28 @@ describe('envSchema', () => {
       GOOGLE_REDIRECT_URI:
         'http://localhost:3000/api/integrations/google/callback',
       INTEGRATIONS_POLL_SECONDS: 60,
+      INTEGRATIONS_WATCH_HOURS: 24,
+      INTEGRATIONS_FALLBACK_SECONDS: 900,
       SUPERADMIN_EMAILS: [],
     });
+  });
+
+  it('los avisos de Google piden una URL con HTTPS', () => {
+    const url = 'https://vigente.example/api/integrations/google/notifications';
+    expect(
+      envSchema.parse({ GOOGLE_WEBHOOK_URL: url }).GOOGLE_WEBHOOK_URL,
+    ).toBe(url);
+    expect(envSchema.parse({ GOOGLE_WEBHOOK_URL: '' }).GOOGLE_WEBHOOK_URL).toBe(
+      undefined,
+    );
+    expect(
+      envSchema.safeParse({
+        GOOGLE_WEBHOOK_URL: 'http://localhost:3001/api/x',
+      }).success,
+    ).toBe(false);
+    expect(
+      envSchema.safeParse({ INTEGRATIONS_WATCH_HOURS: '48' }).success,
+    ).toBe(false);
   });
 
   it('los conectores son opcionales y la clave de cifrado pide 16 caracteres', () => {
@@ -84,6 +104,37 @@ describe('envSchema', () => {
       envSchema.parse({ APS_CALLBACK_URL: '' }).APS_CALLBACK_URL,
     ).toBeUndefined();
     expect(() => envSchema.parse({ APS_CALLBACK_URL: 'no-es-url' })).toThrow();
+  });
+
+  it('el secreto de los webhooks de Autodesk es opcional y se recorta', () => {
+    expect(envSchema.parse({}).APS_WEBHOOK_SECRET).toBeUndefined();
+    expect(
+      envSchema.parse({ APS_WEBHOOK_SECRET: '   ' }).APS_WEBHOOK_SECRET,
+    ).toBeUndefined();
+    expect(
+      envSchema.parse({ APS_WEBHOOK_SECRET: ' a1B2+c3/d4= ' })
+        .APS_WEBHOOK_SECRET,
+    ).toBe('a1B2+c3/d4=');
+  });
+
+  it('las variables de los conectores vacías valen su default', () => {
+    const env = envSchema.parse({
+      APS_WEBHOOK_SECRET: '',
+      GOOGLE_WEBHOOK_URL: '',
+      INTEGRATIONS_POLL_SECONDS: '',
+      INTEGRATIONS_WATCH_HOURS: ' ',
+      INTEGRATIONS_FALLBACK_SECONDS: '',
+    });
+    expect(env).toMatchObject({
+      INTEGRATIONS_POLL_SECONDS: 60,
+      INTEGRATIONS_WATCH_HOURS: 24,
+      INTEGRATIONS_FALLBACK_SECONDS: 900,
+    });
+    expect(env.APS_WEBHOOK_SECRET).toBeUndefined();
+    expect(env.GOOGLE_WEBHOOK_URL).toBeUndefined();
+    expect(envSchema.parse({ INTEGRATIONS_POLL_SECONDS: '5' })).toMatchObject({
+      INTEGRATIONS_POLL_SECONDS: 5,
+    });
   });
 
   it('convierte el puerto a número y separa los orígenes', () => {

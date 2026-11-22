@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Inject,
@@ -12,10 +13,12 @@ import {
   Redirect,
   UseGuards,
 } from '@nestjs/common';
+import { parseChanged } from '@team27/context-integrations';
 import { z } from 'zod';
 
 import { AccountGuard, CurrentAccount } from '../accounts/account.guard.ts';
 import { type Account, AccountsService } from '../accounts/accounts.service.ts';
+import { fail } from '../coordination/http-errors.ts';
 import { IntegrationsService } from './integrations.service.ts';
 import { guard } from './views.ts';
 
@@ -30,6 +33,11 @@ const linkBody = z.object({
 const authorizeBody = z.object({
   projectId: projectId.optional(),
 });
+
+const header = (value: string | string[] | undefined): string | null => {
+  const text = Array.isArray(value) ? value[0] : value;
+  return text?.trim() || null;
+};
 
 const callbackQuery = z.object({
   code: z.string().max(2000).optional(),
@@ -84,6 +92,36 @@ export class ConnectorsController {
     @Query({ schema: callbackQuery }) query: z.output<typeof callbackQuery>,
   ) {
     return { url: await this.integrations.completeAuthorization(query) };
+  }
+
+  @Post('google/notifications')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async notification(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+  ): Promise<void> {
+    const channelId = header(headers['x-goog-channel-id']);
+    const state = header(headers['x-goog-resource-state']);
+    if (channelId === null || state === null) {
+      throw fail(
+        HttpStatus.BAD_REQUEST,
+        'invalid_notice',
+        'No es un aviso de Google Drive',
+      );
+    }
+    const outcome = await this.integrations.receive({
+      channelId,
+      resourceId: header(headers['x-goog-resource-id']),
+      token: header(headers['x-goog-channel-token']),
+      state,
+      changed: parseChanged(header(headers['x-goog-changed']) ?? undefined),
+    });
+    if (outcome === 'rejected') {
+      throw fail(
+        HttpStatus.FORBIDDEN,
+        'invalid_channel_token',
+        'El aviso no trae el secreto del canal',
+      );
+    }
   }
 
   @Delete('google')

@@ -17,8 +17,10 @@ const SOURCE: SourceView = {
   pointer: 'https://docs.google.com/spreadsheets/d/x/edit',
   checkedAt: '2026-11-21T10:00:00Z',
   changedAt: null,
+  changedBy: null,
   createdAt: '2026-11-21T10:00:00Z',
   lastError: null,
+  push: { active: false, expiresAt: null },
 };
 
 describe('connectionFeedback', () => {
