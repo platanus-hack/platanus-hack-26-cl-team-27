@@ -1,7 +1,9 @@
 import type {
-  EmailSender,
-  OutgoingEmail,
-} from '../../application/ports/EmailSender.ts';
+  ChannelSender,
+  OutgoingDelivery,
+} from '../../application/ports/ChannelSender.ts';
+import type { Email } from '../../domain/Delivery.ts';
+import type { RenderedNotice } from '../../domain/Notice.ts';
 import { GOOGLE_TOKEN_URL } from './GmailAuthorization.ts';
 
 const SEND_URL = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
@@ -12,6 +14,11 @@ export interface GmailCredentials {
   readonly clientId: string;
   readonly clientSecret: string;
   readonly refreshToken: string;
+}
+
+export interface OutgoingEmail extends Email {
+  readonly to: string;
+  readonly idempotencyKey: string;
 }
 
 const oneLine = (value: string): string => value.replace(/[\r\n]+/g, ' ');
@@ -53,7 +60,7 @@ export const buildRawMessage = (from: string, email: OutgoingEmail): string => {
   return Buffer.from(message, 'utf8').toString('base64url');
 };
 
-export class GmailEmailSender implements EmailSender {
+export class GmailEmailSender implements ChannelSender {
   private readonly credentials: GmailCredentials;
   private readonly from: string;
   private readonly fetcher: typeof fetch;
@@ -72,7 +79,17 @@ export class GmailEmailSender implements EmailSender {
     this.now = now;
   }
 
-  async send(email: OutgoingEmail): Promise<string> {
+  async send(
+    delivery: OutgoingDelivery,
+    rendered: RenderedNotice,
+  ): Promise<string> {
+    const email: OutgoingEmail = {
+      to: delivery.to,
+      subject: rendered.subject,
+      text: rendered.text,
+      html: rendered.html ?? '',
+      idempotencyKey: delivery.id,
+    };
     const token = await this.token();
     const response = await this.fetcher(SEND_URL, {
       method: 'POST',

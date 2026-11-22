@@ -189,6 +189,14 @@ export const getChangeConflicts = (
 
 export type NoticeChannel = 'email' | 'whatsapp' | 'slack';
 
+export interface NoticeDelivery {
+  readonly channel: NoticeChannel;
+  readonly status: 'pending' | 'sent' | 'skipped' | 'failed';
+  readonly reason: string | null;
+  readonly attempts: number;
+  readonly sentAt: string | null;
+}
+
 export interface ConflictNoticePreview {
   readonly kind: 'conflict';
   readonly notificationId: string;
@@ -201,6 +209,7 @@ export interface ConflictNoticePreview {
   readonly overlapId: string | null;
   readonly part: 'author' | 'affected' | null;
   readonly votes: boolean;
+  readonly delivery: NoticeDelivery | null;
 }
 
 export interface NoticePreview {
@@ -215,6 +224,7 @@ export interface NoticePreview {
   readonly text: string;
   readonly why: string;
   readonly whySource: 'modelo' | 'plantilla';
+  readonly delivery: NoticeDelivery | null;
 }
 
 export interface ChangeNotices {

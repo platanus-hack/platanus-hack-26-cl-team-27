@@ -5,6 +5,7 @@ export {
   type DeliveryRound,
 } from './DeliverNotifications.ts';
 export { GetNotification } from './GetNotification.ts';
+export { ListDeliveries } from './ListDeliveries.ts';
 export { ListNotifications } from './ListNotifications.ts';
 export { ListStakeholders } from './ListStakeholders.ts';
 export { NotifyConflict } from './NotifyConflict.ts';

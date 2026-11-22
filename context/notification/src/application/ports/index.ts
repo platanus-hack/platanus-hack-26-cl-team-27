@@ -1,5 +1,9 @@
-export type { DeliveryQueue } from './DeliveryQueue.ts';
-export type { EmailSender, OutgoingEmail } from './EmailSender.ts';
+export type {
+  ChannelSender,
+  ChannelSenders,
+  OutgoingDelivery,
+} from './ChannelSender.ts';
+export type { DeliveryQueue, SentDelivery } from './DeliveryQueue.ts';
 export type {
   NotificationFilter,
   NotificationRepository,

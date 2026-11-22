@@ -2,6 +2,7 @@ import {
   emailAddress,
   renderEmail,
   retryDelayMs,
+  routeDelivery,
 } from '../../src/domain/Delivery.ts';
 import type { Notification } from '../../src/domain/Notification.ts';
 
@@ -100,5 +101,55 @@ describe('retryDelayMs', () => {
     expect([1, 2, 3, 4, 9].map(retryDelayMs)).toEqual([
       60_000, 240_000, 960_000, 3_600_000, 3_600_000,
     ]);
+  });
+});
+
+describe('routeDelivery', () => {
+  const whatsapp = {
+    channel: 'whatsapp' as const,
+    recipient: '+56 9 0000 0101',
+  };
+
+  it('usa el canal de la persona si tiene sender, y el desvío de ese canal si hay', () => {
+    expect(routeDelivery(whatsapp, ['email', 'whatsapp'])).toEqual({
+      channel: 'whatsapp',
+      to: '+56 9 0000 0101',
+      note: null,
+    });
+    expect(
+      routeDelivery(whatsapp, ['whatsapp'], { whatsapp: '+56 9 1111 1111' }),
+    ).toMatchObject({ to: '+56 9 1111 1111' });
+  });
+
+  it('un canal de chat no necesita dirección', () => {
+    expect(
+      routeDelivery({ channel: 'slack', recipient: null }, ['slack']),
+    ).toEqual({ channel: 'slack', to: '', note: null });
+  });
+
+  it('sin sender cae al correo solo si la persona tiene uno o hay desvío', () => {
+    expect(routeDelivery(whatsapp, ['email'])).toEqual({
+      channel: null,
+      reason:
+        'No hay envío por WhatsApp configurado y el afectado no tiene correo',
+    });
+    expect(
+      routeDelivery({ channel: 'slack', recipient: 'dani@obra.example' }, [
+        'email',
+      ]),
+    ).toEqual({
+      channel: 'email',
+      to: 'dani@obra.example',
+      note: 'Sin envío por Slack: salió por correo',
+    });
+  });
+
+  it('sin correo configurado, un aviso por correo queda sin enviar y dice por qué', () => {
+    expect(
+      routeDelivery({ channel: 'email', recipient: 'a@b.example' }, ['slack']),
+    ).toEqual({ channel: null, reason: 'No hay envío por correo configurado' });
+    expect(
+      routeDelivery({ channel: 'email', recipient: null }, ['email']),
+    ).toEqual({ channel: null, reason: 'El afectado no tiene correo' });
   });
 });

@@ -4,6 +4,7 @@ import {
   AttachClashes,
   DeliverNotifications,
   GetNotification,
+  ListDeliveries,
   ListNotifications,
   NotifyConflict,
   NotifyStakeholders,
@@ -11,7 +12,6 @@ import {
   RespondToNotification,
 } from '@team27/context-notification';
 import {
-  GmailEmailSender,
   InMemoryStakeholderDirectory,
   PrismaDeliveryQueue,
   PrismaNotificationRepository,
@@ -21,6 +21,7 @@ import type { PrismaClient } from '@team27/data-main';
 import type { Env } from '../../config/index.ts';
 import { PRISMA_CLIENT } from '../database/database.module.ts';
 import type { ProjectCatalog } from '../project/project-catalog.ts';
+import { buildChannelSenders } from './channel-senders.ts';
 import { DELIVER_NOTIFICATIONS, DeliveryWorker } from './delivery.worker.ts';
 
 export const buildNotification = (
@@ -37,6 +38,7 @@ export const buildNotification = (
     ),
     attachClashes: new AttachClashes(notifications),
     listNotifications: new ListNotifications(notifications),
+    listDeliveries: new ListDeliveries(new PrismaDeliveryQueue(db)),
     getNotification: new GetNotification(notifications),
     respondToNotification: new RespondToNotification(notifications),
     reopenResponse: new ReopenResponse(notifications),
@@ -49,23 +51,26 @@ export const buildNotification = (
       provide: DELIVER_NOTIFICATIONS,
       inject: [ConfigService, PRISMA_CLIENT],
       useFactory: (config: ConfigService<Env, true>, prisma: PrismaClient) => {
-        const clientId = config.get('GMAIL_CLIENT_ID', { infer: true });
-        const clientSecret = config.get('GMAIL_CLIENT_SECRET', {
-          infer: true,
+        const senders = buildChannelSenders({
+          gmailClientId: config.get('GMAIL_CLIENT_ID', { infer: true }),
+          gmailClientSecret: config.get('GMAIL_CLIENT_SECRET', {
+            infer: true,
+          }),
+          gmailRefreshToken: config.get('GMAIL_REFRESH_TOKEN', {
+            infer: true,
+          }),
+          emailFrom: config.get('EMAIL_FROM', { infer: true }),
+          slackWebhookUrl: config.get('SLACK_WEBHOOK_URL', { infer: true }),
+          teamsWebhookUrl: config.get('TEAMS_WEBHOOK_URL', { infer: true }),
         });
-        const refreshToken = config.get('GMAIL_REFRESH_TOKEN', {
-          infer: true,
-        });
-        if (!clientId || !clientSecret || !refreshToken) return null;
+        if (Object.keys(senders).length === 0) return null;
+        const emailRedirect = config.get('EMAIL_REDIRECT_TO', { infer: true });
         return new DeliverNotifications(
           new PrismaDeliveryQueue(prisma),
-          new GmailEmailSender(
-            { clientId, clientSecret, refreshToken },
-            config.get('EMAIL_FROM', { infer: true }),
-          ),
+          senders,
           {
             baseUrl: config.get('APP_BASE_URL', { infer: true }),
-            redirectTo: config.get('EMAIL_REDIRECT_TO', { infer: true }),
+            redirects: emailRedirect ? { email: emailRedirect } : {},
           },
         );
       },

@@ -15,6 +15,7 @@ import {
   getChangeNotices,
   getChangeSuggestions,
   type NoticeChannel,
+  type NoticeDelivery,
   type NoticePreview,
   type ProbabilityBand,
 } from '@/lib/changes-api';
@@ -89,6 +90,27 @@ const channelText: Record<NoticeChannel, string> = {
   slack: 'Slack',
 };
 
+const sentBy: Record<NoticeChannel, string> = {
+  email: 'correo',
+  whatsapp: 'WhatsApp',
+  slack: 'Slack',
+};
+
+const deliveryText = (delivery: NoticeDelivery | null): string => {
+  if (!delivery) return 'Notificador: este aviso no tiene envío.';
+  const channel = sentBy[delivery.channel];
+  if (delivery.status === 'sent') {
+    return `Notificador: enviado por ${channel}.${delivery.reason ? ` ${delivery.reason}.` : ''}`;
+  }
+  if (delivery.status === 'skipped') {
+    return `Notificador: no se envió. ${delivery.reason ?? 'Sin motivo registrado'}.`;
+  }
+  if (delivery.status === 'failed') {
+    return `Notificador: falló el envío por ${channel}. ${delivery.reason ?? ''}`;
+  }
+  return `Notificador: en cola para salir por ${channel}.`;
+};
+
 function NoticeCard({
   notice,
 }: {
@@ -107,6 +129,9 @@ function NoticeCard({
         <p className="mt-2 text-sm text-ink-2">Asunto: {notice.subject}</p>
       )}
       <p className="mt-2 text-sm whitespace-pre-wrap text-ink">{notice.text}</p>
+      <p className="mt-3 border-t border-hairline pt-2 text-sm text-ink-2">
+        {deliveryText(notice.delivery)}
+      </p>
     </li>
   );
 }

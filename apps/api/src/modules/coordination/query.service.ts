@@ -136,23 +136,30 @@ export class QueryService {
     );
     const teamOrder = (stakeholderId: string): number =>
       project.cast.findIndex((member) => member.id === stakeholderId);
+    const conflictNotices = snapshot.conflictNotices
+      .filter(
+        (notification) =>
+          notification.changeId === change.id ||
+          overlapIds.has(notification.context?.conflict?.overlapId ?? ''),
+      )
+      .sort((a, b) => teamOrder(a.stakeholderId) - teamOrder(b.stakeholderId));
+    const deliveries = await buildNotification(
+      this.prisma,
+      project,
+    ).listDeliveries.execute(
+      [...notifications, ...conflictNotices].map((item) => item.id),
+    );
     return {
       changeId: change.id,
       inference,
       conflictNotices: conflictPreviews({
         project,
-        notifications: snapshot.conflictNotices
-          .filter(
-            (notification) =>
-              notification.changeId === change.id ||
-              overlapIds.has(notification.context?.conflict?.overlapId ?? ''),
-          )
-          .sort(
-            (a, b) => teamOrder(a.stakeholderId) - teamOrder(b.stakeholderId),
-          ),
+        notifications: conflictNotices,
+        deliveries,
         baseUrl: this.baseUrl,
       }),
       notices: noticePreviews({
+        deliveries,
         project,
         notifications,
         impact: impact

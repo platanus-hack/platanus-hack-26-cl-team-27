@@ -72,8 +72,8 @@ export class PrismaNotificationRepository implements NotificationRepository {
             deliveries: {
               create: {
                 projectId: this.projectId,
-                channel: 'email',
-                recipient: draft.email,
+                channel: draft.channel,
+                recipient: draft.recipient,
                 nextAttemptAt: now,
                 createdAt: now,
               },

@@ -18,15 +18,22 @@ export {
   withClashes,
 } from './Notification.ts';
 export {
+  type ChannelRedirects,
   CLAIM_LEASE_MS,
+  DELIVERY_STATUSES,
+  type DeliveryRecord,
+  type DeliveryRoute,
+  type DeliveryStatus,
   type Email,
   emailAddress,
   MAX_AGE_MS,
   MAX_ATTEMPTS,
   noticeOf,
   type PendingDelivery,
+  renderDelivery,
   renderEmail,
   retryDelayMs,
+  routeDelivery,
 } from './Delivery.ts';
 export { type Channel, CHANNELS, type Stakeholder } from './Stakeholder.ts';
 export {
