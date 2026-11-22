@@ -3,7 +3,7 @@
 Decide a quién afecta un cambio y cuánto, y lee qué afirma un documento de texto libre. Tiene dos capas:
 
 - **Reglas.** `AnalyzeChange` cruza el cambio con el grafo del proyecto (`ProjectGraph`) y devuelve un `Impact`: costo, atraso, partidas y tareas que cambian, un hallazgo (`Finding`) por afectado y los que se dejaron fuera a propósito (`filtered`), con su razón. Son los afectados seguros.
-- **Probabilidad** ([Mano alzada](../../docs/auditoria.md#mano-alzada)). Los modelos estiman lo que las reglas no saben, y el contexto filtra lo que devuelven contra el vocabulario del proyecto:
+- **Probabilidad** ([Mano alzada](../../docs/negocio.md#mano-alzada)). Los modelos estiman lo que las reglas no saben, y el contexto filtra lo que devuelven contra el vocabulario del proyecto:
   - **Quién más puede estar afectado por un cambio.** Un modelo de decisión (Jev) da la probabilidad calibrada de que cada persona a quien las reglas no ven dependa del cambio. Un modelo de lenguaje (Claude) escribe la razón, la evidencia que cita y una pregunta de sí o no, solo para quienes pasan el umbral. La persona confirma alzando la mano.
   - **Qué afirma un documento.** Mensajes de WhatsApp, folios del libro de obra y planos en PDF o imagen se convierten en afirmaciones sobre los elementos del proyecto, cada una con su confianza.
 
