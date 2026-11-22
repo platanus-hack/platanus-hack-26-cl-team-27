@@ -26,12 +26,39 @@ export interface NoticeClash {
   readonly combined: NoticeImpact | null;
 }
 
+export const NOTICE_KINDS = ['change', 'conflict'] as const;
+
+export type NoticeKind = (typeof NOTICE_KINDS)[number];
+
+export const CONFLICT_PARTS = ['author', 'affected'] as const;
+
+export type ConflictPart = (typeof CONFLICT_PARTS)[number];
+
+export interface NoticeConflict {
+  readonly overlapId: string;
+  readonly first: string;
+  readonly firstSource: string;
+  readonly second: string;
+  readonly secondSource: string;
+  readonly area: string | null;
+  readonly question: string;
+  readonly combined: NoticeImpact | null;
+  readonly part: ConflictPart;
+  readonly votes: boolean;
+}
+
 export interface NoticeContext {
+  readonly kind?: NoticeKind;
   readonly role: string;
   readonly recipientName: string;
   readonly impact: NoticeImpact | null;
   readonly clashes: readonly NoticeClash[];
+  readonly conflict?: NoticeConflict;
 }
+
+export const noticeKindOf = (
+  context: Pick<NoticeContext, 'kind'> | null | undefined,
+): NoticeKind => context?.kind ?? 'change';
 
 export interface Notice {
   readonly title: string;
@@ -41,6 +68,7 @@ export interface Notice {
   readonly impact?: NoticeImpact | null;
   readonly clashes?: readonly NoticeClash[];
   readonly why?: string | null;
+  readonly conflict?: NoticeConflict | null;
 }
 
 export interface RenderedNotice {
@@ -290,11 +318,104 @@ const slackOf = (notice: Notice, parts: Parts): RenderedNotice => {
   };
 };
 
+const CONFLICT_WHY: Readonly<Record<ConflictPart, string>> = {
+  author: 'Te avisamos porque uno de los dos cambios es tuyo.',
+  affected: 'Te avisamos porque uno de los dos cambios te afecta.',
+};
+
+export const conflictTitle = (
+  conflict: Pick<NoticeConflict, 'first' | 'second'>,
+): string =>
+  conflict.first === conflict.second
+    ? `Choque en ${conflict.first}`
+    : `Choque: ${conflict.first} y ${conflict.second}`;
+
+const conflictWhat = (conflict: NoticeConflict): string =>
+  conflict.first === conflict.second
+    ? `${conflict.firstSource} y ${conflict.secondSource} cambian datos distintos de ${conflict.first}`
+    : `${conflict.first} (${conflict.firstSource}) con ${conflict.second} (${conflict.secondSource})`;
+
+const conflictOf = (
+  notice: Notice,
+  conflict: NoticeConflict,
+  role: NoticeRole,
+  channel: Channel,
+): RenderedNotice => {
+  const subject = conflictTitle(conflict);
+  const why = CONFLICT_WHY[conflict.part];
+  const what = conflictWhat(conflict);
+  const together = conflict.combined ? figures(conflict.combined, role) : null;
+  const impact = together
+    ? `Los dos juntos: ${together}`
+    : impactLine(notice.impact, role);
+  const ask = conflict.votes
+    ? 'Responde si se tocan o no se tocan'
+    : 'Mira el choque';
+  if (channel === 'whatsapp') {
+    const text = [
+      subject,
+      `${what}${conflict.area ? `, en ${conflict.area}` : ''}.`,
+      conflict.question,
+      ...(impact ? [impact] : []),
+      `${ask}:`,
+    ].join('\n');
+    return {
+      subject,
+      text: clip(`${text}\n${notice.url}`, WHATSAPP_MAX_LENGTH, notice.url),
+      html: null,
+    };
+  }
+  if (channel === 'slack') {
+    const link = `<${notice.url}|${ask}>`;
+    const text = [
+      `*${subject}*`,
+      `_${why}_`,
+      `• *Qué choca:* ${what}`,
+      ...(conflict.area ? [`• *Dónde:* ${conflict.area}`] : []),
+      `• ${conflict.question}`,
+      ...(impact ? [impact] : []),
+    ].join('\n');
+    return {
+      subject,
+      text: clip(`${text}\n${link}`, SLACK_MAX_LENGTH, link),
+      html: null,
+    };
+  }
+  const greeting = firstName(notice.recipientName);
+  const points = [
+    `Qué choca: ${what}`,
+    ...(conflict.area ? [`Dónde: ${conflict.area}`] : []),
+    conflict.question,
+  ];
+  const text = [
+    ...(greeting ? [`Hola ${greeting}:`, ''] : []),
+    subject,
+    why,
+    '',
+    ...points.map((point) => `• ${point}`),
+    '',
+    ...(impact ? [impact, ''] : []),
+    `${ask}: ${notice.url}`,
+  ].join('\n');
+  const html = [
+    greeting ? `<p>Hola ${escapeHtml(greeting)}:</p>` : '',
+    `<h2>${escapeHtml(subject)}</h2>`,
+    `<p>${escapeHtml(why)}</p>`,
+    `<ul>${points.map((point) => `<li>${escapeHtml(point)}</li>`).join('')}</ul>`,
+    impact ? `<p>${escapeHtml(impact)}</p>` : '',
+    `<p><a href="${escapeHtml(notice.url)}">${escapeHtml(ask)}</a></p>`,
+  ].join('');
+  return { subject, text, html };
+};
+
 export const renderNotice = (
   notice: Notice,
   role: NoticeRole,
   channel: Channel,
 ): RenderedNotice => {
+  if (notice.conflict) {
+    return conflictOf(notice, notice.conflict, role, channel);
+  }
   const findings = ordered(notice.findings, role);
   const parts: Parts = {
     subject: subjectOf(notice, role),

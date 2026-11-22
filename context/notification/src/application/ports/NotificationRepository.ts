@@ -3,11 +3,12 @@ import type {
   NotificationDraft,
   NotificationResponse,
 } from '../../domain/Notification.ts';
-import type { NoticeClash } from '../../domain/Notice.ts';
+import type { NoticeClash, NoticeKind } from '../../domain/Notice.ts';
 
 export interface NotificationFilter {
   readonly changeIds?: readonly string[];
   readonly stakeholderId?: string;
+  readonly kind?: NoticeKind;
 }
 
 export interface NotificationRepository {

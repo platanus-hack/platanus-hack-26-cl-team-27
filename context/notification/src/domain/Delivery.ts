@@ -40,6 +40,7 @@ export const noticeOf = (
   impact: notification.context?.impact ?? null,
   clashes: notification.context?.clashes ?? [],
   why,
+  conflict: notification.context?.conflict ?? null,
 });
 
 export const renderEmail = (

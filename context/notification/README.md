@@ -1,25 +1,29 @@
 # @team27/context-notification
 
-Lleva el impacto a cada afectado. `NotifyStakeholders` junta los hallazgos de cada persona en un solo aviso (`Notification`) por cambio, en el canal de esa persona, con el enlace al detalle del cambio en su proyecto (`/proyectos/<proyecto>/cambios/<cambio>`). `RespondToNotification` guarda lo que contesta.
+Lleva el impacto a cada afectado. Hay dos tipos de aviso (`NoticeKind`): el **aviso de cambio** (`change`), solo a los afectados, y el **aviso de conflicto** (`conflict`), a los dos autores y a los afectados de los dos cambios que chocan. `NotifyStakeholders` junta los hallazgos de cada persona en un solo aviso (`Notification`) por cambio, en el canal de esa persona, con el enlace al detalle del cambio en su proyecto (`/proyectos/<proyecto>/cambios/<cambio>`). `NotifyConflict` guarda un aviso por persona y solapamiento. `RespondToNotification` guarda lo que contesta.
 
 ## Dominio
 
 - **`Stakeholder`:** nombre, rol, canal (`email`, `whatsapp` o `slack`) y su dirección en ese canal (`handle`).
 - **`draftNotifications`:** agrupa los hallazgos por afectado, en el orden del directorio, cada uno con su tema (`dependency`, `cost` o `schedule`). Ignora a quien no está en el directorio. Cada aviso guarda el contexto para redactarlo (`NoticeContext`): el rol y el nombre de la persona, el costo y el plazo del cambio (`impact`) y los choques (`clashes`).
+- **Tipo de aviso:** va en el contexto (`context.kind`); un aviso sin tipo es de cambio (`noticeKindOf`, `isChangeNotice`). El de conflicto lleva además `context.conflict` (`NoticeConflict`): el solapamiento, los dos elementos con su documento, el área, la pregunta de sí o no, la cifra de los dos cambios juntos, el papel de la persona (`author` o `affected`) y si le toca votar (`votes`).
+- **`draftConflictNotices`:** un aviso de conflicto por persona, una sola vez aunque venga repetida, en su canal y con el enlace al cambio de su lado. Ignora a quien no está en el directorio.
 - **`renderNotice(aviso, rol, canal)`:** función pura que escribe el aviso para un rol y un canal. Devuelve `{ subject, text, html }`.
   - **Rol** (`noticeRoleOf(rol, hallazgos)`): `costos` si el rol habla de costos o presupuesto, `planificacion` si habla de planificación, plazo o programa; si el rol no lo dice, sale de los hallazgos que recibe la persona, y si no, `ingenieria`. Costos ve primero el hallazgo de costo, y el costo va en el asunto y antes que el plazo; planificación ve primero el plazo; ingeniería, la dependencia y su acción.
   - **Canal:** el correo saluda por el nombre y lleva todo (el detalle de cada hallazgo, en texto y en HTML escapado). WhatsApp va en texto plano y corto: el primer hallazgo con su acción, cuántos más hay, las cifras y el enlace, en 600 caracteres como máximo. Slack usa su formato (título en negrita, un punto por hallazgo con su acción, el enlace con texto), sin el detalle, en 1.500 caracteres como máximo. Al recortar, el enlace se conserva.
   - **Impacto y choque:** si el cambio mueve el costo o el plazo, una línea «Impacto del cambio: costo +$3.636.500 · plazo +1 día». Por cada choque, «Puede chocar con X.», la pregunta de sí o no y, si hay, la cifra de los dos cambios juntos. Un impacto en cero no se anuncia.
+  - **Aviso de conflicto:** si el aviso trae `conflict`, sale en su forma: el asunto «Choque: A y B», el porqué fijo según el papel («…porque uno de los dos cambios es tuyo.» o «…te afecta.»), qué choca con qué (cada elemento con su documento), dónde, la pregunta y «Los dos juntos: costo … · plazo …». Sin cifra conjunta va el impacto del cambio, y sin área no dice dónde. A quien valida le pide «Responde si se tocan o no se tocan»; al resto, «Mira el choque». Vale para los tres canales, con los mismos largos máximos.
   - **El porqué:** una frase que dice por qué le toca a esa persona. Si el aviso trae una (`why`, que escribe un modelo en `context/impact`), va esa; si no, una fija según el primer hallazgo: «Te avisamos porque llevas el presupuesto y este cambio lo mueve.», «…porque llevas el plazo y este cambio mueve la entrega.» o «…porque tu trabajo depende de lo que cambió.». `renderNotice` nunca cambia una cifra.
-- **Respuesta:** `reviewed` (revisado) o `issue` (tengo un problema), con una nota opcional de hasta 280 caracteres. Una nota en blanco se guarda como `null`. Responder de nuevo reemplaza la respuesta anterior. Reabrir la respuesta la limpia: quien disputó vuelve a estar pendiente.
+- **Respuesta:** la de un aviso de cambio es `reviewed` (revisado) o `issue` (tengo un problema), con una nota opcional de hasta 280 caracteres. Una nota en blanco se guarda como `null`. Responder de nuevo reemplaza la respuesta anterior. Reabrir la respuesta la limpia: quien disputó vuelve a estar pendiente. Un aviso de conflicto no se responde aquí: su respuesta es el voto del solapamiento, en `lake`.
 
 ## Casos de uso y adapters
 
 | Caso de uso             | Qué hace                                                    |
 | ----------------------- | ----------------------------------------------------------- |
 | `NotifyStakeholders`    | Arma y guarda los avisos de un cambio                       |
-| `AttachClashes`         | `{ changeId, clashes }`: guarda en los avisos de un cambio con qué choca; sin choques no hace nada |
-| `ListNotifications`     | Los avisos de varios cambios o de un afectado               |
+| `NotifyConflict`        | Arma y guarda los avisos de conflicto de un solapamiento    |
+| `AttachClashes`         | `{ changeId, clashes }`: guarda en los avisos de cambio de un cambio con qué choca; sin choques no hace nada |
+| `ListNotifications`     | Los avisos de varios cambios o de un afectado, de un tipo si se pide (`kind`) |
 | `RespondToNotification` | Guarda la respuesta; `null` si el aviso no existe           |
 | `ReopenResponse`        | `ReopenResponse(notificationId)` limpia la respuesta; `null` si el aviso no existe |
 | `GetNotification`       | Un aviso por id, o `null`                                   |

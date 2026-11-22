@@ -1,9 +1,13 @@
 import { emailAddress } from './Delivery.ts';
-import type {
-  FindingTopic,
-  NoticeClash,
-  NoticeContext,
-  NoticeImpact,
+import {
+  type ConflictPart,
+  conflictTitle,
+  type FindingTopic,
+  type NoticeClash,
+  type NoticeConflict,
+  type NoticeContext,
+  type NoticeImpact,
+  noticeKindOf,
 } from './Notice.ts';
 import type { Channel, Stakeholder } from './Stakeholder.ts';
 
@@ -92,6 +96,61 @@ export const draftNotifications = (
     ];
   });
 };
+
+export interface ConflictRecipient {
+  readonly stakeholderId: string;
+  readonly changeId: string;
+  readonly part: ConflictPart;
+  readonly votes: boolean;
+}
+
+export interface ConflictToNotify {
+  readonly projectId: string;
+  readonly conflict: Omit<NoticeConflict, 'part' | 'votes'>;
+  readonly impact?: NoticeImpact | null;
+  readonly recipients: readonly ConflictRecipient[];
+}
+
+export const draftConflictNotices = (
+  input: ConflictToNotify,
+  stakeholders: readonly Stakeholder[],
+): NotificationDraft[] => {
+  const seen = new Set<string>();
+  return input.recipients.flatMap((recipient): NotificationDraft[] => {
+    const stakeholder = stakeholders.find(
+      (candidate) => candidate.id === recipient.stakeholderId,
+    );
+    if (!stakeholder || seen.has(stakeholder.id)) return [];
+    seen.add(stakeholder.id);
+    return [
+      {
+        changeId: recipient.changeId,
+        stakeholderId: stakeholder.id,
+        channel: stakeholder.channel,
+        title: conflictTitle(input.conflict),
+        findings: [],
+        link: detailLink(input.projectId, recipient.changeId),
+        context: {
+          kind: 'conflict',
+          role: stakeholder.role,
+          recipientName: stakeholder.name,
+          impact: input.impact ?? null,
+          clashes: [],
+          conflict: {
+            ...input.conflict,
+            part: recipient.part,
+            votes: recipient.votes,
+          },
+        },
+        email: emailAddress(stakeholder.handle),
+      },
+    ];
+  });
+};
+
+export const isChangeNotice = (
+  notification: Pick<Notification, 'context'>,
+): boolean => noticeKindOf(notification.context) === 'change';
 
 export const withClashes = (
   context: NoticeContext | null,

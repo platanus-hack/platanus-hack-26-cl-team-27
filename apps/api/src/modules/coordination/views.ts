@@ -42,6 +42,7 @@ export interface LakeSnapshot {
   readonly consensus: Consensus;
   readonly impacts: ReadonlyMap<string, Impact>;
   readonly notifications: readonly Notification[];
+  readonly conflictNotices: readonly Notification[];
 }
 
 export interface StaleRef {
@@ -77,7 +78,7 @@ export const proposalTitle = (
     .join(' + ');
 };
 
-const backingTitle = (
+export const backingTitle = (
   project: ProjectCatalog,
   backing: Overlap['otherBacking'],
 ): string =>
