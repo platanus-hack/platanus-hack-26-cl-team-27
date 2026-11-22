@@ -19,7 +19,6 @@ Antes de tocar un área, lee su doc. Si cambias un comportamiento, actualiza el 
 | Spec: síntesis, el plan de 26 tareas frente al código, flujo de usuario y arquitectura en draw.io                    | [docs/spec/README.md](docs/spec/README.md), y para agentes [docs/spec/ia.md](docs/spec/ia.md) |
 | La web                                                                                                               | [apps/web/README.md](apps/web/README.md)                                                      |
 | La API                                                                                                               | [apps/api/README.md](apps/api/README.md)                                                      |
-| La CLI de APS: subir los modelos de Revit al bucket y traducirlos a SVF2 para el visor                               | [apps/aps/README.md](apps/aps/README.md)                                                      |
 | Conectores reales: conectar Google Sheets y escuchar sus cambios, lo que no hace y cómo configurar Google            | [context/integrations/README.md](context/integrations/README.md)                              |
 | Los cambios en Autodesk: catálogo de eventos de webhook, firma, el spike de AEC Data Model y la minuta               | [docs/spec/cambios-autodesk.md](docs/spec/cambios-autodesk.md)                                |
 | Base de datos y migraciones                                                                                          | [data/main/README.md](data/main/README.md)                                                    |
@@ -37,8 +36,6 @@ pnpm db:migrate                     # migraciones pendientes
 pnpm db:seed                        # crea Constructora Cordillera e invita a su admin y sus miembros (ver data/main/README.md)
 pnpm dev                            # API en http://localhost:3001/api y web en http://localhost:3000
 pnpm dev:api | pnpm dev:web
-pnpm aps:check                      # prueba las credenciales y el bucket de APS (solo éxito o fallo y HTTP)
-pnpm aps:models [--force] [--carpeta <ruta>]  # sube a APS y traduce a SVF2 los .rvt de apps/aps/models
 pnpm db:studio                      # Prisma Studio
 pnpm check                          # lint, test, typecheck y build de todo
 pnpm affected                       # lo mismo, solo lo que cambió respecto de main

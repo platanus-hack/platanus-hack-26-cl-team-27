@@ -69,7 +69,8 @@ export interface CallbackQuery {
 
 export const CONNECTORS_PATH = '/conectores';
 
-export const PROJECT_PARAM = 'proyecto';
+export const projectFilesPath = (projectId: string): string =>
+  `/proyectos/${encodeURIComponent(projectId)}/archivos`;
 
 const MINUTE_MS = 60_000;
 
@@ -140,21 +141,25 @@ export class IntegrationsService
     this.debounced.clear();
   }
 
-  async overview(userId: string, projectId: string) {
-    const sources = this.setup ? await this.setup.list.execute(projectId) : [];
+  async google(userId: string) {
     const connection = this.setup
       ? await this.setup.connection.execute(userId)
       : null;
     return {
-      google: {
-        configured: this.setup !== null,
-        connection: connection && {
-          accountEmail: connection.accountEmail,
-          connectedAt: connection.connectedAt,
-        },
-        pollSeconds: Math.round(this.config.pollMs / 1000),
-        push: this.pushView(),
+      configured: this.setup !== null,
+      connection: connection && {
+        accountEmail: connection.accountEmail,
+        connectedAt: connection.connectedAt,
       },
+      pollSeconds: Math.round(this.config.pollMs / 1000),
+      push: this.pushView(),
+    };
+  }
+
+  async overview(userId: string, projectId: string) {
+    const sources = this.setup ? await this.setup.list.execute(projectId) : [];
+    return {
+      google: await this.google(userId),
       sources: sources.map(sourceView),
     };
   }
@@ -168,11 +173,11 @@ export class IntegrationsService
   async completeAuthorization(query: CallbackQuery): Promise<string> {
     const owner = this.states.consume(query.state);
     const back = (params: Record<string, string>): string => {
-      const url = new URL(CONNECTORS_PATH, this.config.redirectUri);
-      url.search = new URLSearchParams({
-        ...(owner?.projectId ? { [PROJECT_PARAM]: owner.projectId } : {}),
-        ...params,
-      }).toString();
+      const url = new URL(
+        owner?.projectId ? projectFilesPath(owner.projectId) : CONNECTORS_PATH,
+        this.config.redirectUri,
+      );
+      url.search = new URLSearchParams(params).toString();
       return url.toString();
     };
     const failed = (reason: string) =>

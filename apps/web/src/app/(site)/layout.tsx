@@ -2,10 +2,16 @@ import { BrandMark, BrandWordmark } from '@team27/ui';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { SiteNav } from '@/components/common/SiteNav';
+import { SiteNav, type NavMode } from '@/components/common/SiteNav';
+import { auth0 } from '@/lib/auth0';
 import { APP_TAGLINE } from '@/lib/brand';
 
-export default function SiteLayout({
+const navMode = async (): Promise<NavMode> => {
+  if (!auth0) return 'off';
+  return (await auth0.getSession()) ? 'member' : 'guest';
+};
+
+export default async function SiteLayout({
   children,
 }: {
   readonly children: ReactNode;
@@ -25,7 +31,7 @@ export default function SiteLayout({
               {APP_TAGLINE}
             </span>
           </Link>
-          <SiteNav />
+          <SiteNav mode={await navMode()} />
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8 sm:py-8">

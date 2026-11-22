@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   checkFeedback,
   connectionFeedback,
-  connectorsHref,
+  type GoogleStatus,
   linkFeedback,
-  pickProject,
+  listeningText,
   type SourceView,
   sourceState,
 } from './integrations-api';
@@ -51,22 +51,26 @@ describe('sourceState', () => {
   });
 });
 
-describe('pickProject', () => {
-  const PROJECTS = [{ id: 'los-aromos' }, { id: 'torre' }];
+describe('listeningText', () => {
+  const GOOGLE: GoogleStatus = {
+    configured: true,
+    connection: null,
+    pollSeconds: 60,
+    push: { enabled: false, reason: null, fallbackSeconds: null },
+  };
 
-  it('toma el proyecto pedido si es de la persona', () => {
-    expect(pickProject(PROJECTS, 'torre')).toEqual({ id: 'torre' });
-  });
-
-  it('si no lo pidió o no es suyo, toma el primero', () => {
-    expect(pickProject(PROJECTS, null)).toEqual({ id: 'los-aromos' });
-    expect(pickProject(PROJECTS, 'ajeno')).toEqual({ id: 'los-aromos' });
-    expect(pickProject([], 'torre')).toBeNull();
-  });
-
-  it('el link a los conectores lleva el proyecto', () => {
-    expect(connectorsHref('los aromos')).toBe(
-      '/conectores?proyecto=los+aromos',
+  it('dice cómo nos enteramos de los cambios', () => {
+    expect(
+      listeningText({
+        ...GOOGLE,
+        push: { enabled: true, reason: null, fallbackSeconds: 600 },
+      }),
+    ).toBe('Google nos avisa al instante cuando alguien edita una planilla.');
+    expect(listeningText(GOOGLE)).toBe(
+      'Revisamos cada 60 s si las planillas cambiaron.',
+    );
+    expect(listeningText({ ...GOOGLE, pollSeconds: 0 })).toBe(
+      'La revisión automática está apagada: usa «Revisar ahora».',
     );
   });
 });

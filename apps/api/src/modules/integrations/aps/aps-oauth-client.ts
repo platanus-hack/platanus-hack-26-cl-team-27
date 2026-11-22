@@ -1,6 +1,6 @@
 import { AuthenticationClient, type Scopes } from '@aps_sdk/authentication';
 
-import { apsErrorStatus } from '../../aps/aps-auth.ts';
+import { apsErrorStatus } from './aps-errors.ts';
 import type { AutodeskUser } from './token-vault.ts';
 
 export const CONNECTION_SCOPES: readonly Scopes[] = [

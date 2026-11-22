@@ -15,5 +15,3 @@
 .env.*
 !.env.example
 docs
-**/*.rvt
-**/*.rvt.*

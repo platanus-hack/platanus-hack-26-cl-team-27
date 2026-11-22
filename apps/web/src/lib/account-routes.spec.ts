@@ -35,12 +35,11 @@ describe('needsAccountToken', () => {
 
   it.each([
     '/api/health',
-    '/api/aps/models',
     '/api/members',
     '/api/meta',
     '/api/integrations/otra',
     '/api/administration',
-    '/modelos',
+    '/cuenta',
   ])('%s no', (path) => {
     expect(needsAccountToken(path)).toBe(false);
   });

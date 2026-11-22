@@ -315,6 +315,36 @@ describe('ConnectorsController', () => {
     expect(setup.list.execute).toHaveBeenCalledWith('los-aromos');
   });
 
+  it('muestra tu cuenta de Google sin pedir un proyecto', async () => {
+    const setup = fakeSetup();
+    const started = await start(setup);
+    app = started.app;
+
+    const anonymous = await started.call('/google', {
+      headers: { authorization: '' },
+    });
+    expect(anonymous.status).toBe(401);
+
+    const google = await started.call('/google');
+
+    expect(await google.json()).toEqual({
+      configured: true,
+      connection: {
+        accountEmail: 'daniela@example.com',
+        connectedAt: '2026-11-21T10:00:00.000Z',
+      },
+      pollSeconds: 0,
+      push: {
+        enabled: false,
+        reason:
+          'Sin GOOGLE_WEBHOOK_URL: la API le pregunta a Google cada cierto tiempo',
+        fallbackSeconds: null,
+      },
+    });
+    expect(setup.connection.execute).toHaveBeenCalledWith('u1');
+    expect(setup.list.execute).not.toHaveBeenCalled();
+  });
+
   it('sin Google configurado, muestra el estado y no deja conectar', async () => {
     const started = await start(null);
     app = started.app;
@@ -337,7 +367,7 @@ describe('ConnectorsController', () => {
     expect(await authorize.json()).toMatchObject({ code: 'not_configured' });
   });
 
-  it('conecta la cuenta de Google de la persona y vuelve a su proyecto', async () => {
+  it('conecta la cuenta de Google de la persona y vuelve a los archivos de su proyecto', async () => {
     const setup = fakeSetup();
     const started = await start(setup);
     app = started.app;
@@ -349,7 +379,7 @@ describe('ConnectorsController', () => {
     );
     expect(callback.status).toBe(302);
     expect(callback.headers.get('location')).toBe(
-      'http://localhost:3000/conectores?proyecto=los-aromos&google=conectado',
+      'http://localhost:3000/proyectos/los-aromos/archivos?google=conectado',
     );
     expect(setup.connect.execute).toHaveBeenCalledWith('u1', 'code-1');
 
@@ -373,7 +403,7 @@ describe('ConnectorsController', () => {
     expect(response.status).toBe(404);
   });
 
-  it('si la persona cancela en Google, vuelve con el motivo', async () => {
+  it('si conectó desde Conectores y cancela en Google, vuelve allá con el motivo', async () => {
     const started = await start(fakeSetup());
     app = started.app;
     const state = await stateOf(started.call);
@@ -383,7 +413,6 @@ describe('ConnectorsController', () => {
     );
     const location = new URL(callback.headers.get('location') ?? '');
     expect(location.pathname).toBe('/conectores');
-    expect(location.searchParams.get('proyecto')).toBeNull();
     expect(location.searchParams.get('motivo')).toBe(
       'Cancelaste la conexión con Google',
     );

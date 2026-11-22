@@ -86,12 +86,6 @@ importers:
       '@aps_sdk/autodesk-sdkmanager':
         specifier: 1.0.1
         version: 1.0.1
-      '@aps_sdk/model-derivative':
-        specifier: 1.2.1
-        version: 1.2.1
-      '@aps_sdk/oss':
-        specifier: 1.3.3
-        version: 1.3.3
       '@nestjs/common':
         specifier: ^12.6.0
         version: 12.6.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -144,25 +138,6 @@ importers:
       '@types/express':
         specifier: ^5.0.6
         version: 5.0.6
-      '@types/node':
-        specifier: ^24.19.2
-        version: 24.19.2
-
-  apps/aps:
-    dependencies:
-      '@aps_sdk/authentication':
-        specifier: 1.0.1
-        version: 1.0.1
-      '@aps_sdk/autodesk-sdkmanager':
-        specifier: 1.0.1
-        version: 1.0.1
-      '@aps_sdk/model-derivative':
-        specifier: 1.2.1
-        version: 1.2.1
-      '@aps_sdk/oss':
-        specifier: 1.3.3
-        version: 1.3.3
-    devDependencies:
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -300,12 +275,6 @@ packages:
 
   '@aps_sdk/autodesk-sdkmanager@1.0.1':
     resolution: {integrity: sha512-J7JrJPeg5+bWrMuNu3pEYny3KFfenMsNMghUB8y58nb5N1pgHAD/nM0MAJB2oUORqA6hHG2ClXLx2b4buPgcsQ==}
-
-  '@aps_sdk/model-derivative@1.2.1':
-    resolution: {integrity: sha512-bR0yqeoRQKjr3J0+7Gbx4otnOzFbyHpk3AWgvzfCjnwrjTMObCwiXVHp3bwoxyPNonIZUNDNzYQllmJ/c5aXmQ==}
-
-  '@aps_sdk/oss@1.3.3':
-    resolution: {integrity: sha512-wTV97nRS1M4qNfCUn19ZDi+ZJZPLe1NDU3zVEKNV5xAMrl8Cx67YwqBd/bpw54AN9DcIusTKkZghnxStXobLcQ==}
 
   '@asamuzakjp/css-color@4.1.2':
     resolution: {integrity: sha512-NfBUvBaYgKIuq6E/RBLY1m0IohzNHAYyaJGuTK79Z23uNwmz2jl1mPsC5ZxCCxylinKhT1Amn5oNTlx1wN8cQg==}
@@ -6147,24 +6116,6 @@ snapshots:
       axios: 1.21.1
       cockatiel: 3.2.1
       winston: 3.19.0
-    transitivePeerDependencies:
-      - debug
-      - supports-color
-
-  '@aps_sdk/model-derivative@1.2.1':
-    dependencies:
-      '@aps_sdk/autodesk-sdkmanager': 1.0.1
-      '@types/node': 20.19.43
-      axios: 1.21.1
-    transitivePeerDependencies:
-      - debug
-      - supports-color
-
-  '@aps_sdk/oss@1.3.3':
-    dependencies:
-      '@aps_sdk/autodesk-sdkmanager': 1.0.1
-      '@types/node': 20.19.43
-      axios: 1.21.1
     transitivePeerDependencies:
       - debug
       - supports-color

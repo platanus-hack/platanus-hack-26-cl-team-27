@@ -4,17 +4,24 @@ import { cx } from '@team27/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const LINKS = [
-  { href: '/modelos', label: 'Modelos' },
-  { href: '/conectores', label: 'Conectores' },
-  { href: '/cuenta', label: 'Cuenta' },
-] as const;
+import { buttonLink } from '@/components/common/link-styles';
+import { useResource } from '@/hooks/use-resource';
+import { loginHref } from '@/lib/account-routes';
+import { getMe } from '@/lib/accounts-api';
+import { navLinks, type NavLink } from '@/lib/nav';
 
-export function SiteNav() {
-  const pathname = usePathname();
+export type NavMode = 'off' | 'guest' | 'member';
+
+function NavLinks({
+  links,
+  pathname,
+}: {
+  readonly links: readonly NavLink[];
+  readonly pathname: string;
+}) {
   return (
     <nav aria-label="Principal" className="flex h-full items-stretch gap-1">
-      {LINKS.map((link) => {
+      {links.map((link) => {
         const active =
           pathname === link.href || pathname.startsWith(`${link.href}/`);
         return (
@@ -35,4 +42,27 @@ export function SiteNav() {
       })}
     </nav>
   );
+}
+
+function MemberNav({ pathname }: { readonly pathname: string }) {
+  const me = useResource(getMe, 'me');
+  return <NavLinks links={navLinks(me.data)} pathname={pathname} />;
+}
+
+export function SiteNav({ mode }: { readonly mode: NavMode }) {
+  const pathname = usePathname();
+  if (mode === 'guest') {
+    return (
+      <nav aria-label="Principal" className="flex h-full items-center">
+        <a
+          href={loginHref(pathname === '/' ? '/cuenta' : pathname)}
+          className={buttonLink('primary', 'sm')}
+        >
+          Entrar
+        </a>
+      </nav>
+    );
+  }
+  if (mode === 'member') return <MemberNav pathname={pathname} />;
+  return <NavLinks links={navLinks(null)} pathname={pathname} />;
 }

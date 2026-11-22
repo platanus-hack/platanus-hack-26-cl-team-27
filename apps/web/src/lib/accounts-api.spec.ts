@@ -5,6 +5,7 @@ import {
   canCreateOrganization,
   type Me,
   projectsByOrganization,
+  teamCandidates,
 } from './accounts-api';
 import { ApiError, describeError } from './http';
 
@@ -83,5 +84,32 @@ describe('describeError de cuentas', () => {
     ],
   ])('%s', (code, status, text) => {
     expect(describeError(new ApiError(status, code, 'x'))).toBe(text);
+  });
+});
+
+describe('teamCandidates', () => {
+  it('ofrece sumar solo a quienes son de la organización y no están en el equipo', () => {
+    const members = [
+      { userId: 'u1', email: 'ana@x.cl', name: 'Ana', role: 'admin' as const },
+      {
+        userId: 'u2',
+        email: 'bruno@x.cl',
+        name: null,
+        role: 'member' as const,
+      },
+    ];
+    const team = [
+      {
+        userId: 'u1',
+        name: 'Ana',
+        role: 'Creador del proyecto',
+        email: 'ana@x.cl',
+        author: true,
+      },
+    ];
+    expect(teamCandidates(members, team).map((item) => item.userId)).toEqual([
+      'u2',
+    ]);
+    expect(teamCandidates(members, [])).toHaveLength(2);
   });
 });
