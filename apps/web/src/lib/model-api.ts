@@ -77,8 +77,24 @@ export const postModelChange = (
     body,
   });
 
-export const modelImage = (projectId: string, role: string): string =>
-  projectApi(projectId, `/model/image?role=${encodeURIComponent(role)}`);
+export const modelImage = (
+  projectId: string,
+  role: string,
+  option?: { subject: string; unit: string | null },
+  shift = 0,
+): string => {
+  const focus =
+    option?.subject.startsWith('ventanas') === true
+      ? '&focus=muros'
+      : option?.subject.startsWith('partida') === true
+        ? '&focus=losa'
+        : '';
+  const move = option?.unit === 'm' && shift !== 0 ? `&shift=${shift}` : '';
+  return projectApi(
+    projectId,
+    `/model/image?role=${encodeURIComponent(role)}${focus}${move}`,
+  );
+};
 
 export const getHistory = (
   projectId: string,

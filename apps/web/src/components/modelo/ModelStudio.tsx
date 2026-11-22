@@ -64,7 +64,24 @@ export function ModelStudio({ projectId }: { readonly projectId: string }) {
     );
   }, [option, current]);
 
-  useEffect(() => setImageLoaded(false), [role?.id]);
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShown(
+        value !== null && current !== null && option?.unit === 'm'
+          ? Math.round((value - current) * 2) / 2
+          : 0,
+      );
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [value, current, option?.unit]);
+  const imageUrl = modelImage(
+    projectId,
+    role?.id ?? '',
+    option ? { subject: option.subject, unit: option.unit } : undefined,
+    shown,
+  );
+  useEffect(() => setImageLoaded(false), [imageUrl]);
 
   const delta = useMemo(
     () => (value !== null && current !== null ? value - current : null),
@@ -161,6 +178,12 @@ export function ModelStudio({ projectId }: { readonly projectId: string }) {
             <Box className="size-3.5" style={{ color: role.color }} />
             Duplex · en color lo que toca {role.name.toLowerCase()}
           </div>
+          {shown !== 0 && (
+            <div className="absolute right-3 bottom-3 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold shadow-sm" style={{ color: role.color }}>
+              Vista previa: se mueve {shown > 0 ? '+' : '−'}
+              {Math.abs(shown)} m · en claro, donde está hoy
+            </div>
+          )}
           {!imageLoaded && (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-ink-2">
               <Loader className="mr-2 size-4 animate-spin" />
@@ -169,13 +192,12 @@ export function ModelStudio({ projectId }: { readonly projectId: string }) {
           )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            key={role.id}
-            src={modelImage(projectId, role.id)}
+            src={imageUrl}
             alt={`Modelo 3D con ${role.name} en color`}
             onLoad={() => setImageLoaded(true)}
             className={cx(
               'block aspect-[900/560] w-full object-contain transition-opacity duration-500',
-              imageLoaded ? 'opacity-100' : 'opacity-0',
+              imageLoaded ? 'opacity-100' : 'opacity-40',
             )}
           />
         </section>

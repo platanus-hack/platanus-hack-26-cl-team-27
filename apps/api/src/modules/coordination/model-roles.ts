@@ -29,7 +29,7 @@ export const DEMO_ROLES: readonly DemoRole[] = [
     name: 'Arquitectura',
     emoji: '📐',
     color: '#256abf',
-    focus: 'muros',
+    focus: 'canerias',
     documentId: 'a201',
     summary: 'Mueves el shaft y cambias las ventanas del modelo.',
     options: [
