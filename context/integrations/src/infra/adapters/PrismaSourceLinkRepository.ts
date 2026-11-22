@@ -9,6 +9,7 @@ import type {
   SourceLinkDraft,
   SourceRelink,
 } from '../../domain/Connection.ts';
+import type { Editor, PushChannel } from '../../domain/Push.ts';
 
 type SourceRow = Prisma.IntegrationSourceGetPayload<object>;
 
@@ -25,6 +26,29 @@ const errorOf = (value: Prisma.JsonValue | null): SourceError | null => {
   return { at: new Date(stored.at), message: stored.message };
 };
 
+const editorOf = (value: Prisma.JsonValue | null): Editor | null => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const stored = value as Record<string, unknown>;
+  const text = (key: string): string | null =>
+    typeof stored[key] === 'string' ? stored[key] : null;
+  return { name: text('name'), email: text('email') };
+};
+
+const channelOf = (row: SourceRow): PushChannel | null =>
+  row.watchChannelId &&
+  row.watchResourceId &&
+  row.watchToken &&
+  row.watchExpiresAt
+    ? {
+        id: row.watchChannelId,
+        resourceId: row.watchResourceId,
+        token: row.watchToken,
+        expiresAt: row.watchExpiresAt,
+      }
+    : null;
+
 const toSource = (row: SourceRow): SourceLink => ({
   id: row.id,
   projectId: row.projectId,
@@ -36,7 +60,9 @@ const toSource = (row: SourceRow): SourceLink => ({
   contentHash: row.contentHash,
   checkedAt: row.checkedAt,
   changedAt: row.changedAt,
+  changedBy: editorOf(row.changedBy),
   lastError: errorOf(row.lastError),
+  channel: channelOf(row),
   createdAt: row.createdAt,
 });
 
@@ -109,7 +135,15 @@ export class PrismaSourceLinkRepository implements SourceLinkRepository {
         title: check.title,
         contentHash: check.contentHash,
         checkedAt: check.at,
-        ...(check.changed ? { changedAt: check.at } : {}),
+        ...(check.changed
+          ? {
+              changedAt: check.at,
+              changedBy:
+                check.by == null
+                  ? Prisma.DbNull
+                  : { name: check.by.name, email: check.by.email },
+            }
+          : {}),
         lastError: Prisma.DbNull,
       },
     });
@@ -121,6 +155,29 @@ export class PrismaSourceLinkRepository implements SourceLinkRepository {
       where: { id },
       data: {
         lastError: { at: error.at.toISOString(), message: error.message },
+      },
+    });
+    return toSource(row);
+  }
+
+  async findByChannel(channelId: string): Promise<SourceLink | null> {
+    const row = await this.prisma.integrationSource.findUnique({
+      where: { watchChannelId: channelId },
+    });
+    return row === null ? null : toSource(row);
+  }
+
+  async saveChannel(
+    id: string,
+    channel: PushChannel | null,
+  ): Promise<SourceLink> {
+    const row = await this.prisma.integrationSource.update({
+      where: { id },
+      data: {
+        watchChannelId: channel?.id ?? null,
+        watchResourceId: channel?.resourceId ?? null,
+        watchToken: channel?.token ?? null,
+        watchExpiresAt: channel?.expiresAt ?? null,
       },
     });
     return toSource(row);

@@ -42,8 +42,16 @@ export const sourceView = (source: SourceLink) => ({
   pointer: source.pointer,
   checkedAt: source.checkedAt,
   changedAt: source.changedAt,
+  changedBy: source.changedBy,
   createdAt: source.createdAt,
   lastError: source.lastError,
+  push:
+    source.channel === null
+      ? { active: false, expiresAt: null }
+      : {
+          active: source.channel.expiresAt.getTime() > Date.now(),
+          expiresAt: source.channel.expiresAt,
+        },
 });
 
 export type SourceView = ReturnType<typeof sourceView>;

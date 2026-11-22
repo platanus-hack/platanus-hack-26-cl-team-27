@@ -1,3 +1,5 @@
+import type { Editor, PushChannel } from './Push.ts';
+
 export const PROVIDERS = ['google'] as const;
 
 export type Provider = (typeof PROVIDERS)[number];
@@ -38,7 +40,9 @@ export interface SourceLink {
   readonly contentHash: string | null;
   readonly checkedAt: Date | null;
   readonly changedAt: Date | null;
+  readonly changedBy: Editor | null;
   readonly lastError: SourceError | null;
+  readonly channel: PushChannel | null;
   readonly createdAt: Date;
 }
 
@@ -58,6 +62,7 @@ export interface SourceCheck {
   readonly title: string;
   readonly contentHash: string;
   readonly changed: boolean;
+  readonly by?: Editor | null;
 }
 
 export interface SourceRelink {

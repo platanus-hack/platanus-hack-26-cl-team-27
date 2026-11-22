@@ -108,9 +108,11 @@ function GoogleSheetsCard({
     <Card
       title="Google Sheets"
       description={
-        google.pollSeconds > 0
-          ? `Escuchamos las planillas de ${project.name}: revisamos cada ${google.pollSeconds} s si cambiaron.`
-          : 'La revisión automática está apagada: usa «Revisar ahora».'
+        google.push.enabled
+          ? `Escuchamos las planillas de ${project.name}: Google nos avisa al instante cuando alguien las edita.`
+          : google.pollSeconds > 0
+            ? `Escuchamos las planillas de ${project.name}: revisamos cada ${google.pollSeconds} s si cambiaron.`
+            : 'La revisión automática está apagada: usa «Revisar ahora».'
       }
       actions={<StatusBadge tone={status.tone} label={status.label} />}
     >

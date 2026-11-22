@@ -5,6 +5,12 @@ const optionalText = z
   .optional()
   .transform((value) => value?.trim() || undefined);
 
+const blankAsUndefined = (value: unknown): unknown =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
+
+const blankAsDefault = <T extends z.ZodType>(schema: T) =>
+  z.preprocess(blankAsUndefined, schema);
+
 export const envSchema = z
   .object({
     NODE_ENV: z
@@ -51,6 +57,7 @@ export const envSchema = z
         .regex(/^[0-9a-fA-F]{64}$/, 'deben ser 64 caracteres hexadecimales')
         .optional(),
     ),
+    APS_WEBHOOK_SECRET: optionalText,
     GOOGLE_CLIENT_ID: optionalText,
     GOOGLE_CLIENT_SECRET: optionalText,
     GOOGLE_REDIRECT_URI: z
@@ -60,12 +67,24 @@ export const envSchema = z
       (value) => value === undefined || value.length >= 16,
       'la clave de cifrado necesita al menos 16 caracteres',
     ),
-    INTEGRATIONS_POLL_SECONDS: z.coerce
-      .number()
-      .int()
-      .min(0)
-      .max(3600)
-      .default(60),
+    INTEGRATIONS_POLL_SECONDS: blankAsDefault(
+      z.coerce.number().int().min(0).max(3600).default(60),
+    ),
+    GOOGLE_WEBHOOK_URL: optionalText.pipe(
+      z
+        .url()
+        .refine(
+          (value) => value.startsWith('https://'),
+          'Google solo avisa a una URL con HTTPS',
+        )
+        .optional(),
+    ),
+    INTEGRATIONS_WATCH_HOURS: blankAsDefault(
+      z.coerce.number().min(1).max(24).default(24),
+    ),
+    INTEGRATIONS_FALLBACK_SECONDS: blankAsDefault(
+      z.coerce.number().int().min(60).max(86_400).default(900),
+    ),
   })
   .refine(
     (env) => env.NODE_ENV !== 'production' || env.CORS_ALLOW_ORIGINS !== true,
