@@ -9,8 +9,13 @@ import type {
   ClaimQuery,
   ClaimReader,
 } from '../../application/ports/ClaimReader.ts';
+import type {
+  ConflictEstimator,
+  ConflictQuery,
+} from '../../application/ports/ConflictEstimator.ts';
 import type { DependencyScorer } from '../../application/ports/DependencyScorer.ts';
 import type { AffectedEstimate } from '../../domain/AffectedSuggestion.ts';
+import type { ConflictEstimate } from '../../domain/ConflictSuggestion.ts';
 import type { DependencyScore } from '../../domain/DependencyScore.ts';
 import type { ClaimCandidate } from '../../domain/ExtractedClaim.ts';
 import { stableStringify } from '../../domain/stableStringify.ts';
@@ -119,6 +124,30 @@ export class CachedClaimReader implements ClaimReader {
       this.cache,
       cacheKey(`claims:${this.namespace}`, query),
       () => this.inner.read(query),
+    );
+  }
+}
+
+export class CachedConflictEstimator implements ConflictEstimator {
+  private readonly inner: ConflictEstimator;
+  private readonly cache: ResponseCache;
+  private readonly namespace: string;
+
+  constructor(
+    inner: ConflictEstimator,
+    cache: ResponseCache,
+    namespace: string,
+  ) {
+    this.inner = inner;
+    this.cache = cache;
+    this.namespace = namespace;
+  }
+
+  estimate(query: ConflictQuery): Promise<ConflictEstimate[]> {
+    return throughCache(
+      this.cache,
+      cacheKey(`conflicts:${this.namespace}`, query),
+      () => this.inner.estimate(query),
     );
   }
 }

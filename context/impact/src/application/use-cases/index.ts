@@ -5,3 +5,7 @@ export {
   SuggestAffected,
   type SuggestAffectedInput,
 } from './SuggestAffected.ts';
+export {
+  DetectConflicts,
+  type DetectConflictsInput,
+} from './DetectConflicts.ts';
